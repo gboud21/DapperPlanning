@@ -1,4 +1,10 @@
 import tkinter as tk
+import sys
+import os
+
+# Ensure the root of the project is in the path to allow imports from 'src'
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+
 from src.events import EventDispatcher
 from src.models.workspace import Workspace
 from src.views.main_window import MainWindow

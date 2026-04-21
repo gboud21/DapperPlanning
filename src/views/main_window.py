@@ -14,9 +14,43 @@ class MainWindow:
         self._bind_events()
 
     def setup_ui(self):
-        # UI Initialization (PanedWindow, Treeview, Editor pane)
-        # Assuming layout code from previous implementation goes here
-        pass
+        # 1. Main Paned Window
+        self.paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        self.paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # 2. Left Frame: Treeview
+        self.left_frame = ttk.Frame(self.paned_window, width=300)
+        self.tree = ttk.Treeview(self.left_frame)
+        self.tree.pack(fill=tk.BOTH, expand=True)
+        self.paned_window.add(self.left_frame, weight=1)
+
+        # 3. Right Frame: Editor
+        self.right_frame = ttk.Frame(self.paned_window, width=700)
+        self.paned_window.add(self.right_frame, weight=3)
+        
+        self.lbl_editor_title = ttk.Label(self.right_frame, text="Select an item to edit", font=("Arial", 14, "bold"))
+        self.lbl_editor_title.pack(anchor=tk.W, pady=(0, 10))
+
+        ttk.Label(self.right_frame, text="Title:").pack(anchor=tk.W)
+        self.entry_title = ttk.Entry(self.right_frame, width=50)
+        self.entry_title.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+
+        ttk.Label(self.right_frame, text="Description:").pack(anchor=tk.W)
+        self.text_desc = tk.Text(self.right_frame, height=10, width=50)
+        self.text_desc.pack(anchor=tk.W, fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        self.btn_save_item = ttk.Button(self.right_frame, text="Save Item Data")
+        self.btn_save_item.pack(anchor=tk.E)
+
+        # 4. Bottom Frame: Action Bar
+        self.bottom_frame = ttk.Frame(self.root)
+        self.bottom_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=5, pady=5)
+        
+        self.btn_sync = ttk.Button(self.bottom_frame, text="Sync to GitLab")
+        self.btn_sync.pack(side=tk.RIGHT)
+        
+        self.lbl_status = ttk.Label(self.bottom_frame, text="Ready.")
+        self.lbl_status.pack(side=tk.LEFT)
 
     def _bind_events(self):
         # 1. UI triggers (Tkinter to Dispatcher)
@@ -46,9 +80,13 @@ class MainWindow:
 
     # --- View Updaters ---
     def render_tree(self, event: ModelHierarchyUpdatedEvent):
-        # Clears and rebuilds the Tkinter Treeview based on the latest Workspace state
+        # Future implementation: clear and rebuild the Tkinter Treeview based on Workspace state
         pass
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
-        # Fills out the contextual editor text fields with event.item_data
-        pass
+        # Dynamically updates the form when the Model alerts the View that an item was selected
+        self.lbl_editor_title.config(text=f"Editing {event.item_type}")
+        self.entry_title.delete(0, tk.END)
+        self.entry_title.insert(0, getattr(event.item_data, 'title', ''))
+        self.text_desc.delete("1.0", tk.END)
+        self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))
