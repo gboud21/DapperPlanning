@@ -21,8 +21,7 @@ class Story:
     description: str
     team: Team
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
-    # Target system specific: defining decoupling boundaries
-    interface_boundary: Optional[str] = None # e.g., "tokio-channel", "trait"
+    interface_boundary: Optional[str] = None
 
 @dataclass
 class Feature:
