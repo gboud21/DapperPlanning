@@ -11,6 +11,9 @@ from src.views.main_window import MainWindow
 from src.controllers.main_controller import MainController
 
 def main():
+    """
+    Main function to initialize and run the Dapper Planning application.
+    """
     # 1. Initialize Tkinter Root
     root = tk.Tk()
     root.title("Standardized Backlog Planning Tool")
