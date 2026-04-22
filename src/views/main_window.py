@@ -17,14 +17,90 @@ class MainWindow:
         self.root = root
         self.dispatcher = dispatcher
         
+        self.setup_menu()
         self.setup_ui()
         self._bind_events()
+
+    def setup_menu(self):
+        """
+        Set up the main menu bar.
+        """
+        menubar = tk.Menu(self.root)
+        
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Exit", command=self.root.destroy)
+        menubar.add_cascade(label="File", menu=file_menu)
+        
+        # Edit menu
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Copy", command=lambda: None)
+        edit_menu.add_command(label="Cut", command=lambda: None)
+        edit_menu.add_command(label="Paste", command=lambda: None)
+        menubar.add_cascade(label="Edit", menu=edit_menu)
+        
+        # View menu
+        view_menu = tk.Menu(menubar, tearoff=0)
+        view_menu.add_command(label="Minimize", command=self._minimize_window)
+        view_menu.add_command(label="Maximize", command=self._maximize_window)
+        view_menu.add_command(label="Windowed Mode", command=self._restore_window)
+        menubar.add_cascade(label="View", menu=view_menu)
+        
+        # Help menu
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="About", command=self._show_about_dialog)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        
+        self.root.config(menu=menubar)
+
+    def _show_about_dialog(self):
+        """
+        Show the About dialog with a close button.
+        """
+        dialog = tk.Toplevel(self.root)
+        dialog.title("About")
+        dialog.geometry("200x100")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        close_btn = ttk.Button(dialog, text="Close", command=dialog.destroy)
+        close_btn.pack(expand=True)
+
+    def _minimize_window(self):
+        """Minimize the main window."""
+        self.root.iconify()
+
+    def _maximize_window(self):
+        """Maximize the main window."""
+        try:
+            self.root.state("zoomed")
+        except tk.TclError:
+            # Fallback for X11 environments
+            try:
+                self.root.attributes("-zoomed", True)
+            except tk.TclError:
+                pass
+
+    def _restore_window(self):
+        """Restore the window to normal (windowed) mode."""
+        try:
+            self.root.state("normal")
+        except tk.TclError:
+            pass
+        
+        try:
+            self.root.attributes("-zoomed", False)
+        except tk.TclError:
+            pass
 
     def setup_ui(self):
         """
         Set up the user interface components including the treeview, 
         editor pane, and action buttons.
         """
+        # Ensure native title bar is enabled
+        self.root.overrideredirect(False)
+
         # 1. Main Paned Window
         self.paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
