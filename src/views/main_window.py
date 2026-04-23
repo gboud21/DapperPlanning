@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIItemSaveRequestedEvent, UISyncRequestedEvent,
-    ModelHierarchyUpdatedEvent, ModelActiveItemChangedEvent
+    ModelHierarchyUpdatedEvent, ModelActiveItemChangedEvent, UIAddProductRequestedEvent,
+    UICreateItemRequestedEvent
 )
 
 class MainWindow:
@@ -125,12 +126,22 @@ class MainWindow:
         self.tree.tag_configure('Feature_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
         self.tree.tag_configure('Story_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
 
+        # Context Menu for Treeview
+        self.tree_context_menu = tk.Menu(self.tree, tearoff=0)
+        self.tree_context_menu.add_command(label="Add Product", command=self._on_add_product_clicked)
+
         # 3. Right Frame: Editor
         self.right_frame = ttk.Frame(self.paned_window, width=700)
         self.paned_window.add(self.right_frame, weight=3)
         
         self.lbl_editor_title = ttk.Label(self.right_frame, text="Select an item to edit", font=("Arial", 14, "bold"))
         self.lbl_editor_title.pack(anchor=tk.W, pady=(0, 10))
+
+        # Item Type Selection
+        ttk.Label(self.right_frame, text="Item Type:").pack(anchor=tk.W)
+        self.combo_item_type = ttk.Combobox(self.right_frame, state="readonly", 
+                                            values=("Product", "Capability", "Epic", "Feature", "Story"))
+        self.combo_item_type.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
         ttk.Label(self.right_frame, text="Title:").pack(anchor=tk.W)
         self.entry_title = ttk.Entry(self.right_frame, width=50)
@@ -159,6 +170,7 @@ class MainWindow:
         """
         # 1. UI triggers (Tkinter to Dispatcher)
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+        self.tree.bind("<Button-3>", self._show_tree_context_menu)
         self.btn_save_item.config(command=self._on_save_clicked)
         self.btn_sync.config(command=self._on_sync_clicked)
 
@@ -167,6 +179,21 @@ class MainWindow:
         self.dispatcher.subscribe(ModelActiveItemChangedEvent, self.populate_editor)
 
     # --- UI Action Handlers ---
+    def _show_tree_context_menu(self, event):
+        """
+        Display the context menu for the treeview.
+        
+        Args:
+            event: The Tkinter event object triggered on right-click.
+        """
+        self.tree_context_menu.tk_popup(event.x_root, event.y_root)
+
+    def _on_add_product_clicked(self):
+        """
+        Handle the 'Add Product' context menu command.
+        """
+        self.dispatcher.dispatch(UIAddProductRequestedEvent())
+
     def _on_tree_select(self, event):
         """
         Handle the treeview item selection event.
@@ -183,14 +210,19 @@ class MainWindow:
 
     def _on_save_clicked(self):
         """
-        Handle the save button click event to dispatch the updated 
-        item details to the model.
+        Handle the save button click event to dispatch the new item creation request.
         """
         selected_id = self.tree.focus()
-        if selected_id:
-            title = self.entry_title.get()
-            desc = self.text_desc.get("1.0", tk.END).strip()
-            self.dispatcher.dispatch(UIItemSaveRequestedEvent(selected_id, title, desc))
+        item_type = self.combo_item_type.get()
+        title = self.entry_title.get()
+        desc = self.text_desc.get("1.0", tk.END).strip()
+        
+        self.dispatcher.dispatch(UICreateItemRequestedEvent(
+            parent_id=selected_id,
+            item_type=item_type,
+            title=title,
+            description=desc
+        ))
 
     def _on_sync_clicked(self):
         """

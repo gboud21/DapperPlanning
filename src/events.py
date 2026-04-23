@@ -35,6 +35,19 @@ class UISyncRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Sync to GitLab'."""
     pass
 
+@dataclass
+class UIAddProductRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Add Product' in the context menu."""
+    pass
+
+@dataclass
+class UICreateItemRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Save Item Data' to create a new item."""
+    parent_id: str
+    item_type: str
+    title: str
+    description: str
+
 class EventDispatcher:
     def __init__(self, root_window: tk.Tk):
         self._listeners: Dict[Type[Event], List[Callable]] = {}
