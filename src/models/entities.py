@@ -91,6 +91,22 @@ class Epic:
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
 
 @dataclass
+class Product:
+    """
+    Represents a top-level product, composed of multiple capabilities.
+
+    Attributes:
+        id (str): A unique identifier for the product.
+        title (str): The title of the product.
+        description (str): A detailed description of the product.
+        capabilities (List[Capability]): A list of capabilities that belong to this product.
+    """
+    id: str
+    title: str
+    description: str = ""
+    capabilities: List[Capability] = field(default_factory=list)
+
+@dataclass
 class Capability:
     """
     Represents a high-level capability or business function, composed of multiple epics.
@@ -98,8 +114,10 @@ class Capability:
     Attributes:
         id (str): A unique identifier for the capability.
         title (str): The title or brief description of the capability.
+        description (str): A detailed description of the capability.
         epics (List[Epic]): A list of epics that contribute to this capability.
     """
     id: str
     title: str
+    description: str = ""
     epics: List[Epic] = field(default_factory=list)

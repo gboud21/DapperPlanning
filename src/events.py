@@ -28,7 +28,7 @@ class UIItemSaveRequestedEvent(Event):
 @dataclass
 class ModelHierarchyUpdatedEvent(Event):
     """Emitted by the Workspace when the data structure changes, prompting a tree redraw."""
-    pass
+    root_items: List[Any]
 
 @dataclass
 class UISyncRequestedEvent(Event):

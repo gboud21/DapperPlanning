@@ -238,8 +238,38 @@ class MainWindow:
         Args:
             event (ModelHierarchyUpdatedEvent): The event containing hierarchy update details.
         """
-        # Future implementation: clear and rebuild the Tkinter Treeview based on Workspace state
-        pass
+        # Clear existing nodes
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+            
+        if event.root_items:
+            self._populate_nodes("", event.root_items)
+
+    def _populate_nodes(self, parent_iid: str, items: list):
+        """
+        Recursively populate the Treeview with Agile hierarchy items.
+
+        Args:
+            parent_iid (str): The parent item's ID in the Treeview (empty for root).
+            items (list): The list of Agile objects to insert.
+        """
+        for item in items:
+            item_id = getattr(item, 'id', str(id(item)))
+            title = getattr(item, 'title', "Untitled")
+            item_type = type(item).__name__
+            
+            # Insert the node into the tree
+            node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=title, tags=(item_type,))
+            
+            # Recursive step based on class type
+            if item_type == "Product" and hasattr(item, "capabilities"):
+                self._populate_nodes(node_iid, item.capabilities)
+            elif item_type == "Capability" and hasattr(item, "epics"):
+                self._populate_nodes(node_iid, item.epics)
+            elif item_type == "Epic" and hasattr(item, "features"):
+                self._populate_nodes(node_iid, item.features)
+            elif item_type == "Feature" and hasattr(item, "stories"):
+                self._populate_nodes(node_iid, item.stories)
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
         """

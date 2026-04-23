@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from src.events import EventDispatcher, ModelHierarchyUpdatedEvent
-from .entities import Capability, Epic, Feature, Story
+from .entities import Product, Capability, Epic, Feature, Story
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):
@@ -12,18 +12,18 @@ class Workspace:
                                           the application about model changes.
         """
         self.dispatcher = dispatcher
-        self._capabilities: List[Capability] = []
+        self._products: List[Product] = []
 
-    def add_capability(self, capability: Capability) -> None:
+    def add_product(self, product: Product) -> None:
         """
-        Adds a new capability to the workspace.
+        Adds a new product to the workspace.
 
         Args:
-            capability (Capability): The Capability object to add.
+            product (Product): The Product object to add.
         """
-        self._capabilities.append(capability)
+        self._products.append(product)
         # Notify the rest of the application that the data has changed
-        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent())
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
 
     def update_item_details(self, item_id: str, title: str, description: str) -> None:
         """
@@ -34,33 +34,45 @@ class Workspace:
             title (str): The new title for the item.
             description (str): The new description for the item.
         """
-        # Recursive search to find the item by ID and update it (stubbed for brevity)
         item = self._find_item_by_id(item_id)
         if item:
             item.title = title
             item.description = description
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent())
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
 
     def _find_item_by_id(self, item_id: str) -> Optional[Any]:
         """
-        Recursively searches for an item by its ID across all capabilities,
-        epics, features, and stories within the workspace.
+        Recursively searches for an item by its ID across all products,
+        capabilities, epics, features, and stories within the workspace.
 
         Args:
             item_id (str): The unique identifier of the item to find.
 
         Returns:
-            Optional[Any]: The found item object (Capability, Epic, Feature, or Story)
-                           if found, otherwise None.
+            Optional[Any]: The found item object if found, otherwise None.
         """
-        # Implementation of search logic across capabilities > epics > features > stories
-        pass
+        for product in self._products:
+            if product.id == item_id:
+                return product
+            for capability in product.capabilities:
+                if capability.id == item_id:
+                    return capability
+                for epic in capability.epics:
+                    if epic.id == item_id:
+                        return epic
+                    for feature in epic.features:
+                        if feature.id == item_id:
+                            return feature
+                        for story in feature.stories:
+                            if story.id == item_id:
+                                return story
+        return None
 
-    def get_capabilities(self) -> List[Capability]:
+    def get_products(self) -> List[Product]:
         """
-        Retrieves all capabilities currently in the workspace.
+        Retrieves all products currently in the workspace.
 
         Returns:
-            List[Capability]: A list of Capability objects.
+            List[Product]: A list of Product objects.
         """
-        return self._capabilities
+        return self._products
