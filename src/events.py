@@ -10,6 +10,7 @@ class Event:
 class UIItemSelectedEvent(Event):
     """Emitted by the View when the user clicks an item in the tree."""
     item_id: str
+    item_type: str
 
 @dataclass
 class ModelActiveItemChangedEvent(Event):

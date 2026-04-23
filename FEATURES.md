@@ -1,5 +1,3 @@
-Based on your initial requirements and the refinements from our recent discussion, here is the updated **Capabilities** text for the Dapper Planning tool:
-
 # Capabilities
 
 ## UI

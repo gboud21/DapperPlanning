@@ -106,10 +106,24 @@ class MainWindow:
         self.paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # 2. Left Frame: Treeview
-        self.left_frame = ttk.Frame(self.paned_window, width=300)
-        self.tree = ttk.Treeview(self.left_frame)
-        self.tree.pack(fill=tk.BOTH, expand=True)
-        self.paned_window.add(self.left_frame, weight=1)
+        self.tree_container = ttk.Frame(self.paned_window)
+        self.paned_window.add(self.tree_container, weight=1)
+
+        self.tree = ttk.Treeview(self.tree_container, selectmode="browse")
+        self.tree.heading("#0", text="Agile Hierarchy", anchor=tk.W)
+        
+        self.tree_scroll = ttk.Scrollbar(self.tree_container, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.tree_scroll.set)
+        
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Tag Configuration for visual hierarchy
+        self.tree.tag_configure('Product', font=("TkDefaultFont", 10, "bold"), background="#e6f2ff")
+        self.tree.tag_configure('Capability', font=("TkDefaultFont", 10, "bold"))
+        self.tree.tag_configure('Epic')
+        self.tree.tag_configure('Feature_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
+        self.tree.tag_configure('Story_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
 
         # 3. Right Frame: Editor
         self.right_frame = ttk.Frame(self.paned_window, width=700)
@@ -162,7 +176,10 @@ class MainWindow:
         """
         selected_id = self.tree.focus()
         if selected_id:
-            self.dispatcher.dispatch(UIItemSelectedEvent(item_id=selected_id))
+            # Retrieve the item's tags to determine the item type
+            tags = self.tree.item(selected_id, "tags")
+            item_type = tags[0] if tags else "Unknown"
+            self.dispatcher.dispatch(UIItemSelectedEvent(item_id=selected_id, item_type=item_type))
 
     def _on_save_clicked(self):
         """
