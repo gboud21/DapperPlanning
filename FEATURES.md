@@ -1,53 +1,48 @@
+Based on your initial requirements and the refinements from our recent discussion, here is the updated **Capabilities** text for the Dapper Planning tool:
+
 # Capabilities
+
 ## UI
-- Desktop GUI: The tool must provide a native desktop Graphical User Interface (GUI).
-
-### Resolution
-- Adjustable/Scalable UI in windowed mode
-    - Should prevent buttons from disapearing, etc
-
-### Quick Actions
-- Window Management Buttons (Top Right)
-    - Minimize Button
-    - Maximize Button
-    - Close Button (Done)
-
-### Menu Bar
-- File
-- Edit
-- View
-- Help
+- **Desktop GUI**: The tool must provide a native desktop Graphical User Interface (GUI).
+- **Resolution**: Adjustable/Scalable UI in windowed mode to prevent UI elements (like buttons) from disappearing.
+- **Quick Actions**: Standard window management (Minimize, Maximize, Close).
+- **Menu Bar**: Includes File, Edit, View, and Help menus.
+- **Role-Based Views**: The GUI must provide a mechanism to switch between the following filtered views:
+    - **All**: Displays the entire hierarchy from Products down to Stories.
+    - **Product Manager**: Displays Products, Capabilities, Epics, and Features (Stories hidden).
+    - **Product Owner**: Displays Epics, Features, and Stories (Products and Capabilities hidden).
+    - **Scrum Master**: Displays Features and Stories (higher levels hidden).
+    - **Engineer**: Displays Stories only (all higher levels hidden).
 
 ## Planning
-- Creation & Workflow: The GUI must allow Product Owners to create Capabilities, Epics, Features, and Stories directly within the application. 
-- The tool manages the hierarchy and mapping: Capabilities map to Epics (cross-team), Epics break down into Features (single-team), and Features break down into Stories.
-- Customization: The GUI must allow users to select specific GitLab templates for issue/epic descriptions. It must also provide input fields to populate all other standard GitLab data (assignees, milestones, weights, labels, etc.).
-- Agnostic & Scalable: The tool's architecture must be completely agnostic to the number of teams, the teams' specific domains, and the tool's own deployment environment. Teams must be easily added, removed, or reorganized dynamically within the application.
-- Save Context locally to prevent the user from having to retrieve data every time/allow users to make a bunch of edits and push them all at once
-    - Will probably need some sync resolution similar to how git does management of merges
-    - Need to determine what format to save data in, assume JSON for now
-- Needs to provide multiple views targeted at the different engineering roles:
-    - Product Manager
-        - Focuses on Products, Capabilities and Epics
-            - Products: The list of all devices/programs being developed
-            - Capabilities: The list of High-level capabilities provided by the system
-            - Epics: The software functionalities being planned that provide the capabilities
-                - Several Features are integrated together within an Epic
-    - Product Owner
-        - Focuses on the Epics, Features and Stories
-            - Features: A set of deliverable software implemented by a team that can be integrated into the application
-            - Stories: Individual tasks that make up a feature and are executed by an engineer
-    - Scrum Master
-        - Focues on Features and Stories
+- **Data Hierarchy**: The tool manages a strict hierarchy: **Products** map to **Capabilities**, which map to **Epics** (cross-team), which break down into **Features** (single-team), and finally into **Stories**.
+- **Creation & Workflow**: Product Owners and relevant roles can create these entities directly within the application.
+- **Role-Based Permissions**: 
+    - The tool must enforce permission locking based on the active role.
+    - Users can only create or edit the types of entities their role is responsible for.
+    - UI buttons for unauthorized actions must be disabled, though views remain accessible.
+- **Customization**: Users can select specific GitLab templates for descriptions and populate standard GitLab metadata (assignees, milestones, weights, labels, etc.).
+- **Inheritance & Overrides**: Entities (Product through Feature) must include a GitLab URL. By default, children inherit the URL from their parent but can manually override it.
+- **Dependency Mapping**: The tool must allow users to visualize and create links (e.g., "blocks" or "blocked by") between Features.
+- **Validation**: The GUI must prevent saving a Story if mandatory GitLab metadata (like Weight or Team) is missing.
+- **Agnostic & Scalable**: The architecture must be agnostic to the number of teams and their domains. Teams are manually defined and managed within the workspace JSON.
 
 ## Integration
-- GitLab Integration: The tool must format and push this entire generated hierarchy to GitLab via direct API integration
-    - Output of formatting is in CSV
-    - Epics: Created as standard GitLab Epics.
-    - Features: Created as GitLab Epics, but heavily differentiated using specific labels (e.g., "Feature").
-    - Stories: Created as GitLab Issues.
+- **GitLab API Integration**: Primary method for synchronization.
+    - **Bidirectional Sync**: The tool must support pulling existing Epics and Issues from GitLab and pushing new/updated items.
+    - **Conflict Resolution**: The tool must attempt a "Pull" prior to any "Push." If conflicts are detected between local and remote data, the user must resolve them before completing the push.
+- **Fallback Export**: The tool must be able to format the hierarchy into a CSV for manual upload as a fallback.
+    - **Mapping**: Epics are created as standard GitLab Epics; Features as GitLab Epics with a "Feature" label; Stories as GitLab Issues.
+
+## Local Storage & Context
+- **Explicit Save**: To prevent data loss and allow for bulk edits, the workspace is saved to a local JSON file only when the user explicitly clicks "Save".
 
 ## Help
-- Needs to contain a dialog with version information
-- Needs to contain a manual to help learn how to use the tool
-- Needs to provide an interactive walkthrough on how to use the tool
+- **Information**: A dialog containing version information.
+- **Manual**: A comprehensive user manual to help learn the tool.
+
+## Deferred Features
+- **Draft State**: Support for items that exist locally but are excluded from sync until a "Ready" flag is toggled.
+- **Bulk Operations**: Moving multiple stories between features or bulk-assigning milestones.
+- **Interactive Walkthrough**: Live tutorials and static overlays for onboarding.
+- **Environment Profiles**: Managing multiple GitLab instances (e.g., switching between Production and Staging).
