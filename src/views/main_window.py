@@ -3,7 +3,7 @@ from tkinter import ttk
 from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIItemSaveRequestedEvent, UISyncRequestedEvent,
     ModelHierarchyUpdatedEvent, ModelActiveItemChangedEvent, UIAddProductRequestedEvent,
-    UICreateItemRequestedEvent
+    UICreateItemRequestedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent
 )
 
 class MainWindow:
@@ -129,6 +129,8 @@ class MainWindow:
         # Context Menu for Treeview
         self.tree_context_menu = tk.Menu(self.tree, tearoff=0)
         self.tree_context_menu.add_command(label="Add Product", command=self._on_add_product_clicked)
+        self.tree_context_menu.add_command(label="Add Capability", command=self._on_add_capability_clicked)
+        self.tree_context_menu.add_command(label="Delete", command=self._on_delete_clicked)
 
         # 3. Right Frame: Editor
         self.right_frame = ttk.Frame(self.paned_window, width=700)
@@ -186,6 +188,26 @@ class MainWindow:
         Args:
             event: The Tkinter event object triggered on right-click.
         """
+        item_id = self.tree.identify_row(event.y)
+        if item_id:
+            # Visually select the item
+            self.tree.selection_set(item_id)
+            self.tree.focus(item_id)
+            
+            # Context-aware enablement for "Add Capability"
+            item_tags = self.tree.item(item_id, "tags")
+            if item_tags and item_tags[0] == "Product":
+                self.tree_context_menu.entryconfig("Add Capability", state=tk.NORMAL)
+            else:
+                self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
+                
+            # Enable Delete command
+            self.tree_context_menu.entryconfig("Delete", state=tk.NORMAL)
+        else:
+            # Disable context-dependent commands if no item is clicked
+            self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Delete", state=tk.DISABLED)
+            
         self.tree_context_menu.tk_popup(event.x_root, event.y_root)
 
     def _on_add_product_clicked(self):
@@ -193,6 +215,22 @@ class MainWindow:
         Handle the 'Add Product' context menu command.
         """
         self.dispatcher.dispatch(UIAddProductRequestedEvent())
+
+    def _on_add_capability_clicked(self):
+        """
+        Handle the 'Add Capability' context menu command.
+        """
+        selected_id = self.tree.focus()
+        if selected_id:
+            self.dispatcher.dispatch(UIAddCapabilityRequestedEvent(parent_product_id=selected_id))
+
+    def _on_delete_clicked(self):
+        """
+        Handle the 'Delete' context menu command.
+        """
+        selected_id = self.tree.focus()
+        if selected_id:
+            self.dispatcher.dispatch(UIDeleteItemRequestedEvent(item_id=selected_id))
 
     def _on_tree_select(self, event):
         """

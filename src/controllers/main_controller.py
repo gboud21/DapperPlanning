@@ -2,7 +2,7 @@ import uuid
 from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIItemSaveRequestedEvent, UISyncRequestedEvent,
     ModelActiveItemChangedEvent, UIAddProductRequestedEvent, UICreateItemRequestedEvent,
-    ModelHierarchyUpdatedEvent
+    ModelHierarchyUpdatedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent
 )
 from src.models.workspace import Workspace
 from src.models.entities import Product, Capability, Epic, Feature, Story, Team
@@ -19,12 +19,15 @@ class MainController:
         self.dispatcher = dispatcher
         self.workspace = workspace
         self.product_count = 0
+        self.capability_count = 0
         
         self.dispatcher.subscribe(UIItemSelectedEvent, self.handle_item_selected)
         self.dispatcher.subscribe(UIItemSaveRequestedEvent, self.handle_item_save)
         self.dispatcher.subscribe(UISyncRequestedEvent, self.handle_sync)
         self.dispatcher.subscribe(UIAddProductRequestedEvent, self.handle_add_product)
+        self.dispatcher.subscribe(UIAddCapabilityRequestedEvent, self.handle_add_capability)
         self.dispatcher.subscribe(UICreateItemRequestedEvent, self.handle_create_item)
+        self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
 
     def handle_item_selected(self, event: UIItemSelectedEvent):
         """
@@ -53,6 +56,15 @@ class MainController:
         """
         self.workspace.update_item_details(event.item_id, event.new_title, event.new_description)
 
+    def handle_delete_item(self, event: UIDeleteItemRequestedEvent):
+        """
+        Handles the event when a UI item deletion is requested.
+
+        Args:
+            event (UIDeleteItemRequestedEvent): The event containing the ID of the item to delete.
+        """
+        self.workspace.delete_item(event.item_id)
+
     def handle_add_product(self, event: UIAddProductRequestedEvent):
         """
         Handles the request to add a new top-level Product.
@@ -64,6 +76,22 @@ class MainController:
             description="TODO: Add Description"
         )
         self.workspace.add_product(new_product)
+
+    def handle_add_capability(self, event: UIAddCapabilityRequestedEvent):
+        """
+        Handles the request to add a new Capability to a Product.
+        """
+        parent = self.workspace._find_item_by_id(event.parent_product_id)
+        if parent and isinstance(parent, Product):
+            self.capability_count += 1
+            new_capability = Capability(
+                id=str(uuid.uuid4()),
+                title=f"Capability {self.capability_count}",
+                description="TODO: Add Description"
+            )
+            parent.capabilities.append(new_capability)
+            # Trigger refresh
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_products()))
 
     def handle_create_item(self, event: UICreateItemRequestedEvent):
         """

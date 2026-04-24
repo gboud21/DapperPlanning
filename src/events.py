@@ -41,6 +41,16 @@ class UIAddProductRequestedEvent(Event):
     pass
 
 @dataclass
+class UIAddCapabilityRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Add Capability' in the context menu."""
+    parent_product_id: str
+
+@dataclass
+class UIDeleteItemRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Delete' in the context menu."""
+    item_id: str
+
+@dataclass
 class UICreateItemRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Save Item Data' to create a new item."""
     parent_id: str

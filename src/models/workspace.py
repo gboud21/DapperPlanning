@@ -40,6 +40,43 @@ class Workspace:
             item.description = description
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
 
+    def delete_item(self, item_id: str) -> None:
+        """
+        Removes an item from the workspace by its ID and notifies listeners.
+
+        Args:
+            item_id (str): The unique identifier of the item to delete.
+        """
+        # Check if it's a top-level product
+        for i, product in enumerate(self._products):
+            if product.id == item_id:
+                self._products.pop(i)
+                self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
+                return
+
+        # Check sub-items
+        for product in self._products:
+            for i, capability in enumerate(product.capabilities):
+                if capability.id == item_id:
+                    product.capabilities.pop(i)
+                    self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
+                    return
+                for j, epic in enumerate(capability.epics):
+                    if epic.id == item_id:
+                        capability.epics.pop(j)
+                        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
+                        return
+                    for k, feature in enumerate(epic.features):
+                        if feature.id == item_id:
+                            epic.features.pop(k)
+                            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
+                            return
+                        for l, story in enumerate(feature.stories):
+                            if story.id == item_id:
+                                feature.stories.pop(l)
+                                self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
+                                return
+
     def _find_item_by_id(self, item_id: str) -> Optional[Any]:
         """
         Recursively searches for an item by its ID across all products,
