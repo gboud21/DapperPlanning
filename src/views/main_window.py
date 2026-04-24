@@ -3,7 +3,8 @@ from tkinter import ttk
 from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIItemSaveRequestedEvent, UISyncRequestedEvent,
     ModelHierarchyUpdatedEvent, ModelActiveItemChangedEvent, UIAddProductRequestedEvent,
-    UICreateItemRequestedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent
+    UICreateItemRequestedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent,
+    UIAddEpicRequestedEvent
 )
 
 class MainWindow:
@@ -130,6 +131,7 @@ class MainWindow:
         self.tree_context_menu = tk.Menu(self.tree, tearoff=0)
         self.tree_context_menu.add_command(label="Add Product", command=self._on_add_product_clicked)
         self.tree_context_menu.add_command(label="Add Capability", command=self._on_add_capability_clicked)
+        self.tree_context_menu.add_command(label="Add Epic", command=self._on_add_epic_clicked)
         self.tree_context_menu.add_command(label="Delete", command=self._on_delete_clicked)
 
         # 3. Right Frame: Editor
@@ -194,18 +196,26 @@ class MainWindow:
             self.tree.selection_set(item_id)
             self.tree.focus(item_id)
             
-            # Context-aware enablement for "Add Capability"
+            # Context-aware enablement
             item_tags = self.tree.item(item_id, "tags")
-            if item_tags and item_tags[0] == "Product":
+            item_type = item_tags[0] if item_tags else None
+            
+            if item_type == "Product":
                 self.tree_context_menu.entryconfig("Add Capability", state=tk.NORMAL)
+                self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
+            elif item_type == "Capability":
+                self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Epic", state=tk.NORMAL)
             else:
                 self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
                 
             # Enable Delete command
             self.tree_context_menu.entryconfig("Delete", state=tk.NORMAL)
         else:
             # Disable context-dependent commands if no item is clicked
             self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Delete", state=tk.DISABLED)
             
         self.tree_context_menu.tk_popup(event.x_root, event.y_root)
@@ -223,6 +233,14 @@ class MainWindow:
         selected_id = self.tree.focus()
         if selected_id:
             self.dispatcher.dispatch(UIAddCapabilityRequestedEvent(parent_product_id=selected_id))
+
+    def _on_add_epic_clicked(self):
+        """
+        Handle the 'Add Epic' context menu command.
+        """
+        selected_id = self.tree.focus()
+        if selected_id:
+            self.dispatcher.dispatch(UIAddEpicRequestedEvent(parent_capability_id=selected_id))
 
     def _on_delete_clicked(self):
         """
@@ -271,17 +289,38 @@ class MainWindow:
     # --- View Updaters ---
     def render_tree(self, event: ModelHierarchyUpdatedEvent):
         """
-        Render the tree view based on updates to the model hierarchy.
+        Render the tree view based on updates to the model hierarchy,
+        preserving the expanded state of existing nodes.
         
         Args:
             event (ModelHierarchyUpdatedEvent): The event containing hierarchy update details.
         """
+        # Note: For deep trees, we need to recursively find all open items
+        def get_all_expanded(parent=""):
+            expanded = []
+            for item in self.tree.get_children(parent):
+                if self.tree.item(item, "open"):
+                    expanded.append(item)
+                expanded.extend(get_all_expanded(item))
+            return expanded
+        
+        all_expanded = get_all_expanded()
+        
+        # If the event specifies an ID to expand, add it to the list
+        if event.expand_id and event.expand_id not in all_expanded:
+            all_expanded.append(event.expand_id)
+
         # Clear existing nodes
         for item in self.tree.get_children():
             self.tree.delete(item)
             
         if event.root_items:
             self._populate_nodes("", event.root_items)
+            
+        # Restore expanded state
+        for item_id in all_expanded:
+            if self.tree.exists(item_id):
+                self.tree.item(item_id, open=True)
 
     def _populate_nodes(self, parent_iid: str, items: list):
         """

@@ -2,7 +2,8 @@ import uuid
 from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIItemSaveRequestedEvent, UISyncRequestedEvent,
     ModelActiveItemChangedEvent, UIAddProductRequestedEvent, UICreateItemRequestedEvent,
-    ModelHierarchyUpdatedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent
+    ModelHierarchyUpdatedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent,
+    UIAddEpicRequestedEvent
 )
 from src.models.workspace import Workspace
 from src.models.entities import Product, Capability, Epic, Feature, Story, Team
@@ -20,12 +21,14 @@ class MainController:
         self.workspace = workspace
         self.product_count = 0
         self.capability_count = 0
+        self.epic_count = 0
         
         self.dispatcher.subscribe(UIItemSelectedEvent, self.handle_item_selected)
         self.dispatcher.subscribe(UIItemSaveRequestedEvent, self.handle_item_save)
         self.dispatcher.subscribe(UISyncRequestedEvent, self.handle_sync)
         self.dispatcher.subscribe(UIAddProductRequestedEvent, self.handle_add_product)
         self.dispatcher.subscribe(UIAddCapabilityRequestedEvent, self.handle_add_capability)
+        self.dispatcher.subscribe(UIAddEpicRequestedEvent, self.handle_add_epic)
         self.dispatcher.subscribe(UICreateItemRequestedEvent, self.handle_create_item)
         self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
 
@@ -91,7 +94,29 @@ class MainController:
             )
             parent.capabilities.append(new_capability)
             # Trigger refresh
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_products()))
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                root_items=self.workspace.get_products(),
+                expand_id=event.parent_product_id
+            ))
+
+    def handle_add_epic(self, event: UIAddEpicRequestedEvent):
+        """
+        Handles the request to add a new Epic to a Capability.
+        """
+        parent = self.workspace._find_item_by_id(event.parent_capability_id)
+        if parent and isinstance(parent, Capability):
+            self.epic_count += 1
+            new_epic = Epic(
+                id=str(uuid.uuid4()),
+                title=f"Epic {self.epic_count}",
+                description="TODO: Add Description"
+            )
+            parent.epics.append(new_epic)
+            # Trigger refresh
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                root_items=self.workspace.get_products(),
+                expand_id=event.parent_capability_id
+            ))
 
     def handle_create_item(self, event: UICreateItemRequestedEvent):
         """
@@ -124,7 +149,10 @@ class MainController:
 
         if item:
             # Trigger refresh
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_products()))
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                root_items=self.workspace.get_products(),
+                expand_id=event.parent_id
+            ))
 
     def handle_sync(self, event: UISyncRequestedEvent):
         """

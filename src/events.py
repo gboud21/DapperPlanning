@@ -29,6 +29,7 @@ class UIItemSaveRequestedEvent(Event):
 class ModelHierarchyUpdatedEvent(Event):
     """Emitted by the Workspace when the data structure changes, prompting a tree redraw."""
     root_items: List[Any]
+    expand_id: str = None
 
 @dataclass
 class UISyncRequestedEvent(Event):
@@ -44,6 +45,11 @@ class UIAddProductRequestedEvent(Event):
 class UIAddCapabilityRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Add Capability' in the context menu."""
     parent_product_id: str
+
+@dataclass
+class UIAddEpicRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Add Epic' in the context menu."""
+    parent_capability_id: str
 
 @dataclass
 class UIDeleteItemRequestedEvent(Event):
