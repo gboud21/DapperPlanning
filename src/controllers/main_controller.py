@@ -3,7 +3,7 @@ from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIItemSaveRequestedEvent, UISyncRequestedEvent,
     ModelActiveItemChangedEvent, UIAddProductRequestedEvent, UICreateItemRequestedEvent,
     ModelHierarchyUpdatedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent,
-    UIAddEpicRequestedEvent
+    UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent
 )
 from src.models.workspace import Workspace
 from src.models.entities import Product, Capability, Epic, Feature, Story, Team
@@ -22,6 +22,8 @@ class MainController:
         self.product_count = 0
         self.capability_count = 0
         self.epic_count = 0
+        self.feature_count = 0
+        self.story_count = 0
         
         self.dispatcher.subscribe(UIItemSelectedEvent, self.handle_item_selected)
         self.dispatcher.subscribe(UIItemSaveRequestedEvent, self.handle_item_save)
@@ -29,6 +31,8 @@ class MainController:
         self.dispatcher.subscribe(UIAddProductRequestedEvent, self.handle_add_product)
         self.dispatcher.subscribe(UIAddCapabilityRequestedEvent, self.handle_add_capability)
         self.dispatcher.subscribe(UIAddEpicRequestedEvent, self.handle_add_epic)
+        self.dispatcher.subscribe(UIAddFeatureRequestedEvent, self.handle_add_feature)
+        self.dispatcher.subscribe(UIAddStoryRequestedEvent, self.handle_add_story)
         self.dispatcher.subscribe(UICreateItemRequestedEvent, self.handle_create_item)
         self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
 
@@ -116,6 +120,46 @@ class MainController:
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                 root_items=self.workspace.get_products(),
                 expand_id=event.parent_capability_id
+            ))
+
+    def handle_add_feature(self, event: UIAddFeatureRequestedEvent):
+        """
+        Handles the request to add a new Feature to an Epic.
+        """
+        parent = self.workspace._find_item_by_id(event.parent_epic_id)
+        if parent and isinstance(parent, Epic):
+            self.feature_count += 1
+            new_feature = Feature(
+                id=str(uuid.uuid4()),
+                title=f"Feature {self.feature_count}",
+                description="TODO: Add Description",
+                team=Team(name="Unassigned")
+            )
+            parent.features.append(new_feature)
+            # Trigger refresh
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                root_items=self.workspace.get_products(),
+                expand_id=event.parent_epic_id
+            ))
+
+    def handle_add_story(self, event: UIAddStoryRequestedEvent):
+        """
+        Handles the request to add a new Story to a Feature.
+        """
+        parent = self.workspace._find_item_by_id(event.parent_feature_id)
+        if parent and isinstance(parent, Feature):
+            self.story_count += 1
+            new_story = Story(
+                id=str(uuid.uuid4()),
+                title=f"Story {self.story_count}",
+                description="TODO: Add Description",
+                team=Team(name="Unassigned")
+            )
+            parent.stories.append(new_story)
+            # Trigger refresh
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                root_items=self.workspace.get_products(),
+                expand_id=event.parent_feature_id
             ))
 
     def handle_create_item(self, event: UICreateItemRequestedEvent):

@@ -4,7 +4,7 @@ from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIItemSaveRequestedEvent, UISyncRequestedEvent,
     ModelHierarchyUpdatedEvent, ModelActiveItemChangedEvent, UIAddProductRequestedEvent,
     UICreateItemRequestedEvent, UIDeleteItemRequestedEvent, UIAddCapabilityRequestedEvent,
-    UIAddEpicRequestedEvent
+    UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent
 )
 
 class MainWindow:
@@ -132,6 +132,8 @@ class MainWindow:
         self.tree_context_menu.add_command(label="Add Product", command=self._on_add_product_clicked)
         self.tree_context_menu.add_command(label="Add Capability", command=self._on_add_capability_clicked)
         self.tree_context_menu.add_command(label="Add Epic", command=self._on_add_epic_clicked)
+        self.tree_context_menu.add_command(label="Add Feature", command=self._on_add_feature_clicked)
+        self.tree_context_menu.add_command(label="Add Story", command=self._on_add_story_clicked)
         self.tree_context_menu.add_command(label="Delete", command=self._on_delete_clicked)
 
         # 3. Right Frame: Editor
@@ -203,12 +205,28 @@ class MainWindow:
             if item_type == "Product":
                 self.tree_context_menu.entryconfig("Add Capability", state=tk.NORMAL)
                 self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
             elif item_type == "Capability":
                 self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
                 self.tree_context_menu.entryconfig("Add Epic", state=tk.NORMAL)
+                self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
+            elif item_type == "Epic":
+                self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Feature", state=tk.NORMAL)
+                self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
+            elif item_type == "Feature":
+                self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Story", state=tk.NORMAL)
             else:
                 self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
                 self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
+                self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
                 
             # Enable Delete command
             self.tree_context_menu.entryconfig("Delete", state=tk.NORMAL)
@@ -216,6 +234,8 @@ class MainWindow:
             # Disable context-dependent commands if no item is clicked
             self.tree_context_menu.entryconfig("Add Capability", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Delete", state=tk.DISABLED)
             
         self.tree_context_menu.tk_popup(event.x_root, event.y_root)
@@ -241,6 +261,22 @@ class MainWindow:
         selected_id = self.tree.focus()
         if selected_id:
             self.dispatcher.dispatch(UIAddEpicRequestedEvent(parent_capability_id=selected_id))
+
+    def _on_add_feature_clicked(self):
+        """
+        Handle the 'Add Feature' context menu command.
+        """
+        selected_id = self.tree.focus()
+        if selected_id:
+            self.dispatcher.dispatch(UIAddFeatureRequestedEvent(parent_epic_id=selected_id))
+
+    def _on_add_story_clicked(self):
+        """
+        Handle the 'Add Story' context menu command.
+        """
+        selected_id = self.tree.focus()
+        if selected_id:
+            self.dispatcher.dispatch(UIAddStoryRequestedEvent(parent_feature_id=selected_id))
 
     def _on_delete_clicked(self):
         """

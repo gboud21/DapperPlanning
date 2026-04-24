@@ -52,6 +52,16 @@ class UIAddEpicRequestedEvent(Event):
     parent_capability_id: str
 
 @dataclass
+class UIAddFeatureRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Add Feature' in the context menu."""
+    parent_epic_id: str
+
+@dataclass
+class UIAddStoryRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Add Story' in the context menu."""
+    parent_feature_id: str
+
+@dataclass
 class UIDeleteItemRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Delete' in the context menu."""
     item_id: str
