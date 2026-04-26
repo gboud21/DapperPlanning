@@ -27,7 +27,13 @@ class EditorController:
 
     def handle_item_save(self, event: UIItemSaveRequestedEvent):
         """Updates an existing item's details."""
-        self.workspace.update_item_details(event.item_id, event.new_title, event.new_description)
+        self.workspace.update_item_details(
+            event.item_id, 
+            event.new_title, 
+            event.new_description, 
+            products=event.new_products, 
+            capabilities=event.new_capabilities
+        )
 
     def handle_create_item(self, event: UICreateItemRequestedEvent):
         """Creates a new item and attaches it to the parent in the model."""
@@ -47,13 +53,33 @@ class EditorController:
             item = Capability(id=new_id, title=event.title, description=event.description)
             parent.capabilities.append(item)
         elif event.item_type == "Epic" and isinstance(parent, Capability):
-            item = Epic(id=new_id, title=event.title, description=event.description)
+            item = Epic(
+                id=new_id, 
+                title=event.title, 
+                description=event.description,
+                products=event.products,
+                capabilities=event.capabilities
+            )
             parent.epics.append(item)
         elif event.item_type == "Feature" and isinstance(parent, Epic):
-            item = Feature(id=new_id, title=event.title, description=event.description, team=Team(name="Unassigned"))
+            item = Feature(
+                id=new_id, 
+                title=event.title, 
+                description=event.description, 
+                team=Team(name="Unassigned"),
+                products=event.products,
+                capabilities=event.capabilities
+            )
             parent.features.append(item)
         elif event.item_type == "Story" and isinstance(parent, Feature):
-            item = Story(id=new_id, title=event.title, description=event.description, team=Team(name="Unassigned"))
+            item = Story(
+                id=new_id, 
+                title=event.title, 
+                description=event.description, 
+                team=Team(name="Unassigned"),
+                products=event.products,
+                capabilities=event.capabilities
+            )
             parent.stories.append(item)
 
         if item:

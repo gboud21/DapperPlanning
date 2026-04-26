@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Type
 import threading
 import tkinter as tk
@@ -24,6 +24,8 @@ class UIItemSaveRequestedEvent(Event):
     item_id: str
     new_title: str
     new_description: str
+    new_products: List[str] = field(default_factory=list)
+    new_capabilities: List[str] = field(default_factory=list)
 
 @dataclass
 class ModelHierarchyUpdatedEvent(Event):
@@ -73,6 +75,8 @@ class UICreateItemRequestedEvent(Event):
     item_type: str
     title: str
     description: str
+    products: List[str] = field(default_factory=list)
+    capabilities: List[str] = field(default_factory=list)
 
 class EventDispatcher:
     def __init__(self, root_window: tk.Tk):

@@ -25,19 +25,25 @@ class Workspace:
         # Notify the rest of the application that the data has changed
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
 
-    def update_item_details(self, item_id: str, title: str, description: str) -> None:
+    def update_item_details(self, item_id: str, title: str, description: str, products: List[str] = None, capabilities: List[str] = None) -> None:
         """
-        Updates the title and description of an item within the workspace.
+        Updates the details of an item within the workspace.
 
         Args:
             item_id (str): The unique identifier of the item to update.
             title (str): The new title for the item.
             description (str): The new description for the item.
+            products (List[str]): The new list of associated product IDs.
+            capabilities (List[str]): The new list of associated capability IDs.
         """
         item = self._find_item_by_id(item_id)
         if item:
             item.title = title
             item.description = description
+            if hasattr(item, 'products') and products is not None:
+                item.products = products
+            if hasattr(item, 'capabilities') and capabilities is not None:
+                item.capabilities = capabilities
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._products))
 
     def delete_item(self, item_id: str) -> None:

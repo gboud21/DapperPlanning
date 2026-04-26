@@ -44,6 +44,8 @@ class Story:
         metadata (GitLabMetadata): GitLab-specific metadata for the story.
         interface_boundary (Optional[str]): Describes any external interfaces or boundaries
                                             this story interacts with.
+        products (List[str]): List of associated product IDs.
+        capabilities (List[str]): List of associated capability IDs.
     """
     id: str
     title: str
@@ -51,6 +53,8 @@ class Story:
     team: Team
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
     interface_boundary: Optional[str] = None
+    products: List[str] = field(default_factory=list)
+    capabilities: List[str] = field(default_factory=list)
 
 @dataclass
 class Feature:
@@ -64,6 +68,8 @@ class Feature:
         team (Team): The team responsible for the feature.
         stories (List[Story]): A list of stories that make up this feature.
         metadata (GitLabMetadata): GitLab-specific metadata for the feature.
+        products (List[str]): List of associated product IDs.
+        capabilities (List[str]): List of associated capability IDs.
     """
     id: str
     title: str
@@ -71,6 +77,8 @@ class Feature:
     team: Team
     stories: List[Story] = field(default_factory=list)
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
+    products: List[str] = field(default_factory=list)
+    capabilities: List[str] = field(default_factory=list)
 
 @dataclass
 class Epic:
@@ -83,12 +91,16 @@ class Epic:
         description (str): A detailed description of the epic.
         features (List[Feature]): A list of features that belong to this epic.
         metadata (GitLabMetadata): GitLab-specific metadata for the epic.
+        products (List[str]): List of associated product IDs.
+        capabilities (List[str]): List of associated capability IDs.
     """
     id: str
     title: str
     description: str
     features: List[Feature] = field(default_factory=list)
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
+    products: List[str] = field(default_factory=list)
+    capabilities: List[str] = field(default_factory=list)
 
 @dataclass
 class Product:
