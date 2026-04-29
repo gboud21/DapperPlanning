@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from src.events import (
-    EventDispatcher, UICreateItemRequestedEvent, ModelActiveItemChangedEvent
+    EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent
 )
 
 class EditorPane:
@@ -21,7 +21,7 @@ class EditorPane:
         self._bind_events()
 
     def _setup_ui(self):
-        """Sets up the labels, entries, and save button with a scrollbar."""
+        """Sets up the labels, entries, and action buttons with a scrollbar."""
         # Create a canvas and scrollbar
         self.canvas = tk.Canvas(self.parent, borderwidth=0, highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self.parent, orient="vertical", command=self.canvas.yview)
@@ -44,9 +44,9 @@ class EditorPane:
         # Bind canvas resize to frame width
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
-        # Pack canvas and scrollbar
-        self.canvas.pack(side="left", fill="both", expand=True)
+        # Pack scrollbar first, then canvas
         self.scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
 
         # Content widgets
         self.lbl_editor_title = ttk.Label(self.scrollable_frame, text="Select an item to edit", font=("Arial", 14, "bold"))
@@ -66,8 +66,15 @@ class EditorPane:
         self.text_desc = tk.Text(self.scrollable_frame, height=10, width=50)
         self.text_desc.pack(anchor=tk.W, fill=tk.BOTH, expand=True, pady=(0, 10))
         
-        self.btn_save_item = ttk.Button(self.scrollable_frame, text="Save Item Data", command=self._on_save_clicked)
-        self.btn_save_item.pack(anchor=tk.E)
+        # Button Frame for CRUD actions
+        self.button_frame = ttk.Frame(self.scrollable_frame)
+        self.button_frame.pack(anchor=tk.E, pady=10)
+
+        self.btn_update = ttk.Button(self.button_frame, text="Update Current Item", command=self._on_update_clicked)
+        self.btn_update.pack(side=tk.LEFT, padx=5)
+
+        self.btn_create = ttk.Button(self.button_frame, text="Create as New Child", command=self._on_save_clicked)
+        self.btn_create.pack(side=tk.LEFT, padx=5)
 
     def _on_canvas_configure(self, event):
         """Adjusts the scrollable frame width to match the canvas width."""
@@ -76,6 +83,22 @@ class EditorPane:
     def _bind_events(self):
         """Subscribes to model updates."""
         self.dispatcher.subscribe(ModelActiveItemChangedEvent, self.populate_editor)
+
+    def _on_update_clicked(self):
+        """Dispatches the update request for the currently selected item."""
+        if not self.current_selected_id:
+            return
+            
+        title = self.entry_title.get()
+        desc = self.text_desc.get("1.0", tk.END).strip()
+        
+        self.dispatcher.dispatch(UIItemSaveRequestedEvent(
+            item_id=self.current_selected_id,
+            new_title=title,
+            new_description=desc,
+            new_products=[],
+            new_capabilities=[]
+        ))
 
     def _on_save_clicked(self):
         """Dispatches the create request using the current selection as parent."""
@@ -88,8 +111,8 @@ class EditorPane:
             item_type=item_type,
             title=title,
             description=desc,
-            products=[], # UI for this to be added later
-            capabilities=[] # UI for this to be added later
+            products=[],
+            capabilities=[]
         ))
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
@@ -97,6 +120,8 @@ class EditorPane:
         self.current_selected_id = getattr(event.item_data, 'id', None)
         item_type = getattr(event, 'item_type', 'Item')
         self.lbl_editor_title.config(text=f"Editing {item_type}")
+        
+        self.combo_item_type.set(item_type)
         
         self.entry_title.delete(0, tk.END)
         self.entry_title.insert(0, getattr(event.item_data, 'title', ''))

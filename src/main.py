@@ -18,6 +18,7 @@ def main():
     root = tk.Tk()
     root.title("Standardized Backlog Planning Tool")
     root.geometry("1000x700")
+    root.minsize(800, 600)
 
     # 2. Initialize the Event Dispatcher (Local Scope)
     dispatcher = EventDispatcher(root)

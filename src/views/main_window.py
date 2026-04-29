@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from src.events import (
-    EventDispatcher, UISyncRequestedEvent
+    EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent
 )
 from .tree_pane import TreePane
 from .editor_pane import EditorPane
@@ -18,7 +18,6 @@ class MainWindow:
         self.root = root
         self.dispatcher = dispatcher
         
-        self.setup_menu()
         self.setup_ui()
         self._bind_events()
 
@@ -28,6 +27,8 @@ class MainWindow:
         
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Export to CSV...", command=self._on_export_csv)
+        file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.destroy)
         menubar.add_cascade(label="File", menu=file_menu)
         
@@ -51,6 +52,15 @@ class MainWindow:
         menubar.add_cascade(label="Help", menu=help_menu)
         
         self.root.config(menu=menubar)
+
+    def _on_export_csv(self):
+        """Opens a file dialog to select a save location and dispatches the export event."""
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv")]
+        )
+        if file_path:
+            self.dispatcher.dispatch(UIExportCsvRequestedEvent(file_path=file_path))
 
     def _show_about_dialog(self):
         dialog = tk.Toplevel(self.root)
@@ -87,22 +97,9 @@ class MainWindow:
     def setup_ui(self):
         """Sets up the PanedWindow and delegating panes."""
         self.root.overrideredirect(False)
+        self.setup_menu()
 
-        # 1. Main Paned Window
-        self.paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        self.paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # 2. Left Pane (Hierarchy)
-        self.left_frame = ttk.Frame(self.paned_window)
-        self.paned_window.add(self.left_frame, weight=1)
-        self.tree_pane = TreePane(self.left_frame, self.dispatcher)
-
-        # 3. Right Pane (Editor)
-        self.right_frame = ttk.Frame(self.paned_window, padding=10)
-        self.paned_window.add(self.right_frame, weight=3)
-        self.editor_pane = EditorPane(self.right_frame, self.dispatcher)
-
-        # 4. Bottom Frame: Action Bar
+        # 1. Bottom Frame: Action Bar (Pack first to prevent being cut off)
         self.bottom_frame = ttk.Frame(self.root)
         self.bottom_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=5, pady=5)
         
@@ -111,6 +108,20 @@ class MainWindow:
         
         self.lbl_status = ttk.Label(self.bottom_frame, text="Ready.")
         self.lbl_status.pack(side=tk.LEFT)
+
+        # 2. Main Paned Window
+        self.paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        self.paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # 3. Left Pane (Hierarchy)
+        self.left_frame = ttk.Frame(self.paned_window)
+        self.paned_window.add(self.left_frame, weight=1)
+        self.tree_pane = TreePane(self.left_frame, self.dispatcher)
+
+        # 4. Right Pane (Editor)
+        self.right_frame = ttk.Frame(self.paned_window, padding=10)
+        self.paned_window.add(self.right_frame, weight=3)
+        self.editor_pane = EditorPane(self.right_frame, self.dispatcher)
 
     def _bind_events(self):
         """Binds overarching UI events."""

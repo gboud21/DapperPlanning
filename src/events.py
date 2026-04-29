@@ -20,7 +20,7 @@ class ModelActiveItemChangedEvent(Event):
 
 @dataclass
 class UIItemSaveRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Save Item Data'."""
+    """Emitted by the View when the user clicks 'Update Current Item'."""
     item_id: str
     new_title: str
     new_description: str
@@ -37,6 +37,11 @@ class ModelHierarchyUpdatedEvent(Event):
 class UISyncRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Sync to GitLab'."""
     pass
+
+@dataclass
+class UIExportCsvRequestedEvent(Event):
+    """Emitted by the View when the user selects a save location for the CSV export."""
+    file_path: str
 
 @dataclass
 class UIAddProductRequestedEvent(Event):
@@ -70,7 +75,7 @@ class UIDeleteItemRequestedEvent(Event):
 
 @dataclass
 class UICreateItemRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Save Item Data' to create a new item."""
+    """Emitted by the View when the user clicks 'Create as New Child' to create a new item."""
     parent_id: str
     item_type: str
     title: str
