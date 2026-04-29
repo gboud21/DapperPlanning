@@ -28,6 +28,7 @@ class MainWindow:
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Export to CSV...", command=self._on_export_csv)
+        file_menu.add_command(label="Export to JSON...", command=self._on_export_json)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.destroy)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -61,6 +62,16 @@ class MainWindow:
         )
         if file_path:
             self.dispatcher.dispatch(UIExportCsvRequestedEvent(file_path=file_path))
+
+    def _on_export_json(self):
+        """Opens a file dialog to select a save location and dispatches the export event."""
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON Files", "*.json")]
+        )
+        if file_path:
+            from src.events import UIExportJsonRequestedEvent
+            self.dispatcher.dispatch(UIExportJsonRequestedEvent(file_path=file_path))
 
     def _show_about_dialog(self):
         dialog = tk.Toplevel(self.root)

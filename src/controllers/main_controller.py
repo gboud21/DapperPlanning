@@ -1,6 +1,8 @@
 import csv
+import json
+from dataclasses import asdict
 from src.events import (
-    EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent
+    EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent
 )
 from src.models.workspace import Workspace
 from .tree_controller import TreeController
@@ -28,6 +30,7 @@ class MainController:
         """Subscribes to overarching application events."""
         self.dispatcher.subscribe(UISyncRequestedEvent, self.handle_sync)
         self.dispatcher.subscribe(UIExportCsvRequestedEvent, self.handle_csv_export)
+        self.dispatcher.subscribe(UIExportJsonRequestedEvent, self.handle_json_export)
 
     def handle_sync(self, event: UISyncRequestedEvent):
         """Handles synchronization with external services (GitLab)."""
@@ -78,3 +81,16 @@ class MainController:
         except Exception as e:
             # In a real app, we'd dispatch an error event or show a dialog
             print(f"Error exporting CSV: {e}")
+
+    def handle_json_export(self, event: UIExportJsonRequestedEvent):
+        """
+        Exports the hierarchical data from the workspace to a JSON file.
+        """
+        products = self.workspace.get_products()
+        data = [asdict(p) for p in products]
+
+        try:
+            with open(event.file_path, mode='w', encoding='utf-8') as jsonfile:
+                json.dump(data, jsonfile, indent=4)
+        except Exception as e:
+            print(f"Error exporting JSON: {e}")

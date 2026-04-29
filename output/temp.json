@@ -1,0 +1,111 @@
+[
+    {
+        "id": "0dcaf3c2-372e-4cd1-aa8b-0c94bd85e6ed",
+        "title": "Product 1",
+        "description": "TODO: Add Description",
+        "capabilities": [
+            {
+                "id": "0e090819-3526-4153-8557-519fb3e78ca3",
+                "title": "Capability 1",
+                "description": "TODO: Add Description",
+                "epics": [
+                    {
+                        "id": "3190e665-b4ee-423e-a6bf-a7d964f6610f",
+                        "title": "Epic 1",
+                        "description": "TODO: Add Description",
+                        "features": [],
+                        "metadata": {
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
+                        },
+                        "products": [],
+                        "capabilities": []
+                    },
+                    {
+                        "id": "c50cd9e7-a9de-4dd4-b84a-2af33e7a1625",
+                        "title": "Epic 2",
+                        "description": "TODO: Add Description",
+                        "features": [
+                            {
+                                "id": "b12924a2-06a0-47bd-9af3-227bda1af3a4",
+                                "title": "Feature 1",
+                                "description": "TODO: Add Description",
+                                "team": {
+                                    "name": "Unassigned",
+                                    "domain": ""
+                                },
+                                "stories": [
+                                    {
+                                        "id": "1aed6e25-4dcf-4ef5-bb4f-72268f6731fa",
+                                        "title": "Story 1",
+                                        "description": "TODO: Add Description",
+                                        "team": {
+                                            "name": "Unassigned",
+                                            "domain": ""
+                                        },
+                                        "metadata": {
+                                            "assignee": "",
+                                            "milestone": "",
+                                            "weight": 0,
+                                            "labels": [],
+                                            "template": ""
+                                        },
+                                        "interface_boundary": null,
+                                        "products": [],
+                                        "capabilities": []
+                                    },
+                                    {
+                                        "id": "ecc6b975-96ff-4631-a9a9-446401b4d29b",
+                                        "title": "Story 2",
+                                        "description": "TODO: Add Description",
+                                        "team": {
+                                            "name": "Unassigned",
+                                            "domain": ""
+                                        },
+                                        "metadata": {
+                                            "assignee": "",
+                                            "milestone": "",
+                                            "weight": 0,
+                                            "labels": [],
+                                            "template": ""
+                                        },
+                                        "interface_boundary": null,
+                                        "products": [],
+                                        "capabilities": []
+                                    }
+                                ],
+                                "metadata": {
+                                    "assignee": "",
+                                    "milestone": "",
+                                    "weight": 0,
+                                    "labels": [],
+                                    "template": ""
+                                },
+                                "products": [],
+                                "capabilities": []
+                            }
+                        ],
+                        "metadata": {
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
+                        },
+                        "products": [],
+                        "capabilities": []
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "c15cc984-c2ac-4c3d-89b8-d68b504657e8",
+        "title": "Product 2",
+        "description": "TODO: Add Description",
+        "capabilities": []
+    }
+]

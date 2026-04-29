@@ -1,4 +1,7 @@
 # DapperPlanning
+NOTE*** This project has been developed using AI. It is an exercise in becoming more accustomed to integrating AI workflows into my development process while still solving a problem that I have with the current tools that exist within engineering.
+
+## Problem
 - Problem:
     - Planning Software is difficult, tedious and wastes time that you could be spending writing software
 - Solution:
