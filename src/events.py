@@ -49,6 +49,16 @@ class UIExportJsonRequestedEvent(Event):
     file_path: str
 
 @dataclass
+class UIImportCsvRequestedEvent(Event):
+    """Emitted by the View when the user selects a CSV file to import."""
+    file_path: str
+
+@dataclass
+class UIImportJsonRequestedEvent(Event):
+    """Emitted by the View when the user selects a JSON file to import."""
+    file_path: str
+
+@dataclass
 class UIAddProductRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Add Product' in the context menu."""
     pass

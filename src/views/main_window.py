@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 from src.events import (
-    EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent
+    EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
+    UIImportCsvRequestedEvent, UIImportJsonRequestedEvent
 )
 from .tree_pane import TreePane
 from .editor_pane import EditorPane
@@ -27,6 +28,9 @@ class MainWindow:
         
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Import from CSV...", command=self._on_import_csv)
+        file_menu.add_command(label="Import from JSON...", command=self._on_import_json)
+        file_menu.add_separator()
         file_menu.add_command(label="Export to CSV...", command=self._on_export_csv)
         file_menu.add_command(label="Export to JSON...", command=self._on_export_json)
         file_menu.add_separator()
@@ -53,6 +57,22 @@ class MainWindow:
         menubar.add_cascade(label="Help", menu=help_menu)
         
         self.root.config(menu=menubar)
+
+    def _on_import_csv(self):
+        """Opens a file dialog to select a CSV file to import and dispatches the event."""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("CSV Files", "*.csv")]
+        )
+        if file_path:
+            self.dispatcher.dispatch(UIImportCsvRequestedEvent(file_path=file_path))
+
+    def _on_import_json(self):
+        """Opens a file dialog to select a JSON file to import and dispatches the event."""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("JSON Files", "*.json")]
+        )
+        if file_path:
+            self.dispatcher.dispatch(UIImportJsonRequestedEvent(file_path=file_path))
 
     def _on_export_csv(self):
         """Opens a file dialog to select a save location and dispatches the export event."""
