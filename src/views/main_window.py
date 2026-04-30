@@ -1,9 +1,10 @@
 import tkinter as tk
 import os
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox as msgbox, messagebox
 from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
-    UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent
+    UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
+    UIErrorNotificationEvent
 )
 from .tree_pane import TreePane
 from .editor_pane import EditorPane
@@ -198,7 +199,11 @@ class MainWindow:
 
     def _bind_events(self):
         """Binds overarching UI events."""
-        pass
+        self.dispatcher.subscribe(UIErrorNotificationEvent, self._show_error)
+
+    def _show_error(self, event: UIErrorNotificationEvent):
+        """Displays an error dialog."""
+        msgbox.showerror(title=event.title, message=event.message)
 
     def _on_sync_clicked(self):
         self.dispatcher.dispatch(UISyncRequestedEvent())

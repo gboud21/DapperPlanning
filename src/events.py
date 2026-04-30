@@ -59,6 +59,12 @@ class UIImportJsonRequestedEvent(Event):
     file_path: str
 
 @dataclass
+class UIErrorNotificationEvent(Event):
+    """Emitted by Controllers when an operation fails, prompting the View to show an error dialog."""
+    title: str
+    message: str
+
+@dataclass
 class UIAddProductRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Add Product' in the context menu."""
     pass
