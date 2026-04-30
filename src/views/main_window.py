@@ -1,8 +1,9 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+import os
+from tkinter import ttk, filedialog, messagebox
 from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
-    UIImportCsvRequestedEvent, UIImportJsonRequestedEvent
+    UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent
 )
 from .tree_pane import TreePane
 from .editor_pane import EditorPane
@@ -28,11 +29,9 @@ class MainWindow:
         
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Import from CSV...", command=self._on_import_csv)
-        file_menu.add_command(label="Import from JSON...", command=self._on_import_json)
+        file_menu.add_command(label="Import...", command=self._on_import)
         file_menu.add_separator()
-        file_menu.add_command(label="Export to CSV...", command=self._on_export_csv)
-        file_menu.add_command(label="Export to JSON...", command=self._on_export_json)
+        file_menu.add_command(label="Export...", command=self._on_export)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.destroy)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -58,39 +57,82 @@ class MainWindow:
         
         self.root.config(menu=menubar)
 
-    def _on_import_csv(self):
-        """Opens a file dialog to select a CSV file to import and dispatches the event."""
-        file_path = filedialog.askopenfilename(
-            filetypes=[("CSV Files", "*.csv")]
-        )
-        if file_path:
-            self.dispatcher.dispatch(UIImportCsvRequestedEvent(file_path=file_path))
+    def _on_import(self):
+        """Opens a file dialog to select a file to import and dispatches the appropriate event."""
+        file_types = [
+            ("CSV Files", "*.csv"),
+            ("JSON Files", "*.json"),
+            ("All Files", "*.*")
+        ]
+        
+        selected_type = tk.StringVar()
+        file_path = filedialog.askopenfilename(filetypes=file_types, typevariable=selected_type)
+        if not file_path:
+            return
 
-    def _on_import_json(self):
-        """Opens a file dialog to select a JSON file to import and dispatches the event."""
-        file_path = filedialog.askopenfilename(
-            filetypes=[("JSON Files", "*.json")]
-        )
-        if file_path:
+        ext = os.path.splitext(file_path)[1].lower()
+        selection = selected_type.get()
+        
+        # Determine format based on selection or extension
+        format_to_use = None
+        if selection == "CSV Files":
+            format_to_use = "csv"
+        elif selection == "JSON Files":
+            format_to_use = "json"
+        elif selection == "All Files" or not selection:
+            if ext == ".csv":
+                format_to_use = "csv"
+            elif ext == ".json":
+                format_to_use = "json"
+
+        # Validate extension and format
+        if not ext or ext not in [".csv", ".json"] or not format_to_use:
+            messagebox.showerror("Import Error", f"Unsupported or missing file extension: '{ext if ext else 'None'}'.\nPlease select a .csv or .json file.")
+            return self._on_import()
+
+        # Final dispatch based on determined format
+        if format_to_use == "csv":
+            self.dispatcher.dispatch(UIImportCsvRequestedEvent(file_path=file_path))
+        elif format_to_use == "json":
             self.dispatcher.dispatch(UIImportJsonRequestedEvent(file_path=file_path))
 
-    def _on_export_csv(self):
-        """Opens a file dialog to select a save location and dispatches the export event."""
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV Files", "*.csv")]
-        )
-        if file_path:
-            self.dispatcher.dispatch(UIExportCsvRequestedEvent(file_path=file_path))
+    def _on_export(self):
+        """Opens a file dialog to select a save location and dispatches the appropriate export event."""
+        file_types = [
+            ("CSV Files", "*.csv"),
+            ("JSON Files", "*.json"),
+            ("All Files", "*.*")
+        ]
+        
+        selected_type = tk.StringVar()
+        file_path = filedialog.asksaveasfilename(filetypes=file_types, typevariable=selected_type)
+        if not file_path:
+            return
 
-    def _on_export_json(self):
-        """Opens a file dialog to select a save location and dispatches the export event."""
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON Files", "*.json")]
-        )
-        if file_path:
-            from src.events import UIExportJsonRequestedEvent
+        ext = os.path.splitext(file_path)[1].lower()
+        selection = selected_type.get()
+        
+        # Determine format based on selection or extension
+        format_to_use = None
+        if selection == "CSV Files":
+            format_to_use = "csv"
+        elif selection == "JSON Files":
+            format_to_use = "json"
+        elif selection == "All Files" or not selection:
+            if ext == ".csv":
+                format_to_use = "csv"
+            elif ext == ".json":
+                format_to_use = "json"
+
+        # Validate extension and format
+        if not ext or ext not in [".csv", ".json"] or not format_to_use:
+            messagebox.showerror("Export Error", f"Unsupported or missing file extension: '{ext if ext else 'None'}'.\nPlease ensure the filename ends with .csv or .json.")
+            return self._on_export()
+
+        # Final dispatch based on determined format
+        if format_to_use == "csv":
+            self.dispatcher.dispatch(UIExportCsvRequestedEvent(file_path=file_path))
+        elif format_to_use == "json":
             self.dispatcher.dispatch(UIExportJsonRequestedEvent(file_path=file_path))
 
     def _show_about_dialog(self):
