@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 from src.events import (
-    EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent
+    EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent,
+    AppThemeChangedEvent
 )
 
 class EditorPane:
@@ -83,6 +84,21 @@ class EditorPane:
     def _bind_events(self):
         """Subscribes to model updates."""
         self.dispatcher.subscribe(ModelActiveItemChangedEvent, self.populate_editor)
+        self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+
+    def handle_theme_change(self, event: AppThemeChangedEvent):
+        """Reacts to application-wide theme changes."""
+        from src.utils.theme_manager import ThemeManager
+        palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
+        
+        self.canvas.configure(bg=palette['bg'])
+        self.text_desc.configure(
+            bg=palette['field_bg'],
+            fg=palette['fg'],
+            insertbackground=palette['fg'],
+            borderwidth=1,
+            relief="flat"
+        )
 
     def _on_update_clicked(self):
         """Dispatches the update request for the currently selected item."""

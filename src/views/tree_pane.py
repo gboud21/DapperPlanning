@@ -3,7 +3,8 @@ from tkinter import ttk
 from src.events import (
     EventDispatcher, UIItemSelectedEvent, UIAddProductRequestedEvent, 
     UIAddCapabilityRequestedEvent, UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, 
-    UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent
+    UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent,
+    AppThemeChangedEvent
 )
 
 class TreePane:
@@ -53,6 +54,30 @@ class TreePane:
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
         self.tree.bind("<Button-3>", self._show_tree_context_menu)
         self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self.render_tree)
+        self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+
+    def handle_theme_change(self, event: AppThemeChangedEvent):
+        """Reacts to application-wide theme changes."""
+        from src.utils.theme_manager import ThemeManager
+        palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
+        
+        # Configure context menu
+        self.tree_context_menu.configure(
+            bg=palette['bg'], 
+            fg=palette['fg'], 
+            activebackground=palette['highlight'], 
+            activeforeground=palette['fg']
+        )
+        
+        # Update tag configurations to match theme
+        if event.is_dark:
+            self.tree.tag_configure('Product', background='#2d2d2d')
+            self.tree.tag_configure('Feature_Stub', foreground="#808080")
+            self.tree.tag_configure('Story_Stub', foreground="#808080")
+        else:
+            self.tree.tag_configure('Product', background="#e6f2ff")
+            self.tree.tag_configure('Feature_Stub', foreground="gray")
+            self.tree.tag_configure('Story_Stub', foreground="gray")
 
     def _show_tree_context_menu(self, event):
         """Displays the context menu with context-aware command states."""

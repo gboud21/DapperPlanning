@@ -4,8 +4,9 @@ from tkinter import ttk, filedialog, messagebox as msgbox, messagebox
 from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
     UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
-    UIErrorNotificationEvent
+    UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent
 )
+from src.utils.theme_manager import ThemeManager
 from .tree_pane import TreePane
 from .editor_pane import EditorPane
 
@@ -26,37 +27,45 @@ class MainWindow:
 
     def setup_menu(self):
         """Sets up the main menu bar."""
-        menubar = tk.Menu(self.root)
+        self.menubar = tk.Menu(self.root)
         
         # File menu
-        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu = tk.Menu(self.menubar, tearoff=0)
         file_menu.add_command(label="Import...", command=self._on_import)
         file_menu.add_separator()
         file_menu.add_command(label="Export...", command=self._on_export)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.destroy)
-        menubar.add_cascade(label="File", menu=file_menu)
+        self.menubar.add_cascade(label="File", menu=file_menu)
         
         # Edit menu
-        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu = tk.Menu(self.menubar, tearoff=0)
         edit_menu.add_command(label="Copy", command=lambda: None)
         edit_menu.add_command(label="Cut", command=lambda: None)
         edit_menu.add_command(label="Paste", command=lambda: None)
-        menubar.add_cascade(label="Edit", menu=edit_menu)
+        self.menubar.add_cascade(label="Edit", menu=edit_menu)
         
         # View menu
-        view_menu = tk.Menu(menubar, tearoff=0)
-        view_menu.add_command(label="Minimize", command=self._minimize_window)
-        view_menu.add_command(label="Maximize", command=self._maximize_window)
-        view_menu.add_command(label="Windowed Mode", command=self._restore_window)
-        menubar.add_cascade(label="View", menu=view_menu)
+        self.view_menu = tk.Menu(self.menubar, tearoff=0)
+        self.view_menu.add_command(label="Minimize", command=self._minimize_window)
+        self.view_menu.add_command(label="Maximize", command=self._maximize_window)
+        self.view_menu.add_command(label="Windowed Mode", command=self._restore_window)
+        self.view_menu.add_separator()
+        
+        # Theme menu cascade
+        self.theme_menu = tk.Menu(self.view_menu, tearoff=0)
+        self.theme_menu.add_command(label="Light Mode", command=lambda: self.dispatcher.dispatch(UIThemeToggleRequestedEvent(is_dark=False)))
+        self.theme_menu.add_command(label="Dark Mode", command=lambda: self.dispatcher.dispatch(UIThemeToggleRequestedEvent(is_dark=True)))
+        self.view_menu.add_cascade(label="Theme", menu=self.theme_menu)
+        
+        self.menubar.add_cascade(label="View", menu=self.view_menu)
         
         # Help menu
-        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu = tk.Menu(self.menubar, tearoff=0)
         help_menu.add_command(label="About", command=self._show_about_dialog)
-        menubar.add_cascade(label="Help", menu=help_menu)
+        self.menubar.add_cascade(label="Help", menu=help_menu)
         
-        self.root.config(menu=menubar)
+        self.root.config(menu=self.menubar)
 
     def _on_import(self):
         """Opens a file dialog to select a file to import and dispatches the appropriate event."""
@@ -200,6 +209,22 @@ class MainWindow:
     def _bind_events(self):
         """Binds overarching UI events."""
         self.dispatcher.subscribe(UIErrorNotificationEvent, self._show_error)
+        self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+
+    def handle_theme_change(self, event: AppThemeChangedEvent):
+        """Reacts to application-wide theme changes."""
+        ThemeManager.apply_ttk_theme(event.is_dark)
+        
+        palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
+        self.root.configure(bg=palette['bg'])
+        
+        # Update menu states
+        if event.is_dark:
+            self.theme_menu.entryconfig("Dark Mode", state="disabled")
+            self.theme_menu.entryconfig("Light Mode", state="normal")
+        else:
+            self.theme_menu.entryconfig("Dark Mode", state="normal")
+            self.theme_menu.entryconfig("Light Mode", state="disabled")
 
     def _show_error(self, event: UIErrorNotificationEvent):
         """Displays an error dialog."""

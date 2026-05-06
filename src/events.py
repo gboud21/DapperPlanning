@@ -104,6 +104,16 @@ class UICreateItemRequestedEvent(Event):
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
 
+@dataclass
+class UIThemeToggleRequestedEvent(Event):
+    """Emitted by the View when the user toggles the theme."""
+    is_dark: bool
+
+@dataclass
+class AppThemeChangedEvent(Event):
+    """Emitted by the Controller when the application theme has changed."""
+    is_dark: bool
+
 class EventDispatcher:
     def __init__(self, root_window: tk.Tk):
         self._listeners: Dict[Type[Event], List[Callable]] = {}
