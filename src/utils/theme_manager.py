@@ -61,7 +61,8 @@ class ThemeManager:
         style.configure('TCombobox', 
                         fieldbackground=palette['field_bg'], 
                         background=palette['field_bg'], 
-                        foreground=palette['fg'])
+                        foreground=palette['fg'],
+                        arrowcolor='white' if is_dark else 'black')
         
         style.configure('TNotebook', background=palette['bg'], borderwidth=0)
         style.configure('TNotebook.Tab', background=palette['bg'], foreground=palette['fg'])

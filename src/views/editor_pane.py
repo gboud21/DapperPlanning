@@ -67,19 +67,31 @@ class EditorPane:
         self.text_desc = tk.Text(self.scrollable_frame, height=10, width=50)
         self.text_desc.pack(anchor=tk.W, fill=tk.BOTH, expand=True, pady=(0, 10))
         
-        # Button Frame for CRUD actions
+        # Button Frame for CRUD actions - Use fill=X to stabilize layout during resize
         self.button_frame = ttk.Frame(self.scrollable_frame)
-        self.button_frame.pack(anchor=tk.E, pady=10)
-
-        self.btn_update = ttk.Button(self.button_frame, text="Update Current Item", command=self._on_update_clicked)
-        self.btn_update.pack(side=tk.LEFT, padx=5)
+        self.button_frame.pack(fill=tk.X, pady=10)
 
         self.btn_create = ttk.Button(self.button_frame, text="Create as New Child", command=self._on_save_clicked)
-        self.btn_create.pack(side=tk.LEFT, padx=5)
+        self.btn_create.pack(side=tk.RIGHT, padx=5)
+
+        self.btn_update = ttk.Button(self.button_frame, text="Update Current Item", command=self._on_update_clicked)
+        self.btn_update.pack(side=tk.RIGHT, padx=5)
 
     def _on_canvas_configure(self, event):
         """Adjusts the scrollable frame width to match the canvas width."""
         self.canvas.itemconfig(self.canvas_window, width=event.width)
+        # Force redraw sequence to resolve rendering artifacts (ghosting) after window maximization.
+        # We use a short delay to ensure the geometry manager has finished its first pass.
+        self.canvas.update_idletasks()
+        self.parent.after(20, self._force_redraw)
+
+    def _force_redraw(self):
+        """Explicitly triggers updates on the scrollable container and its children."""
+        self.scrollable_frame.update()
+        self.btn_update.update()
+        self.btn_create.update()
+        # Updating the scrollregion one last time to be sure
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _bind_events(self):
         """Subscribes to model updates."""
