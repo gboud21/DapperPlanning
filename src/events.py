@@ -45,7 +45,7 @@ class UIExportCsvRequestedEvent(Event):
 
 @dataclass
 class UIExportJsonRequestedEvent(Event):
-    """Emitted by the View when the user selects a save location for the JSON export."""
+    """Emitted by the View when the user selects a JSON file to import."""
     file_path: str
 
 @dataclass
@@ -65,19 +65,9 @@ class UIErrorNotificationEvent(Event):
     message: str
 
 @dataclass
-class UIAddProductRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Add Product' in the context menu."""
-    pass
-
-@dataclass
-class UIAddCapabilityRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Add Capability' in the context menu."""
-    parent_product_id: str
-
-@dataclass
 class UIAddEpicRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Add Epic' in the context menu."""
-    parent_capability_id: str
+    parent_id: str = None  # None for root level epics
 
 @dataclass
 class UIAddFeatureRequestedEvent(Event):

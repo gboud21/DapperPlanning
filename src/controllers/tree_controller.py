@@ -1,12 +1,11 @@
 import uuid
 from src.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
-    UIAddProductRequestedEvent, UIAddCapabilityRequestedEvent, UIAddEpicRequestedEvent, 
-    UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, 
-    ModelHierarchyUpdatedEvent
+    UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
+    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent
 )
 from src.models.workspace import Workspace
-from src.models.entities import Product, Capability, Epic, Feature, Story, Team
+from src.models.entities import Epic, Feature, Story, Team
 
 class TreeController:
     def __init__(self, dispatcher: EventDispatcher, workspace: Workspace):
@@ -20,8 +19,6 @@ class TreeController:
         self.dispatcher = dispatcher
         self.workspace = workspace
         
-        self.product_count = 0
-        self.capability_count = 0
         self.epic_count = 0
         self.feature_count = 0
         self.story_count = 0
@@ -31,8 +28,6 @@ class TreeController:
     def _subscribe_events(self):
         """Subscribes to tree-related UI events."""
         self.dispatcher.subscribe(UIItemSelectedEvent, self.handle_item_selected)
-        self.dispatcher.subscribe(UIAddProductRequestedEvent, self.handle_add_product)
-        self.dispatcher.subscribe(UIAddCapabilityRequestedEvent, self.handle_add_capability)
         self.dispatcher.subscribe(UIAddEpicRequestedEvent, self.handle_add_epic)
         self.dispatcher.subscribe(UIAddFeatureRequestedEvent, self.handle_add_feature)
         self.dispatcher.subscribe(UIAddStoryRequestedEvent, self.handle_add_story)
@@ -46,44 +41,14 @@ class TreeController:
                 ModelActiveItemChangedEvent(item_type=type(item).__name__, item_data=item)
             )
 
-    def handle_add_product(self, event: UIAddProductRequestedEvent):
-        self.product_count += 1
-        new_product = Product(
-            id=str(uuid.uuid4()), 
-            title=f"Product {self.product_count}",
+    def handle_add_epic(self, event: UIAddEpicRequestedEvent):
+        self.epic_count += 1
+        new_epic = Epic(
+            id=str(uuid.uuid4()),
+            title=f"Epic {self.epic_count}",
             description="TODO: Add Description"
         )
-        self.workspace.add_product(new_product)
-
-    def handle_add_capability(self, event: UIAddCapabilityRequestedEvent):
-        parent = self.workspace._find_item_by_id(event.parent_product_id)
-        if parent and isinstance(parent, Product):
-            self.capability_count += 1
-            new_capability = Capability(
-                id=str(uuid.uuid4()),
-                title=f"Capability {self.capability_count}",
-                description="TODO: Add Description"
-            )
-            parent.capabilities.append(new_capability)
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
-                root_items=self.workspace.get_products(),
-                expand_id=event.parent_product_id
-            ))
-
-    def handle_add_epic(self, event: UIAddEpicRequestedEvent):
-        parent = self.workspace._find_item_by_id(event.parent_capability_id)
-        if parent and isinstance(parent, Capability):
-            self.epic_count += 1
-            new_epic = Epic(
-                id=str(uuid.uuid4()),
-                title=f"Epic {self.epic_count}",
-                description="TODO: Add Description"
-            )
-            parent.epics.append(new_epic)
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
-                root_items=self.workspace.get_products(),
-                expand_id=event.parent_capability_id
-            ))
+        self.workspace.add_epic(new_epic)
 
     def handle_add_feature(self, event: UIAddFeatureRequestedEvent):
         parent = self.workspace._find_item_by_id(event.parent_epic_id)
@@ -97,7 +62,7 @@ class TreeController:
             )
             parent.features.append(new_feature)
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
-                root_items=self.workspace.get_products(),
+                root_items=self.workspace.get_epics(),
                 expand_id=event.parent_epic_id
             ))
 
@@ -113,7 +78,7 @@ class TreeController:
             )
             parent.stories.append(new_story)
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
-                root_items=self.workspace.get_products(),
+                root_items=self.workspace.get_epics(),
                 expand_id=event.parent_feature_id
             ))
 

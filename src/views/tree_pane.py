@@ -1,8 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from src.events import (
-    EventDispatcher, UIItemSelectedEvent, UIAddProductRequestedEvent, 
-    UIAddCapabilityRequestedEvent, UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, 
+    EventDispatcher, UIItemSelectedEvent, UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, 
     UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent,
     AppThemeChangedEvent
 )
@@ -34,16 +33,12 @@ class TreePane:
         self.tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Tag Configuration for visual hierarchy
-        self.tree.tag_configure('Product', font=("TkDefaultFont", 10, "bold"), background="#e6f2ff")
-        self.tree.tag_configure('Capability', font=("TkDefaultFont", 10, "bold"))
-        self.tree.tag_configure('Epic')
+        self.tree.tag_configure('Epic', font=("TkDefaultFont", 10, "bold"))
         self.tree.tag_configure('Feature_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
         self.tree.tag_configure('Story_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
 
         # Context Menu for Treeview
         self.tree_context_menu = tk.Menu(self.tree, tearoff=0)
-        self.tree_context_menu.add_command(label="Add Product", command=self._on_add_product_clicked)
-        self.tree_context_menu.add_command(label="Add Capability", command=self._on_add_capability_clicked)
         self.tree_context_menu.add_command(label="Add Epic", command=self._on_add_epic_clicked)
         self.tree_context_menu.add_command(label="Add Feature", command=self._on_add_feature_clicked)
         self.tree_context_menu.add_command(label="Add Story", command=self._on_add_story_clicked)
@@ -71,11 +66,9 @@ class TreePane:
         
         # Update tag configurations to match theme
         if event.is_dark:
-            self.tree.tag_configure('Product', background='#2d2d2d')
             self.tree.tag_configure('Feature_Stub', foreground="#808080")
             self.tree.tag_configure('Story_Stub', foreground="#808080")
         else:
-            self.tree.tag_configure('Product', background="#e6f2ff")
             self.tree.tag_configure('Feature_Stub', foreground="gray")
             self.tree.tag_configure('Story_Stub', foreground="gray")
 
@@ -90,29 +83,21 @@ class TreePane:
             item_type = item_tags[0] if item_tags else None
             
             # Context-aware enablement
-            self.tree_context_menu.entryconfig("Add Capability", state=tk.NORMAL if item_type == "Product" else tk.DISABLED)
-            self.tree_context_menu.entryconfig("Add Epic", state=tk.NORMAL if item_type == "Capability" else tk.DISABLED)
+            self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED) # Cannot add Epic under another item in tree
             self.tree_context_menu.entryconfig("Add Feature", state=tk.NORMAL if item_type == "Epic" else tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Story", state=tk.NORMAL if item_type == "Feature" else tk.DISABLED)
             self.tree_context_menu.entryconfig("Delete", state=tk.NORMAL)
         else:
-            for label in ["Add Capability", "Add Epic", "Add Feature", "Add Story", "Delete"]:
-                self.tree_context_menu.entryconfig(label, state=tk.DISABLED)
+            # Clicked empty space
+            self.tree_context_menu.entryconfig("Add Epic", state=tk.NORMAL)
+            self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Delete", state=tk.DISABLED)
             
         self.tree_context_menu.tk_popup(event.x_root, event.y_root)
 
-    def _on_add_product_clicked(self):
-        self.dispatcher.dispatch(UIAddProductRequestedEvent())
-
-    def _on_add_capability_clicked(self):
-        selected_id = self.tree.focus()
-        if selected_id:
-            self.dispatcher.dispatch(UIAddCapabilityRequestedEvent(parent_product_id=selected_id))
-
     def _on_add_epic_clicked(self):
-        selected_id = self.tree.focus()
-        if selected_id:
-            self.dispatcher.dispatch(UIAddEpicRequestedEvent(parent_capability_id=selected_id))
+        self.dispatcher.dispatch(UIAddEpicRequestedEvent())
 
     def _on_add_feature_clicked(self):
         selected_id = self.tree.focus()
@@ -169,11 +154,7 @@ class TreePane:
             
             node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=title, tags=(item_type,))
             
-            if item_type == "Product" and hasattr(item, "capabilities"):
-                self._populate_nodes(node_iid, item.capabilities)
-            elif item_type == "Capability" and hasattr(item, "epics"):
-                self._populate_nodes(node_iid, item.epics)
-            elif item_type == "Epic" and hasattr(item, "features"):
+            if item_type == "Epic" and hasattr(item, "features"):
                 self._populate_nodes(node_iid, item.features)
             elif item_type == "Feature" and hasattr(item, "stories"):
                 self._populate_nodes(node_iid, item.stories)

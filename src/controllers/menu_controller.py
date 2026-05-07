@@ -39,7 +39,7 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(event.file_path, self.workspace.get_products())
+            adapter.export_data(event.file_path, self.workspace.get_epics())
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Export Error", message=str(e)))
 
@@ -48,7 +48,7 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(event.file_path, self.workspace.get_products())
+            adapter.export_data(event.file_path, self.workspace.get_epics())
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Export Error", message=str(e)))
 
@@ -57,11 +57,11 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_products = adapter.import_data(event.file_path)
+            root_epics = adapter.import_data(event.file_path)
             
             # Update Workspace
-            self.workspace._products = root_products
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_products))
+            self.workspace._epics = root_epics
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Import Error", message=str(e)))
 
@@ -70,10 +70,10 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_products = adapter.import_data(event.file_path)
+            root_epics = adapter.import_data(event.file_path)
             
             # Update Workspace
-            self.workspace._products = root_products
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_products))
+            self.workspace._epics = root_epics
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Import Error", message=str(e)))

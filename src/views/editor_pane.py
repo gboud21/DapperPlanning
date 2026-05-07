@@ -56,7 +56,7 @@ class EditorPane:
         # Item Type Selection
         ttk.Label(self.scrollable_frame, text="Item Type:").pack(anchor=tk.W)
         self.combo_item_type = ttk.Combobox(self.scrollable_frame, state="readonly", 
-                                            values=("Product", "Capability", "Epic", "Feature", "Story"))
+                                            values=("Epic", "Feature", "Story"))
         self.combo_item_type.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
         ttk.Label(self.scrollable_frame, text="Title:").pack(anchor=tk.W)
@@ -66,8 +66,32 @@ class EditorPane:
         ttk.Label(self.scrollable_frame, text="Description:").pack(anchor=tk.W)
         self.text_desc = tk.Text(self.scrollable_frame, height=10, width=50)
         self.text_desc.pack(anchor=tk.W, fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Product Tags UI
+        ttk.Label(self.scrollable_frame, text="Products:").pack(anchor=tk.W)
+        self.list_products = tk.Listbox(self.scrollable_frame, height=3)
+        self.list_products.pack(anchor=tk.W, fill=tk.X, pady=(0, 5))
         
-        # Button Frame for CRUD actions - Use fill=X to stabilize layout during resize
+        tag_frame_p = ttk.Frame(self.scrollable_frame)
+        tag_frame_p.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        self.entry_product = ttk.Entry(tag_frame_p)
+        self.entry_product.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(tag_frame_p, text="Add", command=self._add_product_tag).pack(side=tk.LEFT, padx=2)
+        ttk.Button(tag_frame_p, text="Remove Selected", command=self._remove_product_tag).pack(side=tk.LEFT, padx=2)
+
+        # Capability Tags UI
+        ttk.Label(self.scrollable_frame, text="Capabilities:").pack(anchor=tk.W)
+        self.list_capabilities = tk.Listbox(self.scrollable_frame, height=3)
+        self.list_capabilities.pack(anchor=tk.W, fill=tk.X, pady=(0, 5))
+        
+        tag_frame_c = ttk.Frame(self.scrollable_frame)
+        tag_frame_c.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        self.entry_capability = ttk.Entry(tag_frame_c)
+        self.entry_capability.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(tag_frame_c, text="Add", command=self._add_capability_tag).pack(side=tk.LEFT, padx=2)
+        ttk.Button(tag_frame_c, text="Remove Selected", command=self._remove_capability_tag).pack(side=tk.LEFT, padx=2)
+        
+        # Button Frame for CRUD actions
         self.button_frame = ttk.Frame(self.scrollable_frame)
         self.button_frame.pack(fill=tk.X, pady=10)
 
@@ -77,11 +101,31 @@ class EditorPane:
         self.btn_update = ttk.Button(self.button_frame, text="Update Current Item", command=self._on_update_clicked)
         self.btn_update.pack(side=tk.RIGHT, padx=5)
 
+    def _add_product_tag(self):
+        val = self.entry_product.get().strip()
+        if val:
+            self.list_products.insert(tk.END, val)
+            self.entry_product.delete(0, tk.END)
+
+    def _remove_product_tag(self):
+        sel = self.list_products.curselection()
+        if sel:
+            self.list_products.delete(sel)
+
+    def _add_capability_tag(self):
+        val = self.entry_capability.get().strip()
+        if val:
+            self.list_capabilities.insert(tk.END, val)
+            self.entry_capability.delete(0, tk.END)
+
+    def _remove_capability_tag(self):
+        sel = self.list_capabilities.curselection()
+        if sel:
+            self.list_capabilities.delete(sel)
+
     def _on_canvas_configure(self, event):
         """Adjusts the scrollable frame width to match the canvas width."""
         self.canvas.itemconfig(self.canvas_window, width=event.width)
-        # Force redraw sequence to resolve rendering artifacts (ghosting) after window maximization.
-        # We use a short delay to ensure the geometry manager has finished its first pass.
         self.canvas.update_idletasks()
         self.parent.after(20, self._force_redraw)
 
@@ -90,7 +134,6 @@ class EditorPane:
         self.scrollable_frame.update()
         self.btn_update.update()
         self.btn_create.update()
-        # Updating the scrollregion one last time to be sure
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _bind_events(self):
@@ -111,6 +154,14 @@ class EditorPane:
             borderwidth=1,
             relief="flat"
         )
+        for lb in [self.list_products, self.list_capabilities]:
+            lb.configure(
+                bg=palette['field_bg'],
+                fg=palette['fg'],
+                selectbackground=palette['highlight'],
+                borderwidth=1,
+                relief="flat"
+            )
 
     def _on_update_clicked(self):
         """Dispatches the update request for the currently selected item."""
@@ -119,13 +170,15 @@ class EditorPane:
             
         title = self.entry_title.get()
         desc = self.text_desc.get("1.0", tk.END).strip()
+        products = list(self.list_products.get(0, tk.END))
+        capabilities = list(self.list_capabilities.get(0, tk.END))
         
         self.dispatcher.dispatch(UIItemSaveRequestedEvent(
             item_id=self.current_selected_id,
             new_title=title,
             new_description=desc,
-            new_products=[],
-            new_capabilities=[]
+            new_products=products,
+            new_capabilities=capabilities
         ))
 
     def _on_save_clicked(self):
@@ -133,14 +186,16 @@ class EditorPane:
         item_type = self.combo_item_type.get()
         title = self.entry_title.get()
         desc = self.text_desc.get("1.0", tk.END).strip()
+        products = list(self.list_products.get(0, tk.END))
+        capabilities = list(self.list_capabilities.get(0, tk.END))
         
         self.dispatcher.dispatch(UICreateItemRequestedEvent(
             parent_id=self.current_selected_id,
             item_type=item_type,
             title=title,
             description=desc,
-            products=[],
-            capabilities=[]
+            products=products,
+            capabilities=capabilities
         ))
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
@@ -156,6 +211,16 @@ class EditorPane:
         
         self.text_desc.delete("1.0", tk.END)
         self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))
+
+        self.list_products.delete(0, tk.END)
+        products = getattr(event.item_data, 'products', [])
+        for p in products:
+            self.list_products.insert(tk.END, p)
+
+        self.list_capabilities.delete(0, tk.END)
+        capabilities = getattr(event.item_data, 'capabilities', [])
+        for c in capabilities:
+            self.list_capabilities.insert(tk.END, c)
         
         # Reset scroll position to top when switching items
         self.canvas.yview_moveto(0)

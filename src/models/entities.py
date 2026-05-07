@@ -44,8 +44,8 @@ class Story:
         metadata (GitLabMetadata): GitLab-specific metadata for the story.
         interface_boundary (Optional[str]): Describes any external interfaces or boundaries
                                             this story interacts with.
-        products (List[str]): List of associated product IDs.
-        capabilities (List[str]): List of associated capability IDs.
+        products (List[str]): List of associated product names/tags.
+        capabilities (List[str]): List of associated capability names/tags.
     """
     id: str
     title: str
@@ -68,8 +68,8 @@ class Feature:
         team (Team): The team responsible for the feature.
         stories (List[Story]): A list of stories that make up this feature.
         metadata (GitLabMetadata): GitLab-specific metadata for the feature.
-        products (List[str]): List of associated product IDs.
-        capabilities (List[str]): List of associated capability IDs.
+        products (List[str]): List of associated product names/tags.
+        capabilities (List[str]): List of associated capability names/tags.
     """
     id: str
     title: str
@@ -91,8 +91,8 @@ class Epic:
         description (str): A detailed description of the epic.
         features (List[Feature]): A list of features that belong to this epic.
         metadata (GitLabMetadata): GitLab-specific metadata for the epic.
-        products (List[str]): List of associated product IDs.
-        capabilities (List[str]): List of associated capability IDs.
+        products (List[str]): List of associated product names/tags.
+        capabilities (List[str]): List of associated capability names/tags.
     """
     id: str
     title: str
@@ -101,35 +101,3 @@ class Epic:
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
-
-@dataclass
-class Product:
-    """
-    Represents a top-level product, composed of multiple capabilities.
-
-    Attributes:
-        id (str): A unique identifier for the product.
-        title (str): The title of the product.
-        description (str): A detailed description of the product.
-        capabilities (List[Capability]): A list of capabilities that belong to this product.
-    """
-    id: str
-    title: str
-    description: str = ""
-    capabilities: List[Capability] = field(default_factory=list)
-
-@dataclass
-class Capability:
-    """
-    Represents a high-level capability or business function, composed of multiple epics.
-
-    Attributes:
-        id (str): A unique identifier for the capability.
-        title (str): The title or brief description of the capability.
-        description (str): A detailed description of the capability.
-        epics (List[Epic]): A list of epics that contribute to this capability.
-    """
-    id: str
-    title: str
-    description: str = ""
-    epics: List[Epic] = field(default_factory=list)
