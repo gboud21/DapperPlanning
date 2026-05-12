@@ -70,12 +70,12 @@ class EditorPane:
         self.combo_item_type.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
         ttk.Label(self.scrollable_frame, text="Title:").pack(anchor=tk.W)
-        self.entry_title = ttk.Entry(self.scrollable_frame, width=50)
+        self.entry_title = tk.Entry(self.scrollable_frame, width=50)
         self.entry_title.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
         # Weight Entry
         ttk.Label(self.scrollable_frame, text="Weight:").pack(anchor=tk.W)
-        self.entry_weight = ttk.Entry(self.scrollable_frame, validate='key', validatecommand=self.vcmd)
+        self.entry_weight = tk.Entry(self.scrollable_frame, validate='key', validatecommand=self.vcmd)
         self.entry_weight.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
         ttk.Label(self.scrollable_frame, text="Description:").pack(anchor=tk.W)
@@ -89,7 +89,7 @@ class EditorPane:
         
         tag_frame_p = ttk.Frame(self.scrollable_frame)
         tag_frame_p.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
-        self.entry_product = ttk.Entry(tag_frame_p)
+        self.entry_product = tk.Entry(tag_frame_p)
         self.entry_product.pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(tag_frame_p, text="Add", command=self._add_product_tag).pack(side=tk.LEFT, padx=2)
         ttk.Button(tag_frame_p, text="Remove Selected", command=self._remove_product_tag).pack(side=tk.LEFT, padx=2)
@@ -101,7 +101,7 @@ class EditorPane:
         
         tag_frame_c = ttk.Frame(self.scrollable_frame)
         tag_frame_c.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
-        self.entry_capability = ttk.Entry(tag_frame_c)
+        self.entry_capability = tk.Entry(tag_frame_c)
         self.entry_capability.pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(tag_frame_c, text="Add", command=self._add_capability_tag).pack(side=tk.LEFT, padx=2)
         ttk.Button(tag_frame_c, text="Remove Selected", command=self._remove_capability_tag).pack(side=tk.LEFT, padx=2)
@@ -160,15 +160,28 @@ class EditorPane:
         """Reacts to application-wide theme changes."""
         from src.utils.theme_manager import ThemeManager
         palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
+        cursor_color = 'white' if event.is_dark else 'black'
         
         self.canvas.configure(bg=palette['bg'])
         self.text_desc.configure(
             bg=palette['field_bg'],
             fg=palette['fg'],
-            insertbackground=palette['fg'],
+            insertbackground=cursor_color,
             borderwidth=1,
             relief="flat"
         )
+        
+        for entry in [self.entry_title, self.entry_weight, self.entry_product, self.entry_capability]:
+            entry.configure(
+                bg=palette['field_bg'],
+                fg=palette['fg'],
+                insertbackground=cursor_color,
+                highlightthickness=1,
+                highlightbackground=palette['bg'],
+                highlightcolor=palette['highlight'],
+                borderwidth=0
+            )
+
         for lb in [self.list_products, self.list_capabilities]:
             lb.configure(
                 bg=palette['field_bg'],
