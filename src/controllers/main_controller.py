@@ -9,6 +9,7 @@ from .tree_controller import TreeController
 from .editor_controller import EditorController
 from .menu_controller import MenuController
 from .integrations_controller import IntegrationsController
+from .settings_controller import SettingsController
 from src.utils.adapters import DataAdapterFactory
 from src.utils.theme_manager import ThemeManager
 
@@ -31,6 +32,7 @@ class MainController:
         self.editor_controller = EditorController(dispatcher, workspace)
         self.menu_controller = MenuController(dispatcher, workspace)
         self.integrations_controller = IntegrationsController(self.root, dispatcher, workspace)
+        self.settings_controller = SettingsController(self.root, dispatcher)
         
         self._subscribe_events()
 

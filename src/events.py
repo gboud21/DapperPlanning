@@ -74,6 +74,19 @@ class UIIntegrationsSaveRequestedEvent(Event):
     capabilities: list[str]
 
 @dataclass
+class UISettingsDialogOpenRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Preferences'."""
+    pass
+
+@dataclass
+class UISettingsSaveRequestedEvent(Event):
+    """Emitted by the Settings Dialog when the user clicks 'Save & Close'."""
+    theme: str
+    auto_save: bool
+    log_level: str
+    templates: dict
+
+@dataclass
 class UIErrorNotificationEvent(Event):
     """Emitted by Controllers when an operation fails, prompting the View to show an error dialog."""
     title: str

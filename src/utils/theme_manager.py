@@ -24,6 +24,14 @@ class ThemeManager:
     def get_default_settings(cls):
         return {
             'is_dark': False,
+            'theme': 'dark',
+            'auto_save': False,
+            'log_level': 'INFO',
+            'templates': {
+                'Epic': {'Default': ''},
+                'Feature': {'Default': ''},
+                'Story': {'Default': ''}
+            },
             'auth_url': '',
             'auth_pat': '',
             'epic_group_id': '',
@@ -56,6 +64,7 @@ class ThemeManager:
         """Saves the is_dark setting."""
         settings = cls.load_all_settings()
         settings['is_dark'] = is_dark
+        settings['theme'] = 'dark' if is_dark else 'light'
         cls.save_all_settings(settings)
 
     @classmethod
@@ -86,6 +95,30 @@ class ThemeManager:
             'epic_group_id': epic_group_id,
             'product_mappings': product_mappings,
             'capabilities': capabilities
+        })
+        cls.save_all_settings(settings)
+
+    @classmethod
+    def get_general_settings(cls) -> dict:
+        """Retrieves general application preferences and templates."""
+        settings = cls.load_all_settings()
+        return {
+            'theme': settings.get('theme', 'dark'),
+            'auto_save': settings.get('auto_save', False),
+            'log_level': settings.get('log_level', 'INFO'),
+            'templates': settings.get('templates', cls.get_default_settings()['templates'])
+        }
+
+    @classmethod
+    def save_general_settings(cls, theme: str, auto_save: bool, log_level: str, templates: dict):
+        """Saves general application preferences and templates."""
+        settings = cls.load_all_settings()
+        settings.update({
+            'theme': theme,
+            'is_dark': True if theme.lower() == 'dark' else False,
+            'auto_save': auto_save,
+            'log_level': log_level,
+            'templates': templates
         })
         cls.save_all_settings(settings)
 

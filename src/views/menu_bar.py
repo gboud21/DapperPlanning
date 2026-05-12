@@ -4,7 +4,7 @@ from tkinter import ttk, filedialog, messagebox
 from src.events import (
     EventDispatcher, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent, 
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
-    AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent
+    AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent
 )
 
 class ApplicationMenuBar(tk.Menu):
@@ -29,6 +29,8 @@ class ApplicationMenuBar(tk.Menu):
         file_menu.add_command(label="Import...", command=self._on_import)
         file_menu.add_separator()
         file_menu.add_command(label="Export...", command=self._on_export)
+        file_menu.add_separator()
+        file_menu.add_command(label="Preferences...", command=lambda: self.dispatcher.dispatch(UISettingsDialogOpenRequestedEvent()))
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.destroy)
         self.add_cascade(label="File", menu=file_menu)
