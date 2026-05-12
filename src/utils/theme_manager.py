@@ -21,22 +21,73 @@ class ThemeManager:
     }
 
     @classmethod
+    def get_default_settings(cls):
+        return {
+            'is_dark': False,
+            'auth_url': '',
+            'auth_pat': '',
+            'epic_group_id': '',
+            'product_mappings': {},
+            'capabilities': []
+        }
+
+    @classmethod
     def load_settings(cls) -> bool:
+        """Loads the is_dark setting."""
+        settings = cls.load_all_settings()
+        return settings.get('is_dark', False)
+
+    @classmethod
+    def load_all_settings(cls) -> dict:
+        """Loads all settings from the settings file."""
         if not os.path.exists(cls.SETTINGS_FILE):
-            cls.save_settings(False)
-            return False
+            cls.save_all_settings(cls.get_default_settings())
+            return cls.get_default_settings()
         try:
             with open(cls.SETTINGS_FILE, 'r') as f:
-                settings = json.load(f)
-                return settings.get('is_dark', False)
+                settings = cls.get_default_settings()
+                settings.update(json.load(f))
+                return settings
         except (json.JSONDecodeError, IOError):
-            return False
+            return cls.get_default_settings()
 
     @classmethod
     def save_settings(cls, is_dark: bool):
-        settings = {'is_dark': is_dark}
+        """Saves the is_dark setting."""
+        settings = cls.load_all_settings()
+        settings['is_dark'] = is_dark
+        cls.save_all_settings(settings)
+
+    @classmethod
+    def save_all_settings(cls, settings: dict):
+        """Saves the provided settings dictionary to the settings file."""
         with open(cls.SETTINGS_FILE, 'w') as f:
-            json.dump(settings, f)
+            json.dump(settings, f, indent=4)
+
+    @classmethod
+    def get_integration_settings(cls) -> dict:
+        """Retrieves only the integration-related settings."""
+        settings = cls.load_all_settings()
+        return {
+            'auth_url': settings.get('auth_url', ''),
+            'auth_pat': settings.get('auth_pat', ''),
+            'epic_group_id': settings.get('epic_group_id', ''),
+            'product_mappings': settings.get('product_mappings', {}),
+            'capabilities': settings.get('capabilities', [])
+        }
+
+    @classmethod
+    def save_integration_settings(cls, auth_url: str, auth_pat: str, epic_group_id: str, product_mappings: dict, capabilities: list):
+        """Saves integration-related settings."""
+        settings = cls.load_all_settings()
+        settings.update({
+            'auth_url': auth_url,
+            'auth_pat': auth_pat,
+            'epic_group_id': epic_group_id,
+            'product_mappings': product_mappings,
+            'capabilities': capabilities
+        })
+        cls.save_all_settings(settings)
 
     @classmethod
     def apply_ttk_theme(cls, is_dark: bool):

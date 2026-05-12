@@ -60,6 +60,20 @@ class UIImportJsonRequestedEvent(Event):
     file_path: str
 
 @dataclass
+class UIIntegrationsDialogOpenRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Manage Connections'."""
+    pass
+
+@dataclass
+class UIIntegrationsSaveRequestedEvent(Event):
+    """Emitted by the Integrations Dialog when the user clicks 'Save & Close'."""
+    auth_url: str
+    auth_pat: str
+    epic_group_id: str
+    product_mappings: dict[str, str]
+    capabilities: list[str]
+
+@dataclass
 class UIErrorNotificationEvent(Event):
     """Emitted by Controllers when an operation fails, prompting the View to show an error dialog."""
     title: str

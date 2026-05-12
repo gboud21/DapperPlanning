@@ -26,7 +26,7 @@ def main():
     # 3. Initialize Model, View, and Controller with Dependency Injection
     workspace = Workspace(dispatcher)
     view = MainWindow(root, dispatcher)
-    controller = MainController(dispatcher, workspace)
+    controller = MainController(dispatcher, workspace, root)
 
     # 4. Start the Application
     root.mainloop()
