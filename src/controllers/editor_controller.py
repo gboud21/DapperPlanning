@@ -27,6 +27,10 @@ class EditorController:
 
     def handle_item_save(self, event: UIItemSaveRequestedEvent):
         """Updates an existing item's details."""
+        item = self.workspace._find_item_by_id(event.item_id)
+        if isinstance(item, Story):
+             item.weight = event.weight
+
         self.workspace.update_item_details(
             event.item_id, 
             event.new_title, 
@@ -72,7 +76,8 @@ class EditorController:
                 description=event.description, 
                 team=Team(name="Unassigned"),
                 products=event.products,
-                capabilities=event.capabilities
+                capabilities=event.capabilities,
+                weight=event.weight
             )
             parent.stories.append(item)
 

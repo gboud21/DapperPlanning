@@ -46,6 +46,7 @@ class Story:
                                             this story interacts with.
         products (List[str]): List of associated product names/tags.
         capabilities (List[str]): List of associated capability names/tags.
+        weight (float): The weight assigned to the story.
     """
     id: str
     title: str
@@ -55,6 +56,7 @@ class Story:
     interface_boundary: Optional[str] = None
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
+    weight: float = 0.0
 
 @dataclass
 class Feature:
@@ -80,6 +82,11 @@ class Feature:
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
 
+    @property
+    def weight(self) -> float:
+        """Returns the sum of the weights of all items in its stories list."""
+        return sum(s.weight for s in self.stories)
+
 @dataclass
 class Epic:
     """
@@ -101,3 +108,8 @@ class Epic:
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
+
+    @property
+    def weight(self) -> float:
+        """Returns the sum of the weights of all items in its features list."""
+        return sum(f.weight for f in self.features)

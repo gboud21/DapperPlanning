@@ -88,7 +88,7 @@ class GitLabClient:
             "description": f"{story.metadata.template}\\n\\n{story.description}",
             "epic_iid": epic_iid,
             "labels": ",".join(labels),
-            "weight": story.metadata.weight
+            "weight": round(story.weight)
         }
         
         response = self._post(f"projects/{self.project_id}/issues", payload)

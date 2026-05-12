@@ -150,9 +150,10 @@ class TreePane:
         for item in items:
             item_id = getattr(item, 'id', str(id(item)))
             title = getattr(item, 'title', "Untitled")
+            weight = getattr(item, 'weight', 0.0)
             item_type = type(item).__name__
             
-            node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=title, tags=(item_type,))
+            node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=f"[{weight:.1f}] {title}", tags=(item_type,))
             
             if item_type == "Epic" and hasattr(item, "features"):
                 self._populate_nodes(node_iid, item.features)

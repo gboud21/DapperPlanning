@@ -20,7 +20,8 @@ class HierarchyFlattener:
                     'Description': item.description,
                     'Team': team_name,
                     'Products': ",".join(getattr(item, 'products', [])),
-                    'Capabilities': ",".join(getattr(item, 'capabilities', []))
+                    'Capabilities': ",".join(getattr(item, 'capabilities', [])),
+                    'Weight': getattr(item, 'weight', 0.0)
                 })
                 
                 # Recursive traversal
@@ -49,6 +50,7 @@ class HierarchyBuilder:
             team_name = row.get('Team', '')
             products = [p.strip() for p in row.get('Products', '').split(',') if p.strip()]
             capabilities = [c.strip() for c in row.get('Capabilities', '').split(',') if c.strip()]
+            weight = float(row.get('Weight', 0.0))
             
             team = Team(name=team_name) if team_name else None
             
@@ -57,7 +59,7 @@ class HierarchyBuilder:
             elif item_type == "Feature":
                 obj = Feature(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities)
             elif item_type == "Story":
-                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities)
+                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, weight=weight)
             else:
                 continue
                 
@@ -88,6 +90,7 @@ class HierarchyBuilder:
         def dict_to_obj(d, item_type):
             products = d.get("products", [])
             capabilities = d.get("capabilities", [])
+            weight = float(d.get("weight", 0.0))
             if item_type == "Epic":
                 features = [dict_to_obj(f, "Feature") for f in d.get("features", [])]
                 return Epic(id=d["id"], title=d["title"], description=d["description"], features=features, products=products, capabilities=capabilities)
@@ -97,7 +100,7 @@ class HierarchyBuilder:
                 return Feature(id=d["id"], title=d["title"], description=d["description"], team=team, stories=stories, products=products, capabilities=capabilities)
             elif item_type == "Story":
                 team = Team(**d["team"]) if d.get("team") else None
-                return Story(id=d["id"], title=d["title"], description=d["description"], team=team, products=products, capabilities=capabilities)
+                return Story(id=d["id"], title=d["title"], description=d["description"], team=team, products=products, capabilities=capabilities, weight=weight)
             return None
 
         return [dict_to_obj(e_dict, "Epic") for e_dict in data]

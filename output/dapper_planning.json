@@ -1,0 +1,19 @@
+[
+    {
+        "id": "8fa0428a-b4e1-4942-bacc-dbbdd685952d",
+        "title": "Desktop GUI & Resolution",
+        "description": "Basic tkinter window with adjustable/scalable panes and window management (minimize/maximize/close).",
+        "features": [],
+        "metadata": {
+            "assignee": "",
+            "milestone": "",
+            "weight": 0,
+            "labels": [],
+            "template": ""
+        },
+        "products": [
+            "DapperPlanning"
+        ],
+        "capabilities": []
+    }
+]

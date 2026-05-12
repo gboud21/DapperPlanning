@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import re
 from src.events import (
     EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent,
     AppThemeChangedEvent
@@ -18,8 +19,17 @@ class EditorPane:
         self.dispatcher = dispatcher
         self.current_selected_id = None
         
+        # Register validation command
+        self.vcmd = (self.parent.register(self._validate_weight), '%P')
+        
         self._setup_ui()
         self._bind_events()
+
+    def _validate_weight(self, new_value: str) -> bool:
+        """Validates that the input is a number with at most one decimal place."""
+        if new_value == "":
+            return True
+        return bool(re.match(r'^\d*\.?\d{0,1}$', new_value))
 
     def _setup_ui(self):
         """Sets up the labels, entries, and action buttons with a scrollbar."""
@@ -62,6 +72,11 @@ class EditorPane:
         ttk.Label(self.scrollable_frame, text="Title:").pack(anchor=tk.W)
         self.entry_title = ttk.Entry(self.scrollable_frame, width=50)
         self.entry_title.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+
+        # Weight Entry
+        ttk.Label(self.scrollable_frame, text="Weight:").pack(anchor=tk.W)
+        self.entry_weight = ttk.Entry(self.scrollable_frame, validate='key', validatecommand=self.vcmd)
+        self.entry_weight.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
         ttk.Label(self.scrollable_frame, text="Description:").pack(anchor=tk.W)
         self.text_desc = tk.Text(self.scrollable_frame, height=10, width=50)
@@ -173,12 +188,16 @@ class EditorPane:
         products = list(self.list_products.get(0, tk.END))
         capabilities = list(self.list_capabilities.get(0, tk.END))
         
+        weight_str = self.entry_weight.get()
+        weight = float(weight_str) if weight_str else 0.0
+        
         self.dispatcher.dispatch(UIItemSaveRequestedEvent(
             item_id=self.current_selected_id,
             new_title=title,
             new_description=desc,
             new_products=products,
-            new_capabilities=capabilities
+            new_capabilities=capabilities,
+            weight=weight
         ))
 
     def _on_save_clicked(self):
@@ -188,6 +207,9 @@ class EditorPane:
         desc = self.text_desc.get("1.0", tk.END).strip()
         products = list(self.list_products.get(0, tk.END))
         capabilities = list(self.list_capabilities.get(0, tk.END))
+
+        weight_str = self.entry_weight.get()
+        weight = float(weight_str) if weight_str else 0.0
         
         self.dispatcher.dispatch(UICreateItemRequestedEvent(
             parent_id=self.current_selected_id,
@@ -195,7 +217,8 @@ class EditorPane:
             title=title,
             description=desc,
             products=products,
-            capabilities=capabilities
+            capabilities=capabilities,
+            weight=weight
         ))
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
@@ -209,6 +232,17 @@ class EditorPane:
         self.entry_title.delete(0, tk.END)
         self.entry_title.insert(0, getattr(event.item_data, 'title', ''))
         
+        # Populate weight and set state
+        self.entry_weight.config(state='normal')
+        self.entry_weight.delete(0, tk.END)
+        weight = getattr(event.item_data, 'weight', 0.0)
+        self.entry_weight.insert(0, f"{weight:.1f}")
+        
+        if item_type in ['Epic', 'Feature']:
+            self.entry_weight.config(state='disabled')
+        else:
+            self.entry_weight.config(state='normal')
+
         self.text_desc.delete("1.0", tk.END)
         self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))
 
