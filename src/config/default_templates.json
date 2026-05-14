@@ -1,0 +1,70 @@
+{
+  "agile_templates": {
+    "metadata": {
+      "audience": "Engineering Teams",
+      "testing_philosophy": "Developer-driven automated testing",
+      "domain": "Product Agnostic",
+      "supported_methodologies": [
+        {
+          "name": "Scrum",
+          "focus": "Sprint goals, dependencies within sprint boundaries."
+        },
+        {
+          "name": "Kanban",
+          "focus": "WIP limits, flow, resolving blockers."
+        },
+        {
+          "name": "SAFe",
+          "focus": "Program Increments (PI), WSJF (Weighted Shortest Job First), cross-team dependencies."
+        }
+      ],
+      "supported_hierarchies": {
+        "standard": ["Epic", "Feature", "Story"],
+        "alternate": ["Initiative", "Epic", "Story"]
+      }
+    },
+    "modular_sections": {
+      "out_of_scope": {
+        "description": "Explicitly defines what is not included in this work item to prevent scope creep.",
+        "jira_syntax": "h3. Out of Scope\n* \n* ",
+        "gitlab_syntax": "### Out of Scope\n- [ ] \n- [ ] "
+      },
+      "compliance_and_security": {
+        "description": "Checklist for regulatory, compliance, and security standards.",
+        "jira_syntax": "h3. Compliance & Security Requirements\n* Data Privacy / PII handled appropriately\n* Threat model reviewed\n* Automated security scans integrated\n* Audit logging requirements met",
+        "gitlab_syntax": "### Compliance & Security Requirements\n- [ ] Data Privacy / PII handled appropriately\n- [ ] Threat model reviewed\n- [ ] Automated security scans integrated\n- [ ] Audit logging requirements met"
+      }
+    },
+    "templates": {
+      "Initiative_or_Standard_Epic": {
+        "description": "The highest level of the hierarchy. Represents a large strategic objective spanning multiple months or PIs.",
+        "heavyweight": {
+          "jira": "h2. Strategic Context\n[Explain the business value and why this is a priority now]\n\nh2. Hypothesis / Expected Outcomes\n* If we [action], we expect to see [measurable result].\n\nh2. SAFe / Methodology Alignment\n* *WSJF Score:* \n* *Target PI / Target Quarter:* \n\nh2. Success Metrics\n* [Metric 1]\n* [Metric 2]",
+          "gitlab": "## Strategic Context\n[Explain the business value and why this is a priority now]\n\n## Hypothesis / Expected Outcomes\n* If we [action], we expect to see [measurable result].\n\n## SAFe / Methodology Alignment\n* **WSJF Score:** \n* **Target PI / Target Quarter:** \n\n## Success Metrics\n* [Metric 1]\n* [Metric 2]\n\n/epic"
+        }
+      },
+      "Feature_or_Alternate_Epic": {
+        "description": "A shippable piece of functionality that delivers value to the user, broken down into stories.",
+        "heavyweight": {
+          "jira": "h2. Problem Statement\n[What problem are we solving for the user or system?]\n\nh2. Proposed Solution\n[High-level technical and product solution]\n\nh2. Architecture & Technical Design\n* *Design Doc:* [Link]\n* *API Contracts:* [Link]\n* *Database Changes:* [Brief description]\n\nh2. Dependencies\n* [List cross-team or external dependencies]\n\nh2. Acceptance Criteria\n# AC 1\n# AC 2",
+          "gitlab": "## Problem Statement\n[What problem are we solving for the user or system?]\n\n## Proposed Solution\n[High-level technical and product solution]\n\n## Architecture & Technical Design\n* **Design Doc:** [Link]\n* **API Contracts:** [Link]\n* **Database Changes:** [Brief description]\n\n## Dependencies\n* [List cross-team or external dependencies]\n\n## Acceptance Criteria\n1. AC 1\n2. AC 2\n\n/label ~feature"
+        },
+        "lightweight": {
+          "jira": "h2. Context\n[Brief description of the feature and its value]\n\nh2. Acceptance Criteria\n* AC 1\n* AC 2",
+          "gitlab": "## Context\n[Brief description of the feature and its value]\n\n## Acceptance Criteria\n* [ ] AC 1\n* [ ] AC 2\n\n/label ~feature"
+        }
+      },
+      "User_Story": {
+        "description": "The smallest unit of work, representing a single technical task or user-facing change.",
+        "heavyweight": {
+          "jira": "h2. User Story\nAs a [role/system], I need to [action/implementation], so that [value/benefit].\n\nh2. Technical Implementation Notes\n[Detailed engineering notes, edge cases, algorithms, or refactoring required]\n\nh2. Acceptance Criteria\n* Given [context], when [event], then [outcome].\n* Given [context], when [event], then [outcome].\n\nh2. Testing & Automation Strategy\n* *Unit Tests:* \n* *Integration Tests:* \n* *Performance/Load Tests:* [If applicable]\n\nh2. Definition of Done Checklist\n* Code reviewed and approved\n* CI/CD pipeline passes (all automated tests green)\n* Documentation updated",
+          "gitlab": "## User Story\nAs a [role/system], I need to [action/implementation], so that [value/benefit].\n\n## Technical Implementation Notes\n[Detailed engineering notes, edge cases, algorithms, or refactoring required]\n\n## Acceptance Criteria\n* **Given** [context], **when** [event], **then** [outcome].\n* **Given** [context], **when** [event], **then** [outcome].\n\n## Testing & Automation Strategy\n* **Unit Tests:** \n* **Integration Tests:** \n* **Performance/Load Tests:** [If applicable]\n\n## Definition of Done Checklist\n- [ ] Code reviewed and approved\n- [ ] CI/CD pipeline passes (all automated tests green)\n- [ ] Documentation updated\n\n/label ~story\n/assign"
+        },
+        "lightweight": {
+          "jira": "h3. Description\nAs a [role], I need to [action] so that [value].\n\nh3. Acceptance Criteria\n* AC 1\n* AC 2\n\nh3. Testing Notes\n* Requires automated test coverage before merge.",
+          "gitlab": "### Description\nAs a [role], I need to [action] so that [value].\n\n### Acceptance Criteria\n- [ ] AC 1\n- [ ] AC 2\n\n### Testing Notes\n- [ ] Requires automated test coverage before merge.\n\n/label ~story"
+        }
+      }
+    }
+  }
+}
