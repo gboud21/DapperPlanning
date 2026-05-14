@@ -36,6 +36,14 @@ class ThemeManager:
                 'Feature': {'Default': ''},
                 'Story': {'Default': ''}
             },
+            # Template parameters
+            'target_tool': 'GitLab',
+            'methodology': 'Scrum',
+            'hierarchy': 'Epic -> Feature -> Story',
+            'description_type': 'Heavyweight',
+            'include_out_of_scope': False,
+            'include_compliance': False,
+            
             'auth_url': '',
             'auth_pat': '',
             'epic_group_id': '',
@@ -112,11 +120,17 @@ class ThemeManager:
             'theme': settings.get('theme', 'dark'),
             'auto_save': settings.get('auto_save', False),
             'log_level': settings.get('log_level', 'INFO'),
-            'templates': settings.get('templates', cls.get_default_settings()['templates'])
+            'templates': settings.get('templates', cls.get_default_settings()['templates']),
+            'target_tool': settings.get('target_tool', 'GitLab'),
+            'methodology': settings.get('methodology', 'Scrum'),
+            'hierarchy': settings.get('hierarchy', 'Epic -> Feature -> Story'),
+            'description_type': settings.get('description_type', 'Heavyweight'),
+            'include_out_of_scope': settings.get('include_out_of_scope', False),
+            'include_compliance': settings.get('include_compliance', False)
         }
 
     @classmethod
-    def save_general_settings(cls, theme: str, auto_save: bool, log_level: str, templates: dict):
+    def save_general_settings(cls, theme: str, auto_save: bool, log_level: str, templates: dict, **kwargs):
         """Saves general application preferences and templates."""
         settings = cls.load_all_settings()
         settings.update({
@@ -126,6 +140,8 @@ class ThemeManager:
             'log_level': log_level,
             'templates': templates
         })
+        # Update any additional parameters (tool, methodology, etc.)
+        settings.update(kwargs)
         cls.save_all_settings(settings)
 
     @classmethod

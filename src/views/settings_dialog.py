@@ -4,6 +4,7 @@ from src.events import (
     EventDispatcher, UISettingsSaveRequestedEvent, AppThemeChangedEvent, 
     UITemplateConfigExportRequestedEvent
 )
+from src.utils.template_generator import TemplateGenerator
 
 class SettingsDialog(tk.Toplevel):
     def __init__(self, parent: tk.Tk, dispatcher: EventDispatcher, current_settings: dict):
@@ -82,34 +83,34 @@ class SettingsDialog(tk.Toplevel):
         ttk.Label(params_frame, text="Target Tool:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
         self.combo_tool = ttk.Combobox(params_frame, values=["GitLab", "Jira"], state="readonly", style="Preferences.TCombobox")
         self.combo_tool.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=2)
-        self.combo_tool.set("GitLab")
+        self.combo_tool.bind("<<ComboboxSelected>>", lambda e: self._refresh_template_preview())
 
         # 2. Methodology
         ttk.Label(params_frame, text="Methodology:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=2)
         self.combo_methodology = ttk.Combobox(params_frame, values=["Scrum", "Kanban", "SAFe"], state="readonly", style="Preferences.TCombobox")
         self.combo_methodology.grid(row=0, column=3, sticky=tk.EW, padx=5, pady=2)
-        self.combo_methodology.set("Scrum")
+        self.combo_methodology.bind("<<ComboboxSelected>>", lambda e: self._refresh_template_preview())
 
         # 3. Hierarchy
         ttk.Label(params_frame, text="Hierarchy:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
         self.combo_hierarchy = ttk.Combobox(params_frame, values=["Epic -> Feature -> Story", "Epic -> Story"], state="readonly", style="Preferences.TCombobox")
         self.combo_hierarchy.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
-        self.combo_hierarchy.set("Epic -> Feature -> Story")
+        self.combo_hierarchy.bind("<<ComboboxSelected>>", lambda e: self._refresh_template_preview())
 
         # 4. Description Type
         ttk.Label(params_frame, text="Description Type:").grid(row=1, column=2, sticky=tk.W, padx=5, pady=2)
         self.combo_type = ttk.Combobox(params_frame, values=["Heavyweight", "Lightweight"], state="readonly", style="Preferences.TCombobox")
         self.combo_type.grid(row=1, column=3, sticky=tk.EW, padx=5, pady=2)
-        self.combo_type.set("Heavyweight")
+        self.combo_type.bind("<<ComboboxSelected>>", lambda e: self._refresh_template_preview())
 
         # 5. Include Out of Scope
         self.var_out_of_scope = tk.BooleanVar()
-        self.check_out_of_scope = ttk.Checkbutton(params_frame, text="Include Out of Scope", variable=self.var_out_of_scope)
+        self.check_out_of_scope = ttk.Checkbutton(params_frame, text="Include Out of Scope", variable=self.var_out_of_scope, command=self._refresh_template_preview)
         self.check_out_of_scope.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
 
         # 6. Include Compliance & Security
         self.var_compliance = tk.BooleanVar()
-        self.check_compliance = ttk.Checkbutton(params_frame, text="Include Compliance & Security", variable=self.var_compliance)
+        self.check_compliance = ttk.Checkbutton(params_frame, text="Include Compliance & Security", variable=self.var_compliance, command=self._refresh_template_preview)
         self.check_compliance.grid(row=2, column=2, columnspan=2, sticky=tk.W, padx=5, pady=2)
 
         # Existing Template Controls (Below Parameters)
@@ -165,8 +166,28 @@ class SettingsDialog(tk.Toplevel):
         self.var_auto_save.set(self.current_settings.get('auto_save', False))
         self.combo_log_level.set(self.current_settings.get('log_level', 'INFO'))
         
+        # Load Template Parameters
+        self.combo_tool.set(self.current_settings.get('target_tool', 'GitLab'))
+        self.combo_methodology.set(self.current_settings.get('methodology', 'Scrum'))
+        self.combo_hierarchy.set(self.current_settings.get('hierarchy', 'Epic -> Feature -> Story'))
+        self.combo_type.set(self.current_settings.get('description_type', 'Heavyweight'))
+        self.var_out_of_scope.set(self.current_settings.get('include_out_of_scope', False))
+        self.var_compliance.set(self.current_settings.get('include_compliance', False))
+        
         self.combo_item_type.set("Epic")
         self._on_item_type_changed(None)
+
+    def _refresh_template_preview(self):
+        """Generates a preview based on current parameters and updates the text area."""
+        content = TemplateGenerator.generate(
+            item_type=self.combo_item_type.get(),
+            tool=self.combo_tool.get(),
+            desc_type=self.combo_type.get(),
+            out_of_scope=self.var_out_of_scope.get(),
+            compliance=self.var_compliance.get()
+        )
+        self.text_template.delete("1.0", tk.END)
+        self.text_template.insert("1.0", content)
 
     def _on_item_type_changed(self, event):
         item_type = self.combo_item_type.get()
@@ -175,6 +196,8 @@ class SettingsDialog(tk.Toplevel):
         if names:
             self.combo_template_name.set(names[0])
             self._on_template_name_changed(None)
+        else:
+            self._refresh_template_preview()
 
     def _on_template_name_changed(self, event):
         item_type = self.combo_item_type.get()
@@ -213,9 +236,7 @@ class SettingsDialog(tk.Toplevel):
             self.templates[item_type][name] = content
 
     def _revert_template(self):
-        # Implementation could fetch original defaults if stored, 
-        # here we just clear it or revert to an empty string for simplicity in scaffold
-        self.text_template.delete("1.0", tk.END)
+        self._refresh_template_preview()
 
     def _on_export_config_clicked(self):
         payload = {
@@ -234,6 +255,12 @@ class SettingsDialog(tk.Toplevel):
             theme=self.combo_theme.get().lower(),
             auto_save=self.var_auto_save.get(),
             log_level=self.combo_log_level.get(),
-            templates=self.templates
+            templates=self.templates,
+            target_tool=self.combo_tool.get(),
+            methodology=self.combo_methodology.get(),
+            hierarchy=self.combo_hierarchy.get(),
+            description_type=self.combo_type.get(),
+            include_out_of_scope=self.var_out_of_scope.get(),
+            include_compliance=self.var_compliance.get()
         ))
         self.destroy()

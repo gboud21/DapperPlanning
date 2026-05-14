@@ -5,6 +5,8 @@ from src.events import (
     EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent,
     AppThemeChangedEvent
 )
+from src.utils.template_generator import TemplateGenerator
+from src.utils.theme_manager import ThemeManager
 
 class EditorPane:
     def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher):
@@ -24,6 +26,7 @@ class EditorPane:
         
         self._setup_ui()
         self._bind_events()
+        self._load_config()
 
     def _validate_weight(self, new_value: str) -> bool:
         """Validates that the input is a number with at most one decimal place."""
@@ -63,11 +66,43 @@ class EditorPane:
         self.lbl_editor_title = ttk.Label(self.scrollable_frame, text="Select an item to edit", font=("Arial", 14, "bold"))
         self.lbl_editor_title.pack(anchor=tk.W, pady=(0, 10))
 
+        # --- Template Parameters Section ---
+        params_frame = ttk.LabelFrame(self.scrollable_frame, text="Template Parameters")
+        params_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        params_frame.columnconfigure(1, weight=1)
+        params_frame.columnconfigure(3, weight=1)
+
+        ttk.Label(params_frame, text="Tool:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.combo_tool = ttk.Combobox(params_frame, values=["GitLab", "Jira"], state="readonly")
+        self.combo_tool.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=2)
+        self.combo_tool.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
+
+        ttk.Label(params_frame, text="Methodology:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=2)
+        self.combo_methodology = ttk.Combobox(params_frame, values=["Scrum", "Kanban", "SAFe"], state="readonly")
+        self.combo_methodology.grid(row=0, column=3, sticky=tk.EW, padx=5, pady=2)
+        self.combo_methodology.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
+
+        ttk.Label(params_frame, text="Type:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.combo_type = ttk.Combobox(params_frame, values=["Heavyweight", "Lightweight"], state="readonly")
+        self.combo_type.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
+        self.combo_type.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
+
+        self.var_out_of_scope = tk.BooleanVar()
+        self.check_out_of_scope = ttk.Checkbutton(params_frame, text="Include Out of Scope", variable=self.var_out_of_scope, command=self._refresh_description_template)
+        self.check_out_of_scope.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
+
+        self.var_compliance = tk.BooleanVar()
+        self.check_compliance = ttk.Checkbutton(params_frame, text="Include Compliance & Security", variable=self.var_compliance, command=self._refresh_description_template)
+        self.check_compliance.grid(row=2, column=2, columnspan=2, sticky=tk.W, padx=5, pady=2)
+        # -----------------------------------
+
         # Item Type Selection
         ttk.Label(self.scrollable_frame, text="Item Type:").pack(anchor=tk.W)
         self.combo_item_type = ttk.Combobox(self.scrollable_frame, state="readonly", 
                                             values=("Epic", "Feature", "Story"))
         self.combo_item_type.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        self.combo_item_type.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
 
         ttk.Label(self.scrollable_frame, text="Title:").pack(anchor=tk.W)
         self.entry_title = tk.Entry(self.scrollable_frame, width=50)
@@ -115,6 +150,30 @@ class EditorPane:
 
         self.btn_update = ttk.Button(self.button_frame, text="Update Current Item", command=self._on_update_clicked)
         self.btn_update.pack(side=tk.RIGHT, padx=5)
+
+    def _load_config(self):
+        """Loads user configuration for template defaults."""
+        config = ThemeManager.get_general_settings()
+        self.combo_tool.set(config.get('target_tool', 'GitLab'))
+        self.combo_methodology.set(config.get('methodology', 'Scrum'))
+        self.combo_type.set(config.get('description_type', 'Heavyweight'))
+        self.var_out_of_scope.set(config.get('include_out_of_scope', False))
+        self.var_compliance.set(config.get('include_compliance', False))
+
+    def _refresh_description_template(self):
+        """Generates and updates the description text based on current parameters."""
+        content = TemplateGenerator.generate(
+            item_type=self.combo_item_type.get(),
+            tool=self.combo_tool.get(),
+            desc_type=self.combo_type.get(),
+            out_of_scope=self.var_out_of_scope.get(),
+            compliance=self.var_compliance.get()
+        )
+        # Only auto-fill if the text is empty or starts with a template header
+        # For simplicity, we'll just overwrite if specifically asked to refresh.
+        # But here we do it live as requested.
+        self.text_desc.delete("1.0", tk.END)
+        self.text_desc.insert("1.0", content)
 
     def _add_product_tag(self):
         val = self.entry_product.get().strip()
