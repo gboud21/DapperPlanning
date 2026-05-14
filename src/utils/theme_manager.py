@@ -1,9 +1,13 @@
 import json
 import os
 from tkinter import ttk
+from src.utils.paths import get_user_data_dir
 
 class ThemeManager:
-    SETTINGS_FILE = 'settings.json'
+    @classmethod
+    def _get_settings_path(cls):
+        """Returns the absolute path to the settings.json file in the user data directory."""
+        return get_user_data_dir() / 'settings.json'
     
     # VS Code-style color palettes
     DARK_PALETTE = {
@@ -48,11 +52,12 @@ class ThemeManager:
     @classmethod
     def load_all_settings(cls) -> dict:
         """Loads all settings from the settings file."""
-        if not os.path.exists(cls.SETTINGS_FILE):
+        settings_path = cls._get_settings_path()
+        if not os.path.exists(settings_path):
             cls.save_all_settings(cls.get_default_settings())
             return cls.get_default_settings()
         try:
-            with open(cls.SETTINGS_FILE, 'r') as f:
+            with open(settings_path, 'r') as f:
                 settings = cls.get_default_settings()
                 settings.update(json.load(f))
                 return settings
@@ -70,7 +75,8 @@ class ThemeManager:
     @classmethod
     def save_all_settings(cls, settings: dict):
         """Saves the provided settings dictionary to the settings file."""
-        with open(cls.SETTINGS_FILE, 'w') as f:
+        settings_path = cls._get_settings_path()
+        with open(settings_path, 'w') as f:
             json.dump(settings, f, indent=4)
 
     @classmethod

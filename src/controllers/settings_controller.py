@@ -4,6 +4,7 @@ from src.events import (
 )
 from src.utils.theme_manager import ThemeManager
 from src.views.settings_dialog import SettingsDialog
+from src.utils.paths import get_user_data_dir, get_app_config_dir
 import tkinter as tk
 import os
 import json
@@ -53,11 +54,14 @@ class SettingsController:
         Handles the export of the template configuration to a JSON file.
         """
         try:
-            # Ensure output directory exists
-            output_dir = "./output"
+            # Use OS-appropriate user data directory for exports
+            output_dir = get_user_data_dir() / "output"
             os.makedirs(output_dir, exist_ok=True)
             
-            file_path = os.path.join(output_dir, "template_config.json")
+            file_path = output_dir / "template_config.json"
+            
+            # Note: If default_templates.json were to be loaded as a base,
+            # it should be accessed via: get_app_config_dir() / 'default_templates.json'
             
             with open(file_path, 'w') as f:
                 json.dump(event.payload, f, indent=4)
