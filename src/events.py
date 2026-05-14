@@ -87,6 +87,11 @@ class UISettingsSaveRequestedEvent(Event):
     templates: dict
 
 @dataclass
+class UITemplateConfigExportRequestedEvent(Event):
+    """Emitted by the Settings Dialog when the user clicks 'Export Configuration'."""
+    payload: dict
+
+@dataclass
 class UIErrorNotificationEvent(Event):
     """Emitted by Controllers when an operation fails, prompting the View to show an error dialog."""
     title: str

@@ -20,6 +20,12 @@ def main():
     root.geometry("1000x700")
     root.minsize(800, 600)
 
+    # Global style overrides for Combobox dropdowns to ensure black text readability
+    root.option_add('*TCombobox*Listbox.foreground', 'black')
+    root.option_add('*TCombobox*Listbox.background', 'white')
+    root.option_add('*TCombobox*Listbox.selectForeground', 'white')
+    root.option_add('*TCombobox*Listbox.selectBackground', '#0078d7')
+
     # 2. Initialize the Event Dispatcher (Local Scope)
     dispatcher = EventDispatcher(root)
 

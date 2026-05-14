@@ -148,6 +148,16 @@ class ThemeManager:
                         foreground=palette['fg'],
                         arrowcolor='white' if is_dark else 'black')
         
+        # Special style for Preferences/Settings with forced high-contrast black text
+        style.configure('Preferences.TCombobox', 
+                        fieldbackground='white', 
+                        background='white', 
+                        foreground='black',
+                        arrowcolor='black')
+        style.map('Preferences.TCombobox', 
+                  fieldbackground=[('readonly', 'white')],
+                  foreground=[('readonly', 'black')])
+        
         style.configure('TNotebook', background=palette['bg'], borderwidth=0)
         style.configure('TNotebook.Tab', background=palette['bg'], foreground=palette['fg'])
         style.map('TNotebook.Tab', background=[('selected', palette['field_bg'])])

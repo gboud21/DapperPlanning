@@ -1,70 +1,92 @@
 {
-  "agile_templates": {
-    "metadata": {
-      "audience": "Engineering Teams",
-      "testing_philosophy": "Developer-driven automated testing",
-      "domain": "Product Agnostic",
-      "supported_methodologies": [
-        {
-          "name": "Scrum",
-          "focus": "Sprint goals, dependencies within sprint boundaries."
-        },
-        {
-          "name": "Kanban",
-          "focus": "WIP limits, flow, resolving blockers."
-        },
-        {
-          "name": "SAFe",
-          "focus": "Program Increments (PI), WSJF (Weighted Shortest Job First), cross-team dependencies."
-        }
+  "syntax": {
+    "gitlab": "markdown",
+    "jira": "wiki_markup"
+  },
+  "base_layouts": {
+    "Heavyweight": {
+      "Epic": [
+        "executive_summary",
+        "business_value",
+        "acceptance_criteria",
+        "dependencies",
+        "target_audience"
       ],
-      "supported_hierarchies": {
-        "standard": ["Epic", "Feature", "Story"],
-        "alternate": ["Initiative", "Epic", "Story"]
-      }
+      "Feature": [
+        "feature_description",
+        "user_impact",
+        "acceptance_criteria",
+        "technical_notes"
+      ],
+      "Story": [
+        "user_story",
+        "acceptance_criteria",
+        "technical_notes",
+        "testing_notes"
+      ]
     },
-    "modular_sections": {
-      "out_of_scope": {
-        "description": "Explicitly defines what is not included in this work item to prevent scope creep.",
-        "jira_syntax": "h3. Out of Scope\n* \n* ",
-        "gitlab_syntax": "### Out of Scope\n- [ ] \n- [ ] "
-      },
-      "compliance_and_security": {
-        "description": "Checklist for regulatory, compliance, and security standards.",
-        "jira_syntax": "h3. Compliance & Security Requirements\n* Data Privacy / PII handled appropriately\n* Threat model reviewed\n* Automated security scans integrated\n* Audit logging requirements met",
-        "gitlab_syntax": "### Compliance & Security Requirements\n- [ ] Data Privacy / PII handled appropriately\n- [ ] Threat model reviewed\n- [ ] Automated security scans integrated\n- [ ] Audit logging requirements met"
-      }
+    "Lightweight": {
+      "Epic": [
+        "executive_summary",
+        "acceptance_criteria"
+      ],
+      "Feature": [
+        "feature_description",
+        "acceptance_criteria"
+      ],
+      "Story": [
+        "user_story"
+      ]
+    }
+  },
+  "blocks": {
+    "executive_summary": {
+      "markdown": "## Executive Summary\nProvide a high-level overview of this Epic. What are we building, and why does it matter to the organization?\n\n",
+      "wiki_markup": "h2. Executive Summary\nProvide a high-level overview of this Epic. What are we building, and why does it matter to the organization?\n\n"
     },
-    "templates": {
-      "Initiative_or_Standard_Epic": {
-        "description": "The highest level of the hierarchy. Represents a large strategic objective spanning multiple months or PIs.",
-        "heavyweight": {
-          "jira": "h2. Strategic Context\n[Explain the business value and why this is a priority now]\n\nh2. Hypothesis / Expected Outcomes\n* If we [action], we expect to see [measurable result].\n\nh2. SAFe / Methodology Alignment\n* *WSJF Score:* \n* *Target PI / Target Quarter:* \n\nh2. Success Metrics\n* [Metric 1]\n* [Metric 2]",
-          "gitlab": "## Strategic Context\n[Explain the business value and why this is a priority now]\n\n## Hypothesis / Expected Outcomes\n* If we [action], we expect to see [measurable result].\n\n## SAFe / Methodology Alignment\n* **WSJF Score:** \n* **Target PI / Target Quarter:** \n\n## Success Metrics\n* [Metric 1]\n* [Metric 2]\n\n/epic"
-        }
-      },
-      "Feature_or_Alternate_Epic": {
-        "description": "A shippable piece of functionality that delivers value to the user, broken down into stories.",
-        "heavyweight": {
-          "jira": "h2. Problem Statement\n[What problem are we solving for the user or system?]\n\nh2. Proposed Solution\n[High-level technical and product solution]\n\nh2. Architecture & Technical Design\n* *Design Doc:* [Link]\n* *API Contracts:* [Link]\n* *Database Changes:* [Brief description]\n\nh2. Dependencies\n* [List cross-team or external dependencies]\n\nh2. Acceptance Criteria\n# AC 1\n# AC 2",
-          "gitlab": "## Problem Statement\n[What problem are we solving for the user or system?]\n\n## Proposed Solution\n[High-level technical and product solution]\n\n## Architecture & Technical Design\n* **Design Doc:** [Link]\n* **API Contracts:** [Link]\n* **Database Changes:** [Brief description]\n\n## Dependencies\n* [List cross-team or external dependencies]\n\n## Acceptance Criteria\n1. AC 1\n2. AC 2\n\n/label ~feature"
-        },
-        "lightweight": {
-          "jira": "h2. Context\n[Brief description of the feature and its value]\n\nh2. Acceptance Criteria\n* AC 1\n* AC 2",
-          "gitlab": "## Context\n[Brief description of the feature and its value]\n\n## Acceptance Criteria\n* [ ] AC 1\n* [ ] AC 2\n\n/label ~feature"
-        }
-      },
-      "User_Story": {
-        "description": "The smallest unit of work, representing a single technical task or user-facing change.",
-        "heavyweight": {
-          "jira": "h2. User Story\nAs a [role/system], I need to [action/implementation], so that [value/benefit].\n\nh2. Technical Implementation Notes\n[Detailed engineering notes, edge cases, algorithms, or refactoring required]\n\nh2. Acceptance Criteria\n* Given [context], when [event], then [outcome].\n* Given [context], when [event], then [outcome].\n\nh2. Testing & Automation Strategy\n* *Unit Tests:* \n* *Integration Tests:* \n* *Performance/Load Tests:* [If applicable]\n\nh2. Definition of Done Checklist\n* Code reviewed and approved\n* CI/CD pipeline passes (all automated tests green)\n* Documentation updated",
-          "gitlab": "## User Story\nAs a [role/system], I need to [action/implementation], so that [value/benefit].\n\n## Technical Implementation Notes\n[Detailed engineering notes, edge cases, algorithms, or refactoring required]\n\n## Acceptance Criteria\n* **Given** [context], **when** [event], **then** [outcome].\n* **Given** [context], **when** [event], **then** [outcome].\n\n## Testing & Automation Strategy\n* **Unit Tests:** \n* **Integration Tests:** \n* **Performance/Load Tests:** [If applicable]\n\n## Definition of Done Checklist\n- [ ] Code reviewed and approved\n- [ ] CI/CD pipeline passes (all automated tests green)\n- [ ] Documentation updated\n\n/label ~story\n/assign"
-        },
-        "lightweight": {
-          "jira": "h3. Description\nAs a [role], I need to [action] so that [value].\n\nh3. Acceptance Criteria\n* AC 1\n* AC 2\n\nh3. Testing Notes\n* Requires automated test coverage before merge.",
-          "gitlab": "### Description\nAs a [role], I need to [action] so that [value].\n\n### Acceptance Criteria\n- [ ] AC 1\n- [ ] AC 2\n\n### Testing Notes\n- [ ] Requires automated test coverage before merge.\n\n/label ~story"
-        }
-      }
+    "business_value": {
+      "markdown": "## Business Value\n- **Objective:** \n- **Key Results (KPIs):** \n\n",
+      "wiki_markup": "h2. Business Value\n* *Objective:* \n* *Key Results (KPIs):* \n\n"
+    },
+    "feature_description": {
+      "markdown": "## Feature Description\nDescribe the functionality being delivered in this feature and how it fits into the broader Epic.\n\n",
+      "wiki_markup": "h2. Feature Description\nDescribe the functionality being delivered in this feature and how it fits into the broader Epic.\n\n"
+    },
+    "user_impact": {
+      "markdown": "## User Impact\nHow will this change the user experience or workflow?\n\n",
+      "wiki_markup": "h2. User Impact\nHow will this change the user experience or workflow?\n\n"
+    },
+    "user_story": {
+      "markdown": "## User Story\n**As a** [role/persona], \n**I want** [action/feature], \n**So that** [value/benefit].\n\n",
+      "wiki_markup": "h2. User Story\n*As a* [role/persona], \n*I want* [action/feature], \n*So that* [value/benefit].\n\n"
+    },
+    "acceptance_criteria": {
+      "markdown": "## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n",
+      "wiki_markup": "h2. Acceptance Criteria\n* ( ) *Scenario 1:* Given [context], When [event], Then [outcome]\n* ( ) *Scenario 2:* \n\n"
+    },
+    "dependencies": {
+      "markdown": "## Dependencies\n- **Upstream:** \n- **Downstream:** \n\n",
+      "wiki_markup": "h2. Dependencies\n* *Upstream:* \n* *Downstream:* \n\n"
+    },
+    "technical_notes": {
+      "markdown": "## Technical Notes / Implementation Details\n- Architecture considerations:\n- API endpoints affected:\n\n",
+      "wiki_markup": "h2. Technical Notes / Implementation Details\n* Architecture considerations:\n* API endpoints affected:\n\n"
+    },
+    "testing_notes": {
+      "markdown": "## Testing Notes\n- Edge cases to consider:\n- Required test environments:\n\n",
+      "wiki_markup": "h2. Testing Notes\n* Edge cases to consider:\n* Required test environments:\n\n"
+    },
+    "target_audience": {
+      "markdown": "## Target Audience\nIdentify the primary users (e.g., Engineering Teams, External Customers).\n\n",
+      "wiki_markup": "h2. Target Audience\nIdentify the primary users (e.g., Engineering Teams, External Customers).\n\n"
+    },
+    "out_of_scope": {
+      "markdown": "## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n",
+      "wiki_markup": "h2. Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n* \n\n"
+    },
+    "compliance": {
+      "markdown": "## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?\n\n",
+      "wiki_markup": "h2. Security & Compliance\n* ( ) Does this impact PII/PHI?\n* ( ) Is a security review required?\n* ( ) SOC2 / GDPR implications?\n\n"
     }
   }
 }

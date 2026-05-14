@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-from src.events import EventDispatcher, UISettingsSaveRequestedEvent, AppThemeChangedEvent
+from src.events import (
+    EventDispatcher, UISettingsSaveRequestedEvent, AppThemeChangedEvent, 
+    UITemplateConfigExportRequestedEvent
+)
 
 class SettingsDialog(tk.Toplevel):
     def __init__(self, parent: tk.Tk, dispatcher: EventDispatcher, current_settings: dict):
@@ -14,7 +17,7 @@ class SettingsDialog(tk.Toplevel):
         """
         super().__init__(parent)
         self.title("General Settings")
-        self.geometry("600x500")
+        self.geometry("600x650") # Increased height for new controls
         self.dispatcher = dispatcher
         self.current_settings = current_settings
         
@@ -50,7 +53,7 @@ class SettingsDialog(tk.Toplevel):
 
         # Theme
         ttk.Label(self.general_tab, text="Theme:").pack(anchor=tk.W, padx=10, pady=(10, 0))
-        self.combo_theme = ttk.Combobox(self.general_tab, values=["Light", "Dark"], state="readonly")
+        self.combo_theme = ttk.Combobox(self.general_tab, values=["Light", "Dark"], state="readonly", style="Preferences.TCombobox")
         self.combo_theme.pack(fill=tk.X, padx=10, pady=(0, 10))
 
         # Auto-Save
@@ -60,37 +63,86 @@ class SettingsDialog(tk.Toplevel):
 
         # Log Level
         ttk.Label(self.general_tab, text="Logging Level:").pack(anchor=tk.W, padx=10, pady=(10, 0))
-        self.combo_log_level = ttk.Combobox(self.general_tab, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly")
+        self.combo_log_level = ttk.Combobox(self.general_tab, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly", style="Preferences.TCombobox")
         self.combo_log_level.pack(fill=tk.X, padx=10, pady=(0, 10))
 
     def _setup_templates_tab(self):
         self.templates_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.templates_tab, text="Editor Templates")
 
+        # Template Parameters LabelFrame
+        params_frame = ttk.LabelFrame(self.templates_tab, text="Template Parameters")
+        params_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        # Grid layout for parameters
+        params_frame.columnconfigure(1, weight=1)
+        params_frame.columnconfigure(3, weight=1)
+
+        # 1. Target Tool
+        ttk.Label(params_frame, text="Target Tool:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.combo_tool = ttk.Combobox(params_frame, values=["GitLab", "Jira"], state="readonly", style="Preferences.TCombobox")
+        self.combo_tool.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=2)
+        self.combo_tool.set("GitLab")
+
+        # 2. Methodology
+        ttk.Label(params_frame, text="Methodology:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=2)
+        self.combo_methodology = ttk.Combobox(params_frame, values=["Scrum", "Kanban", "SAFe"], state="readonly", style="Preferences.TCombobox")
+        self.combo_methodology.grid(row=0, column=3, sticky=tk.EW, padx=5, pady=2)
+        self.combo_methodology.set("Scrum")
+
+        # 3. Hierarchy
+        ttk.Label(params_frame, text="Hierarchy:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.combo_hierarchy = ttk.Combobox(params_frame, values=["Epic -> Feature -> Story", "Epic -> Story"], state="readonly", style="Preferences.TCombobox")
+        self.combo_hierarchy.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
+        self.combo_hierarchy.set("Epic -> Feature -> Story")
+
+        # 4. Description Type
+        ttk.Label(params_frame, text="Description Type:").grid(row=1, column=2, sticky=tk.W, padx=5, pady=2)
+        self.combo_type = ttk.Combobox(params_frame, values=["Heavyweight", "Lightweight"], state="readonly", style="Preferences.TCombobox")
+        self.combo_type.grid(row=1, column=3, sticky=tk.EW, padx=5, pady=2)
+        self.combo_type.set("Heavyweight")
+
+        # 5. Include Out of Scope
+        self.var_out_of_scope = tk.BooleanVar()
+        self.check_out_of_scope = ttk.Checkbutton(params_frame, text="Include Out of Scope", variable=self.var_out_of_scope)
+        self.check_out_of_scope.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=5, pady=2)
+
+        # 6. Include Compliance & Security
+        self.var_compliance = tk.BooleanVar()
+        self.check_compliance = ttk.Checkbutton(params_frame, text="Include Compliance & Security", variable=self.var_compliance)
+        self.check_compliance.grid(row=2, column=2, columnspan=2, sticky=tk.W, padx=5, pady=2)
+
+        # Existing Template Controls (Below Parameters)
+        
         # Item Type Selection
-        ttk.Label(self.templates_tab, text="Item Type:").pack(anchor=tk.W, padx=10, pady=(10, 0))
-        self.combo_item_type = ttk.Combobox(self.templates_tab, values=["Epic", "Feature", "Story"], state="readonly")
+        ttk.Label(self.templates_tab, text="Item Type:").pack(anchor=tk.W, padx=10, pady=(5, 0))
+        self.combo_item_type = ttk.Combobox(self.templates_tab, values=["Epic", "Feature", "Story"], state="readonly", style="Preferences.TCombobox")
         self.combo_item_type.pack(fill=tk.X, padx=10, pady=(0, 5))
         self.combo_item_type.bind("<<ComboboxSelected>>", self._on_item_type_changed)
 
         # Template Name Selection
         ttk.Label(self.templates_tab, text="Template Name:").pack(anchor=tk.W, padx=10, pady=(5, 0))
-        self.combo_template_name = ttk.Combobox(self.templates_tab, state="readonly")
+        self.combo_template_name = ttk.Combobox(self.templates_tab, state="readonly", style="Preferences.TCombobox")
         self.combo_template_name.pack(fill=tk.X, padx=10, pady=(0, 10))
         self.combo_template_name.bind("<<ComboboxSelected>>", self._on_template_name_changed)
 
         # Template Editor
         ttk.Label(self.templates_tab, text="Content:").pack(anchor=tk.W, padx=10, pady=(5, 0))
-        self.text_template = tk.Text(self.templates_tab, height=10)
+        self.text_template = tk.Text(self.templates_tab, height=8) # Reduced height slightly to fit
         self.text_template.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         # Actions
         btn_frame = ttk.Frame(self.templates_tab)
-        btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        btn_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
 
         ttk.Button(btn_frame, text="Save as New", command=self._save_new_template).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="Update", command=self._update_template).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="Revert to Default", command=self._revert_template).pack(side=tk.LEFT, padx=2)
+
+        # Export Button
+        export_frame = ttk.Frame(self.templates_tab)
+        export_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        ttk.Button(export_frame, text="Export Configuration", command=self._on_export_config_clicked).pack(fill=tk.X)
 
     def _bind_events(self):
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
@@ -164,6 +216,18 @@ class SettingsDialog(tk.Toplevel):
         # Implementation could fetch original defaults if stored, 
         # here we just clear it or revert to an empty string for simplicity in scaffold
         self.text_template.delete("1.0", tk.END)
+
+    def _on_export_config_clicked(self):
+        payload = {
+            "tool": self.combo_tool.get(),
+            "methodology": self.combo_methodology.get(),
+            "hierarchy": self.combo_hierarchy.get(),
+            "out_of_scope_checked": self.var_out_of_scope.get(),
+            "compliance_checked": self.var_compliance.get(),
+            "type": self.combo_type.get(),
+            "template_text": self.text_template.get("1.0", tk.END).strip()
+        }
+        self.dispatcher.dispatch(UITemplateConfigExportRequestedEvent(payload=payload))
 
     def _on_save_clicked(self):
         self.dispatcher.dispatch(UISettingsSaveRequestedEvent(

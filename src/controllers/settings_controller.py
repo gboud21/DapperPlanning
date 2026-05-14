@@ -1,10 +1,12 @@
 from src.events import (
     EventDispatcher, UISettingsDialogOpenRequestedEvent, UISettingsSaveRequestedEvent,
-    AppThemeChangedEvent
+    AppThemeChangedEvent, UITemplateConfigExportRequestedEvent, UIErrorNotificationEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.views.settings_dialog import SettingsDialog
 import tkinter as tk
+import os
+import json
 
 class SettingsController:
     def __init__(self, root: tk.Tk, dispatcher: EventDispatcher):
@@ -23,6 +25,7 @@ class SettingsController:
     def _subscribe_events(self):
         self.dispatcher.subscribe(UISettingsDialogOpenRequestedEvent, self.handle_open_dialog)
         self.dispatcher.subscribe(UISettingsSaveRequestedEvent, self.handle_save_settings)
+        self.dispatcher.subscribe(UITemplateConfigExportRequestedEvent, self.handle_template_export)
 
     def handle_open_dialog(self, event: UISettingsDialogOpenRequestedEvent):
         current_settings = ThemeManager.get_general_settings()
@@ -44,3 +47,27 @@ class SettingsController:
             is_dark = (event.theme.lower() == 'dark')
             self.dispatcher.dispatch(AppThemeChangedEvent(is_dark=is_dark))
             ThemeManager.apply_ttk_theme(is_dark)
+
+    def handle_template_export(self, event: UITemplateConfigExportRequestedEvent):
+        """
+        Handles the export of the template configuration to a JSON file.
+        """
+        try:
+            # Ensure output directory exists
+            output_dir = "./output"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            file_path = os.path.join(output_dir, "template_config.json")
+            
+            with open(file_path, 'w') as f:
+                json.dump(event.payload, f, indent=4)
+                
+            self.dispatcher.dispatch(UIErrorNotificationEvent(
+                title="Export Successful",
+                message=f"Template configuration saved to {file_path}"
+            ))
+        except Exception as e:
+            self.dispatcher.dispatch(UIErrorNotificationEvent(
+                title="Export Failed",
+                message=f"Could not save template configuration: {str(e)}"
+            ))
