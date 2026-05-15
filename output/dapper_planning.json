@@ -1,0 +1,138 @@
+[
+    {
+        "id": "prod-dapper-001",
+        "title": "DapperPlanning Core Foundation",
+        "description": "## Executive Summary\nImplementation of the core MVC architecture and native UI for the DapperPlanning tool to provide a high-performance alternative to web-based planning tools.\n\n## Business Value\n- **Objective:** Eliminate clunky project management tools by providing a native environment for software planning.\n- **Key Results (KPIs):** 100% adherence to defined Agile data hierarchies and reduced context switching.\n\n## Acceptance Criteria\n- [x] **Scenario 1:** The tool provides a native desktop GUI with adjustable and scalable window management.\n- [x] **Scenario 2:** Components communicate strictly through a centralized EventDispatcher to ensure decoupling.\n\n## Dependencies\n- **Upstream:** Python 3 standard libraries and Tkinter.\n- **Downstream:** GitLab API synchronization engine.\n\n## Target Audience\nSoftware Engineers, Product Owners, and Scrum Masters.\n\n## Out of Scope\n- [ ] Draft state management (deferred to Phase 4).\n- [ ] Environment profiles for multiple GitLab instances (deferred).\n\n## Security & Compliance\n- [ ] Does this impact PII/PHI? No.\n- [ ] Is a security review required? Yes, for Personal Access Token (PAT) storage.",
+        "features": [
+            {
+                "id": "feat-ui-001",
+                "title": "Native Desktop GUI & Event System",
+                "description": "## Feature Description\nPrimary application window featuring a horizontal paned layout and an event-driven communication system.\n\n## User Impact\nUsers experience a high-performance desktop environment that reflects real-time updates to the agile hierarchy.\n\n## Acceptance Criteria\n- [x] **Scenario 1:** UI elements scale properly in windowed mode to prevent button disappearance.\n- [x] **Scenario 2:** Selecting a tree node dispatches a selection event to populate the editor.\n\n## Technical Notes / Implementation Details\n- Architecture considerations: Uses ttk for consistent themed widgets across OS platforms.\n- API endpoints affected: None (local UI only).\n\n## Out of Scope\n- [ ] Interactive live-walkthrough tutorials.",
+                "team": {
+                    "name": "Software Engineering",
+                    "domain": "Systems Architecture"
+                },
+                "stories": [
+                    {
+                        "id": "story-mvc-001",
+                        "title": "Thread-Safe Event Dispatcher",
+                        "description": "## User Story\n**As a** Developer, \n**I want** a centralized event system, \n**So that** I can decouple UI components from data logic.\n\n## Acceptance Criteria\n- [x] **Scenario 1:** Dispatches from non-main threads are safely routed to the Tkinter main loop.\n\n## Technical Notes / Implementation Details\n- Architecture considerations: Uses `threading.get_ident()` to ensure thread safety during dispatch.\n\n## Testing Notes\n- Edge cases to consider: Rapid-fire event dispatching during UI heavy loads.",
+                        "team": {
+                            "name": "Software Engineering",
+                            "domain": "Systems Architecture"
+                        },
+                        "metadata": {
+                            "assignee": "gboudreau",
+                            "milestone": "MVP",
+                            "weight": 5,
+                            "labels": ["Architecture", "MVC"],
+                            "template": "Heavyweight"
+                        },
+                        "interface_boundary": "Local Controller/View",
+                        "products": ["DapperPlanning"],
+                        "capabilities": ["Core Architecture"],
+                        "weight": 5.0
+                    }
+                ],
+                "metadata": {
+                    "assignee": "gboudreau",
+                    "milestone": "Phase 1",
+                    "weight": 0,
+                    "labels": ["UI"],
+                    "template": "Heavyweight"
+                },
+                "products": ["DapperPlanning"],
+                "capabilities": ["Native UI"]
+            },
+            {
+                "id": "feat-persistence-001",
+                "title": "Data Persistence Layer",
+                "description": "## Feature Description\nA polymorphic adapter system for saving and loading the workspace in JSON and CSV formats.\n\n## User Impact\nUsers can persist their planning data locally and export it to CSV as a fallback for manual uploads.\n\n## Acceptance Criteria\n- [x] **Scenario 1:** The application can rebuild a full object hierarchy from a flattened CSV file.\n- [x] **Scenario 2:** Local state is saved to OS-appropriate data directories.\n\n## Technical Notes / Implementation Details\n- Architecture considerations: Uses the Factory pattern to retrieve the correct adapter based on file extension.",
+                "team": {
+                    "name": "Systems Architecture",
+                    "domain": "Data Management"
+                },
+                "stories": [
+                    {
+                        "id": "story-trans-001",
+                        "title": "Hierarchy Flattening Utility",
+                        "description": "## User Story\n**As a** Developer, \n**I want** to convert nested Epic objects into flat dictionary rows, \n**So that** I can support CSV exports.\n\n## Acceptance Criteria\n- [x] **Scenario 1:** All child items (Features and Stories) are correctly mapped to their Parent IDs during flattening.",
+                        "team": {
+                            "name": "Systems Architecture",
+                            "domain": "Data Management"
+                        },
+                        "metadata": {
+                            "assignee": "gboudreau",
+                            "milestone": "MVP",
+                            "weight": 3,
+                            "labels": ["Data", "Utility"],
+                            "template": "Heavyweight"
+                        },
+                        "interface_boundary": "File I/O",
+                        "products": ["DapperPlanning"],
+                        "capabilities": ["Data Persistence"],
+                        "weight": 3.0
+                    }
+                ],
+                "metadata": {
+                    "assignee": "gboudreau",
+                    "milestone": "Phase 2",
+                    "weight": 0,
+                    "labels": ["Storage"],
+                    "template": "Heavyweight"
+                },
+                "products": ["DapperPlanning"],
+                "capabilities": ["Data Management"]
+            },
+            {
+                "id": "feat-gitlab-001",
+                "title": "GitLab Integration Engine",
+                "description": "## Feature Description\nA dedicated service layer for bidirectional synchronization with GitLab projects and groups.\n\n## User Impact\nUsers can directly push their planned backlog to GitLab to generate Epics and Issues.\n\n## Acceptance Criteria\n- [x] **Scenario 1:** The GitLabClient successfully creates Epics with specific labels and metadata.\n- [x] **Scenario 2:** Users can manage authentication tokens and host URLs through a secure dialog.\n\n## Security & Compliance\n- [ ] Is a security review required? Yes, for PAT encryption and storage.",
+                "team": {
+                    "name": "Integrations",
+                    "domain": "API Services"
+                },
+                "stories": [
+                    {
+                        "id": "story-api-001",
+                        "title": "Authenticated REST Client",
+                        "description": "## User Story\n**As a** Developer, \n**I want** a secure wrapper for GitLab API requests, \n**So that** I can automate issue creation without external dependencies.\n\n## Acceptance Criteria\n- [x] **Scenario 1:** The client uses `urllib.request` to avoid heavy external libraries.",
+                        "team": {
+                            "name": "Integrations",
+                            "domain": "API Services"
+                        },
+                        "metadata": {
+                            "assignee": "gboudreau",
+                            "milestone": "Phase 2",
+                            "weight": 5,
+                            "labels": ["API", "GitLab"],
+                            "template": "Heavyweight"
+                        },
+                        "interface_boundary": "External API",
+                        "products": ["DapperPlanning"],
+                        "capabilities": ["GitLab Integration"],
+                        "weight": 5.0
+                    }
+                ],
+                "metadata": {
+                    "assignee": "gboudreau",
+                    "milestone": "Phase 3",
+                    "weight": 0,
+                    "labels": ["Integrations"],
+                    "template": "Heavyweight"
+                },
+                "products": ["DapperPlanning"],
+                "capabilities": ["External Services"]
+            }
+        ],
+        "metadata": {
+            "assignee": "gboudreau",
+            "milestone": "6-Week MVP",
+            "weight": 0,
+            "labels": ["Core"],
+            "template": "Heavyweight"
+        },
+        "products": ["DapperPlanning"],
+        "capabilities": ["Backlog Management"]
+    }
+]
