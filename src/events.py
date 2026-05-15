@@ -92,7 +92,7 @@ class UISettingsSaveRequestedEvent(Event):
     include_out_of_scope: bool
     include_compliance: bool
     last_selected_item_type: str
-    last_selected_template: str
+    selected_templates: dict
 
 @dataclass
 class UITemplateConfigExportRequestedEvent(Event):

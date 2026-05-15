@@ -1,0 +1,70 @@
+[
+    {
+        "id": "8ee97b0c-8c52-4ef9-bf9a-e03d22d1f2eb",
+        "title": "Example Epic",
+        "description": "## Executive Summary\nProvide a high-level overview of this Epic. What are we building, and why does it matter to the organization?\n\n## Business Value\n- **Objective:** \n- **Key Results (KPIs):** \n\n## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n## Dependencies\n- **Upstream:** \n- **Downstream:** \n\n## Target Audience\nIdentify the primary users (e.g., Engineering Teams, External Customers).\n\n## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?",
+        "features": [
+            {
+                "id": "9758c48b-50f5-4599-8004-b915f8303548",
+                "title": "Example Feature",
+                "description": "## Feature Description\nDescribe the functionality being delivered in this feature and how it fits into the broader Epic.\n\n## User Impact\nHow will this change the user experience or workflow?\n\n## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n## Technical Notes / Implementation Details\n- Architecture considerations:\n- API endpoints affected:\n\n## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?",
+                "team": {
+                    "name": "Unassigned",
+                    "domain": ""
+                },
+                "stories": [
+                    {
+                        "id": "434c393f-3153-42fd-b2fc-762bb4fee24c",
+                        "title": "Example Story",
+                        "description": "## User Story\n**As a** [role/persona], \n**I want** [action/feature], \n**So that** [value/benefit].\n\n## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n## Technical Notes / Implementation Details\n- Architecture considerations:\n- API endpoints affected:\n\n## Testing Notes\n- Edge cases to consider:\n- Required test environments:\n\n## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?",
+                        "team": {
+                            "name": "Unassigned",
+                            "domain": ""
+                        },
+                        "metadata": {
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
+                        },
+                        "interface_boundary": null,
+                        "products": [
+                            "DapperPlanning"
+                        ],
+                        "capabilities": [
+                            "Example Capability"
+                        ],
+                        "weight": 5.0
+                    }
+                ],
+                "metadata": {
+                    "assignee": "",
+                    "milestone": "",
+                    "weight": 0,
+                    "labels": [],
+                    "template": ""
+                },
+                "products": [
+                    "DapperPlanning"
+                ],
+                "capabilities": [
+                    "Example Capability"
+                ]
+            }
+        ],
+        "metadata": {
+            "assignee": "",
+            "milestone": "",
+            "weight": 0,
+            "labels": [],
+            "template": ""
+        },
+        "products": [
+            "DapperPlanning"
+        ],
+        "capabilities": [
+            "Example Capability"
+        ]
+    }
+]

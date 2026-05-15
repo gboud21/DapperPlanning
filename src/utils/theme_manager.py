@@ -44,7 +44,11 @@ class ThemeManager:
             'include_out_of_scope': False,
             'include_compliance': False,
             'last_selected_item_type': 'Epic',
-            'last_selected_template': 'Default',
+            'selected_templates': {
+                'Epic': 'Default',
+                'Feature': 'Default',
+                'Story': 'Default'
+            },
             
             'auth_url': '',
             'auth_pat': '',
@@ -130,7 +134,7 @@ class ThemeManager:
             'include_out_of_scope': settings.get('include_out_of_scope', False),
             'include_compliance': settings.get('include_compliance', False),
             'last_selected_item_type': settings.get('last_selected_item_type', 'Epic'),
-            'last_selected_template': settings.get('last_selected_template', 'Default')
+            'selected_templates': settings.get('selected_templates', cls.get_default_settings()['selected_templates'])
         }
 
     @classmethod

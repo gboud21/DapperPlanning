@@ -24,6 +24,7 @@ class SettingsDialog(tk.Toplevel):
         
         # Internal state for templates
         self.templates = {k: v.copy() for k, v in current_settings.get('templates', {}).items()}
+        self.selected_templates = current_settings.get('selected_templates', {}).copy()
 
         self.transient(parent)
         self.grab_set()
@@ -178,11 +179,6 @@ class SettingsDialog(tk.Toplevel):
         self.combo_item_type.set(last_item_type)
         self._on_item_type_changed(None)
 
-        last_template = self.current_settings.get('last_selected_template')
-        if last_template and last_template in self.combo_template_name['values']:
-            self.combo_template_name.set(last_template)
-            self._on_template_name_changed(None)
-
     def _refresh_template_preview(self):
         """Generates a preview based on current parameters and updates the text area."""
         content = TemplateGenerator.generate(
@@ -199,7 +195,12 @@ class SettingsDialog(tk.Toplevel):
         item_type = self.combo_item_type.get()
         names = list(self.templates.get(item_type, {}).keys())
         self.combo_template_name.config(values=names)
-        if names:
+        
+        last_for_type = self.selected_templates.get(item_type)
+        if last_for_type and last_for_type in names:
+            self.combo_template_name.set(last_for_type)
+            self._on_template_name_changed(None)
+        elif names:
             self.combo_template_name.set(names[0])
             self._on_template_name_changed(None)
         else:
@@ -208,6 +209,8 @@ class SettingsDialog(tk.Toplevel):
     def _on_template_name_changed(self, event):
         item_type = self.combo_item_type.get()
         name = self.combo_template_name.get()
+        self.selected_templates[item_type] = name
+        
         content = self.templates.get(item_type, {}).get(name, "")
         self.text_template.delete("1.0", tk.END)
         self.text_template.insert("1.0", content)
@@ -228,6 +231,7 @@ class SettingsDialog(tk.Toplevel):
             if name:
                 if item_type not in self.templates: self.templates[item_type] = {}
                 self.templates[item_type][name] = content
+                self.selected_templates[item_type] = name
                 self._on_item_type_changed(None)
                 self.combo_template_name.set(name)
                 name_dialog.destroy()
@@ -269,6 +273,6 @@ class SettingsDialog(tk.Toplevel):
             include_out_of_scope=self.var_out_of_scope.get(),
             include_compliance=self.var_compliance.get(),
             last_selected_item_type=self.combo_item_type.get(),
-            last_selected_template=self.combo_template_name.get()
+            selected_templates=self.selected_templates
         ))
         self.destroy()

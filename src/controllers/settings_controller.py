@@ -49,7 +49,7 @@ class SettingsController:
             include_out_of_scope=event.include_out_of_scope,
             include_compliance=event.include_compliance,
             last_selected_item_type=event.last_selected_item_type,
-            last_selected_template=event.last_selected_template
+            selected_templates=event.selected_templates
         )
 
         if old_theme != event.theme:
