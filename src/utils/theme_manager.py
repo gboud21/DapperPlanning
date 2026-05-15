@@ -43,6 +43,8 @@ class ThemeManager:
             'description_type': 'Heavyweight',
             'include_out_of_scope': False,
             'include_compliance': False,
+            'last_selected_item_type': 'Epic',
+            'last_selected_template': 'Default',
             
             'auth_url': '',
             'auth_pat': '',
@@ -126,7 +128,9 @@ class ThemeManager:
             'hierarchy': settings.get('hierarchy', 'Epic -> Feature -> Story'),
             'description_type': settings.get('description_type', 'Heavyweight'),
             'include_out_of_scope': settings.get('include_out_of_scope', False),
-            'include_compliance': settings.get('include_compliance', False)
+            'include_compliance': settings.get('include_compliance', False),
+            'last_selected_item_type': settings.get('last_selected_item_type', 'Epic'),
+            'last_selected_template': settings.get('last_selected_template', 'Default')
         }
 
     @classmethod

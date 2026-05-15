@@ -85,6 +85,14 @@ class UISettingsSaveRequestedEvent(Event):
     auto_save: bool
     log_level: str
     templates: dict
+    target_tool: str
+    methodology: str
+    hierarchy: str
+    description_type: str
+    include_out_of_scope: bool
+    include_compliance: bool
+    last_selected_item_type: str
+    last_selected_template: str
 
 @dataclass
 class UITemplateConfigExportRequestedEvent(Event):

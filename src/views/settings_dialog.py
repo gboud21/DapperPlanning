@@ -174,8 +174,14 @@ class SettingsDialog(tk.Toplevel):
         self.var_out_of_scope.set(self.current_settings.get('include_out_of_scope', False))
         self.var_compliance.set(self.current_settings.get('include_compliance', False))
         
-        self.combo_item_type.set("Epic")
+        last_item_type = self.current_settings.get('last_selected_item_type', 'Epic')
+        self.combo_item_type.set(last_item_type)
         self._on_item_type_changed(None)
+
+        last_template = self.current_settings.get('last_selected_template')
+        if last_template and last_template in self.combo_template_name['values']:
+            self.combo_template_name.set(last_template)
+            self._on_template_name_changed(None)
 
     def _refresh_template_preview(self):
         """Generates a preview based on current parameters and updates the text area."""
@@ -261,6 +267,8 @@ class SettingsDialog(tk.Toplevel):
             hierarchy=self.combo_hierarchy.get(),
             description_type=self.combo_type.get(),
             include_out_of_scope=self.var_out_of_scope.get(),
-            include_compliance=self.var_compliance.get()
+            include_compliance=self.var_compliance.get(),
+            last_selected_item_type=self.combo_item_type.get(),
+            last_selected_template=self.combo_template_name.get()
         ))
         self.destroy()
