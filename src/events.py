@@ -162,6 +162,11 @@ class UIThemeToggleRequestedEvent(Event):
     is_dark: bool
 
 @dataclass
+class UIWindowStateChangedEvent(Event):
+    """Emitted by the View when the window is maximized or restored."""
+    is_maximized: bool
+
+@dataclass
 class AppThemeChangedEvent(Event):
     """Emitted by the Controller when the application theme has changed."""
     is_dark: bool

@@ -5,7 +5,7 @@ from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
     UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
-    ModelWorkspaceLoadedEvent
+    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from .tree_pane import TreePane
@@ -23,6 +23,7 @@ class MainWindow:
         """
         self.root = root
         self.dispatcher = dispatcher
+        self._last_maximized_state = False
         
         self.setup_ui()
         self._bind_events()
@@ -65,6 +66,31 @@ class MainWindow:
         self.dispatcher.subscribe(UIErrorNotificationEvent, self._show_error)
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self._handle_workspace_loaded)
+        
+        # Bind to property changes to detect maximization
+        self.root.bind("<Configure>", self._on_configure)
+
+    def _on_configure(self, event):
+        """Detects if the window was maximized or restored."""
+        # Check if the event is for the root window itself
+        if event.widget == self.root:
+            is_maximized = self._is_maximized()
+            if is_maximized != self._last_maximized_state:
+                self._last_maximized_state = is_maximized
+                self.dispatcher.dispatch(UIWindowStateChangedEvent(is_maximized=is_maximized))
+
+    def _is_maximized(self) -> bool:
+        """Helper to determine if the window is currently maximized."""
+        try:
+            # Check zoomed state (Windows/macOS)
+            if self.root.state() == 'zoomed':
+                return True
+            # Check zoomed attribute (Linux/X11)
+            if self.root.attributes('-zoomed'):
+                return True
+        except tk.TclError:
+            pass
+        return False
 
     def handle_theme_change(self, event: AppThemeChangedEvent):
         """Reacts to application-wide theme changes."""

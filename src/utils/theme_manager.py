@@ -32,6 +32,7 @@ class ThemeManager:
             'auto_save': False,
             'log_level': 'INFO',
             'last_workspace': None,
+            'window_maximized': False,
             'templates': {
                 'Epic': {'Default': ''},
                 'Feature': {'Default': ''},
@@ -164,6 +165,19 @@ class ThemeManager:
         """Saves the path of the last opened workspace."""
         settings = cls.load_all_settings()
         settings['last_workspace'] = filepath
+        cls.save_all_settings(settings)
+
+    @classmethod
+    def get_window_maximized(cls) -> bool:
+        """Retrieves the last saved window maximized state."""
+        settings = cls.load_all_settings()
+        return settings.get('window_maximized', False)
+
+    @classmethod
+    def set_window_maximized(cls, is_maximized: bool):
+        """Saves the window maximized state."""
+        settings = cls.load_all_settings()
+        settings['window_maximized'] = is_maximized
         cls.save_all_settings(settings)
 
     @classmethod

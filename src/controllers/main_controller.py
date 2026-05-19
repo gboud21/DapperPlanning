@@ -1,9 +1,10 @@
 import os
+import tkinter as tk
 from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent,
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
-    ModelWorkspaceLoadedEvent
+    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent
 )
 from src.models.workspace import Workspace
 from .tree_controller import TreeController
@@ -41,10 +42,24 @@ class MainController:
         is_dark = ThemeManager.load_settings()
         self.dispatcher.dispatch(AppThemeChangedEvent(is_dark=is_dark))
 
+        # Load window maximized state
+        if ThemeManager.get_window_maximized():
+            self._apply_maximized_state()
+
         # Load last workspace if it exists
         last_workspace = ThemeManager.get_last_workspace()
         if last_workspace and os.path.exists(last_workspace):
             self._load_initial_workspace(last_workspace)
+
+    def _apply_maximized_state(self):
+        """Applies the maximized state to the root window."""
+        try:
+            self.root.state("zoomed")
+        except tk.TclError:
+            try:
+                self.root.attributes("-zoomed", True)
+            except tk.TclError:
+                pass
 
     def _load_initial_workspace(self, file_path: str):
         """Loads the workspace data from the provided file path at startup."""
@@ -66,9 +81,14 @@ class MainController:
     def _subscribe_events(self):
         """Subscribes to overarching application events."""
         self.dispatcher.subscribe(UISyncRequestedEvent, self.handle_sync)
+        self.dispatcher.subscribe(UIWindowStateChangedEvent, self.handle_window_state_changed)
 
     def handle_sync(self, event: UISyncRequestedEvent):
         """Handles synchronization with external services (GitLab)."""
         if self.integrations_controller.validate_sync_readiness(self.workspace):
             # Proceed with sync logic
             pass
+
+    def handle_window_state_changed(self, event: UIWindowStateChangedEvent):
+        """Saves the window maximized state when it changes."""
+        ThemeManager.set_window_maximized(event.is_maximized)
