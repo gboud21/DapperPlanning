@@ -4,7 +4,8 @@ from tkinter import ttk, filedialog, messagebox
 from src.events import (
     EventDispatcher, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent, 
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
-    AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent
+    AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
+    UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent
 )
 
 class ApplicationMenuBar(tk.Menu):
@@ -26,6 +27,10 @@ class ApplicationMenuBar(tk.Menu):
         """Sets up the main menu bar cascades."""
         # File menu
         file_menu = tk.Menu(self, tearoff=0)
+        file_menu.add_command(label="Open Workspace...", command=lambda: self.dispatcher.dispatch(UIOpenWorkspaceRequestedEvent()))
+        file_menu.add_command(label="Save Workspace", command=lambda: self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent()))
+        file_menu.add_command(label="Save Workspace As...", command=lambda: self.dispatcher.dispatch(UISaveAsWorkspaceRequestedEvent()))
+        file_menu.add_separator()
         file_menu.add_command(label="Import...", command=self._on_import)
         file_menu.add_separator()
         file_menu.add_command(label="Export...", command=self._on_export)

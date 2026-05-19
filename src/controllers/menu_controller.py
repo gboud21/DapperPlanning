@@ -1,8 +1,11 @@
 import os
+from tkinter import filedialog
 from src.events import (
     EventDispatcher, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent, 
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent, 
-    UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent
+    UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
+    UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
+    ModelWorkspaceLoadedEvent
 )
 from src.models.workspace import Workspace
 from src.utils.adapters import DataAdapterFactory
@@ -28,11 +31,70 @@ class MenuController:
         self.dispatcher.subscribe(UIImportCsvRequestedEvent, self.handle_csv_import)
         self.dispatcher.subscribe(UIImportJsonRequestedEvent, self.handle_json_import)
         self.dispatcher.subscribe(UIThemeToggleRequestedEvent, self.handle_theme_toggle)
+        self.dispatcher.subscribe(UIOpenWorkspaceRequestedEvent, self.handle_open_workspace)
+        self.dispatcher.subscribe(UISaveWorkspaceRequestedEvent, self.handle_save_workspace)
+        self.dispatcher.subscribe(UISaveAsWorkspaceRequestedEvent, self.handle_save_as_workspace)
 
     def handle_theme_toggle(self, event: UIThemeToggleRequestedEvent):
         """Handles theme toggle requests from the UI."""
         ThemeManager.save_settings(event.is_dark)
         self.dispatcher.dispatch(AppThemeChangedEvent(is_dark=event.is_dark))
+
+    def handle_open_workspace(self, event: UIOpenWorkspaceRequestedEvent):
+        """Handles requests to open a workspace from a file."""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("JSON Files", "*.json"), ("CSV Files", "*.csv"), ("All Files", "*.*")]
+        )
+        if not file_path:
+            return
+
+        try:
+            ext = os.path.splitext(file_path)[1].lower()
+            adapter = DataAdapterFactory.get_adapter(ext)
+            root_epics = adapter.import_data(file_path)
+            
+            # Update Workspace
+            self.workspace._epics = root_epics
+            self.workspace.current_filepath = file_path
+            ThemeManager.set_last_workspace(file_path)
+            
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
+            self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
+        except Exception as e:
+            self.dispatcher.dispatch(UIErrorNotificationEvent(title="Open Error", message=str(e)))
+
+    def handle_save_workspace(self, event: UISaveWorkspaceRequestedEvent):
+        """Handles requests to save the current workspace."""
+        if not self.workspace.current_filepath:
+            self.handle_save_as_workspace(UISaveAsWorkspaceRequestedEvent())
+            return
+
+        try:
+            ext = os.path.splitext(self.workspace.current_filepath)[1].lower()
+            adapter = DataAdapterFactory.get_adapter(ext)
+            adapter.export_data(self.workspace.current_filepath, self.workspace.get_epics())
+        except Exception as e:
+            self.dispatcher.dispatch(UIErrorNotificationEvent(title="Save Error", message=str(e)))
+
+    def handle_save_as_workspace(self, event: UISaveAsWorkspaceRequestedEvent):
+        """Handles requests to save the current workspace to a new file."""
+        file_path = filedialog.asksaveasfilename(
+            filetypes=[("JSON Files", "*.json"), ("CSV Files", "*.csv")],
+            defaultextension=".json"
+        )
+        if not file_path:
+            return
+
+        try:
+            ext = os.path.splitext(file_path)[1].lower()
+            adapter = DataAdapterFactory.get_adapter(ext)
+            adapter.export_data(file_path, self.workspace.get_epics())
+            
+            self.workspace.current_filepath = file_path
+            ThemeManager.set_last_workspace(file_path)
+            self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
+        except Exception as e:
+            self.dispatcher.dispatch(UIErrorNotificationEvent(title="Save As Error", message=str(e)))
 
     def handle_csv_export(self, event: UIExportCsvRequestedEvent):
         """Handles CSV export requests."""

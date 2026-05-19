@@ -4,7 +4,8 @@ from tkinter import ttk, filedialog, messagebox as msgbox, messagebox
 from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
     UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
-    UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent
+    UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
+    ModelWorkspaceLoadedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from .tree_pane import TreePane
@@ -29,6 +30,7 @@ class MainWindow:
     def setup_ui(self):
         """Sets up the PanedWindow and delegating panes."""
         self.root.overrideredirect(False)
+        self.root.title("DapperPlanning")
         
         # Instantiate and attach the menu bar
         self.app_menu = ApplicationMenuBar(self.root, self.dispatcher)
@@ -62,6 +64,7 @@ class MainWindow:
         """Binds overarching UI events."""
         self.dispatcher.subscribe(UIErrorNotificationEvent, self._show_error)
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self._handle_workspace_loaded)
 
     def handle_theme_change(self, event: AppThemeChangedEvent):
         """Reacts to application-wide theme changes."""
@@ -69,6 +72,10 @@ class MainWindow:
         
         palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
         self.root.configure(bg=palette['bg'])
+
+    def _handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Updates the window title when a workspace is loaded."""
+        self.root.title(f"DapperPlanning - {event.filepath}")
 
     def _show_error(self, event: UIErrorNotificationEvent):
         """Displays an error dialog."""

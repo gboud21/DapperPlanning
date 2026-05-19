@@ -31,6 +31,7 @@ class ThemeManager:
             'theme': 'dark',
             'auto_save': False,
             'log_level': 'INFO',
+            'last_workspace': None,
             'templates': {
                 'Epic': {'Default': ''},
                 'Feature': {'Default': ''},
@@ -150,6 +151,19 @@ class ThemeManager:
         })
         # Update any additional parameters (tool, methodology, etc.)
         settings.update(kwargs)
+        cls.save_all_settings(settings)
+
+    @classmethod
+    def get_last_workspace(cls) -> str:
+        """Retrieves the path of the last opened workspace."""
+        settings = cls.load_all_settings()
+        return settings.get('last_workspace')
+
+    @classmethod
+    def set_last_workspace(cls, filepath: str):
+        """Saves the path of the last opened workspace."""
+        settings = cls.load_all_settings()
+        settings['last_workspace'] = filepath
         cls.save_all_settings(settings)
 
     @classmethod

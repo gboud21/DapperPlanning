@@ -40,6 +40,26 @@ class UISyncRequestedEvent(Event):
     pass
 
 @dataclass
+class UIOpenWorkspaceRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Open Workspace'."""
+    pass
+
+@dataclass
+class UISaveWorkspaceRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Save Workspace'."""
+    pass
+
+@dataclass
+class UISaveAsWorkspaceRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Save Workspace As'."""
+    pass
+
+@dataclass
+class ModelWorkspaceLoadedEvent(Event):
+    """Emitted when a workspace is loaded, containing the filepath."""
+    filepath: str
+
+@dataclass
 class UIExportCsvRequestedEvent(Event):
     """Emitted by the View when the user selects a save location for the CSV export."""
     file_path: str

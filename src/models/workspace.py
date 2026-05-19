@@ -13,6 +13,7 @@ class Workspace:
         """
         self.dispatcher = dispatcher
         self._epics: List[Epic] = []
+        self.current_filepath: Optional[str] = None
 
     def add_epic(self, epic: Epic) -> None:
         """

@@ -2,7 +2,8 @@ import os
 from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent,
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
-    UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent
+    UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
+    ModelWorkspaceLoadedEvent
 )
 from src.models.workspace import Workspace
 from .tree_controller import TreeController
@@ -39,6 +40,28 @@ class MainController:
         # Load initial theme state and notify view
         is_dark = ThemeManager.load_settings()
         self.dispatcher.dispatch(AppThemeChangedEvent(is_dark=is_dark))
+
+        # Load last workspace if it exists
+        last_workspace = ThemeManager.get_last_workspace()
+        if last_workspace and os.path.exists(last_workspace):
+            self._load_initial_workspace(last_workspace)
+
+    def _load_initial_workspace(self, file_path: str):
+        """Loads the workspace data from the provided file path at startup."""
+        try:
+            ext = os.path.splitext(file_path)[1].lower()
+            adapter = DataAdapterFactory.get_adapter(ext)
+            root_epics = adapter.import_data(file_path)
+            
+            self.workspace._epics = root_epics
+            self.workspace.current_filepath = file_path
+            
+            # Notify views to update
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
+            self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
+        except Exception as e:
+            # Silently fail initial load if file is corrupt, or notify via event
+            print(f"Failed to load initial workspace: {e}")
 
     def _subscribe_events(self):
         """Subscribes to overarching application events."""
