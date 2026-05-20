@@ -63,6 +63,11 @@ class SettingsDialog(tk.Toplevel):
         self.check_auto_save = ttk.Checkbutton(self.general_tab, text="Enable Auto-Save", variable=self.var_auto_save)
         self.check_auto_save.pack(anchor=tk.W, padx=10, pady=10)
 
+        # Show Status in Tree
+        self.var_show_status = tk.BooleanVar()
+        self.check_show_status = ttk.Checkbutton(self.general_tab, text="Show Status in Tree View", variable=self.var_show_status)
+        self.check_show_status.pack(anchor=tk.W, padx=10, pady=10)
+
         # Log Level
         ttk.Label(self.general_tab, text="Logging Level:").pack(anchor=tk.W, padx=10, pady=(10, 0))
         self.combo_log_level = ttk.Combobox(self.general_tab, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly", style="Preferences.TCombobox")
@@ -166,6 +171,7 @@ class SettingsDialog(tk.Toplevel):
         self.combo_theme.set(self.current_settings.get('theme', 'Dark').capitalize())
         self.var_auto_save.set(self.current_settings.get('auto_save', False))
         self.combo_log_level.set(self.current_settings.get('log_level', 'INFO'))
+        self.var_show_status.set(self.current_settings.get('show_status_in_tree', True))
         
         # Load Template Parameters
         self.combo_tool.set(self.current_settings.get('target_tool', 'GitLab'))
@@ -265,6 +271,7 @@ class SettingsDialog(tk.Toplevel):
             theme=self.combo_theme.get().lower(),
             auto_save=self.var_auto_save.get(),
             log_level=self.combo_log_level.get(),
+            show_status_in_tree=self.var_show_status.get(),
             templates=self.templates,
             target_tool=self.combo_tool.get(),
             methodology=self.combo_methodology.get(),

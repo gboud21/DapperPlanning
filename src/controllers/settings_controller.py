@@ -1,25 +1,29 @@
 from src.events import (
     EventDispatcher, UISettingsDialogOpenRequestedEvent, UISettingsSaveRequestedEvent,
-    AppThemeChangedEvent, UITemplateConfigExportRequestedEvent, UIErrorNotificationEvent
+    AppThemeChangedEvent, UITemplateConfigExportRequestedEvent, UIErrorNotificationEvent,
+    ModelHierarchyUpdatedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.views.settings_dialog import SettingsDialog
 from src.utils.paths import get_user_data_dir, get_app_config_dir
+from src.models.workspace import Workspace
 import tkinter as tk
 import os
 import json
 
 class SettingsController:
-    def __init__(self, root: tk.Tk, dispatcher: EventDispatcher):
+    def __init__(self, root: tk.Tk, dispatcher: EventDispatcher, workspace: Workspace):
         """
         Initializes the SettingsController.
 
         Args:
             root (tk.Tk): The root Tkinter window.
             dispatcher (EventDispatcher): The application's event dispatcher.
+            workspace (Workspace): The application's workspace model.
         """
         self.root = root
         self.dispatcher = dispatcher
+        self.workspace = workspace
         
         self._subscribe_events()
 
@@ -29,7 +33,7 @@ class SettingsController:
         self.dispatcher.subscribe(UITemplateConfigExportRequestedEvent, self.handle_template_export)
 
     def handle_open_dialog(self, event: UISettingsDialogOpenRequestedEvent):
-        current_settings = ThemeManager.get_general_settings()
+        current_settings = ThemeManager.load_all_settings()
         SettingsDialog(self.root, self.dispatcher, current_settings)
 
     def handle_save_settings(self, event: UISettingsSaveRequestedEvent):
@@ -41,6 +45,7 @@ class SettingsController:
             theme=event.theme,
             auto_save=event.auto_save,
             log_level=event.log_level,
+            show_status_in_tree=event.show_status_in_tree,
             templates=event.templates,
             target_tool=event.target_tool,
             methodology=event.methodology,
@@ -56,6 +61,9 @@ class SettingsController:
             is_dark = (event.theme.lower() == 'dark')
             self.dispatcher.dispatch(AppThemeChangedEvent(is_dark=is_dark))
             ThemeManager.apply_ttk_theme(is_dark)
+            
+        # Redraw tree to reflect show_status_in_tree change
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))
 
     def handle_template_export(self, event: UITemplateConfigExportRequestedEvent):
         """

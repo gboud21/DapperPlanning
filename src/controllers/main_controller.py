@@ -34,7 +34,7 @@ class MainController:
         self.editor_controller = EditorController(dispatcher, workspace)
         self.menu_controller = MenuController(dispatcher, workspace)
         self.integrations_controller = IntegrationsController(self.root, dispatcher, workspace)
-        self.settings_controller = SettingsController(self.root, dispatcher)
+        self.settings_controller = SettingsController(self.root, dispatcher, workspace)
         
         self._subscribe_events()
 

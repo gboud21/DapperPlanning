@@ -30,6 +30,7 @@ class EditorController:
         item = self.workspace._find_item_by_id(event.item_id)
         if isinstance(item, Story):
              item.weight = event.weight
+             item.status = event.status
 
         self.workspace.update_item_details(
             event.item_id, 
@@ -77,7 +78,8 @@ class EditorController:
                 team=Team(name="Unassigned"),
                 products=event.products,
                 capabilities=event.capabilities,
-                weight=event.weight
+                weight=event.weight,
+                status=event.status
             )
             parent.stories.append(item)
 

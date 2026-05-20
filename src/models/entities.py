@@ -47,6 +47,7 @@ class Story:
         products (List[str]): List of associated product names/tags.
         capabilities (List[str]): List of associated capability names/tags.
         weight (float): The weight assigned to the story.
+        status (str): The status of the story (e.g., 'Backlog', 'In Progress', 'In Review', 'Done').
     """
     id: str
     title: str
@@ -57,6 +58,7 @@ class Story:
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
+    status: str = 'Backlog'
 
 @dataclass
 class Feature:
@@ -87,6 +89,18 @@ class Feature:
         """Returns the sum of the weights of all items in its stories list."""
         return sum(s.weight for s in self.stories)
 
+    @property
+    def status(self) -> str:
+        """Dynamically calculates status based on children."""
+        if not self.stories:
+            return 'Backlog'
+        statuses = [s.status for s in self.stories]
+        if all(s == 'Done' for s in statuses):
+            return 'Done'
+        if all(s == 'Backlog' for s in statuses):
+            return 'Backlog'
+        return 'In Progress'
+
 @dataclass
 class Epic:
     """
@@ -113,3 +127,15 @@ class Epic:
     def weight(self) -> float:
         """Returns the sum of the weights of all items in its features list."""
         return sum(f.weight for f in self.features)
+
+    @property
+    def status(self) -> str:
+        """Dynamically calculates status based on children."""
+        if not self.features:
+            return 'Backlog'
+        statuses = [f.status for f in self.features]
+        if all(s == 'Done' for s in statuses):
+            return 'Done'
+        if all(s == 'Backlog' for s in statuses):
+            return 'Backlog'
+        return 'In Progress'

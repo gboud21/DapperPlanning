@@ -113,6 +113,11 @@ class EditorPane:
         self.entry_weight = tk.Entry(self.scrollable_frame, validate='key', validatecommand=self.vcmd)
         self.entry_weight.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
+        # Status Combobox
+        ttk.Label(self.scrollable_frame, text="Status:").pack(anchor=tk.W)
+        self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done'), state="readonly")
+        self.combo_status.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+
         ttk.Label(self.scrollable_frame, text="Description:").pack(anchor=tk.W)
         self.text_desc = tk.Text(self.scrollable_frame, height=10, width=50)
         self.text_desc.pack(anchor=tk.W, fill=tk.BOTH, expand=True, pady=(0, 10))
@@ -263,13 +268,16 @@ class EditorPane:
         weight_str = self.entry_weight.get()
         weight = float(weight_str) if weight_str else 0.0
         
+        status = self.combo_status.get() or 'Backlog'
+        
         self.dispatcher.dispatch(UIItemSaveRequestedEvent(
             item_id=self.current_selected_id,
             new_title=title,
             new_description=desc,
             new_products=products,
             new_capabilities=capabilities,
-            weight=weight
+            weight=weight,
+            status=status
         ))
 
     def _on_save_clicked(self):
@@ -283,6 +291,8 @@ class EditorPane:
         weight_str = self.entry_weight.get()
         weight = float(weight_str) if weight_str else 0.0
         
+        status = self.combo_status.get() or 'Backlog'
+        
         self.dispatcher.dispatch(UICreateItemRequestedEvent(
             parent_id=self.current_selected_id,
             item_type=item_type,
@@ -290,7 +300,8 @@ class EditorPane:
             description=desc,
             products=products,
             capabilities=capabilities,
-            weight=weight
+            weight=weight,
+            status=status
         ))
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
@@ -310,10 +321,15 @@ class EditorPane:
         weight = getattr(event.item_data, 'weight', 0.0)
         self.entry_weight.insert(0, f"{weight:.1f}")
         
+        # Populate status and set state
+        self.combo_status.set(getattr(event.item_data, 'status', 'Backlog'))
+        
         if item_type in ['Epic', 'Feature']:
             self.entry_weight.config(state='disabled')
+            self.combo_status.config(state='disabled')
         else:
             self.entry_weight.config(state='normal')
+            self.combo_status.config(state='readonly')
 
         self.text_desc.delete("1.0", tk.END)
         self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))

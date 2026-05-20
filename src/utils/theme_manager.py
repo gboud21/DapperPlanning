@@ -31,6 +31,7 @@ class ThemeManager:
             'theme': 'dark',
             'auto_save': False,
             'log_level': 'INFO',
+            'show_status_in_tree': True,
             'last_workspace': None,
             'window_maximized': False,
             'templates': {

@@ -27,6 +27,7 @@ class UIItemSaveRequestedEvent(Event):
     new_products: List[str] = field(default_factory=list)
     new_capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
+    status: str = 'Backlog'
 
 @dataclass
 class ModelHierarchyUpdatedEvent(Event):
@@ -104,6 +105,7 @@ class UISettingsSaveRequestedEvent(Event):
     theme: str
     auto_save: bool
     log_level: str
+    show_status_in_tree: bool
     templates: dict
     target_tool: str
     methodology: str
@@ -155,6 +157,7 @@ class UICreateItemRequestedEvent(Event):
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
+    status: str = 'Backlog'
 
 @dataclass
 class UIThemeToggleRequestedEvent(Event):

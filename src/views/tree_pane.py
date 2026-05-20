@@ -5,6 +5,7 @@ from src.events import (
     UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent,
     AppThemeChangedEvent
 )
+from src.utils.theme_manager import ThemeManager
 
 class TreePane:
     def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher):
@@ -147,13 +148,20 @@ class TreePane:
 
     def _populate_nodes(self, parent_iid: str, items: list):
         """Recursively populates nodes from Agile objects."""
+        show_status = ThemeManager.load_all_settings().get('show_status_in_tree', True)
         for item in items:
             item_id = getattr(item, 'id', str(id(item)))
             title = getattr(item, 'title', "Untitled")
             weight = getattr(item, 'weight', 0.0)
+            status = getattr(item, 'status', 'Backlog')
             item_type = type(item).__name__
             
-            node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=f"[{weight:.1f}] {title}", tags=(item_type,))
+            if show_status:
+                display_text = f"[{weight:.1f}] ({status}) {title}"
+            else:
+                display_text = f"[{weight:.1f}] {title}"
+                
+            node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=display_text, tags=(item_type,))
             
             if item_type == "Epic" and hasattr(item, "features"):
                 self._populate_nodes(node_iid, item.features)
