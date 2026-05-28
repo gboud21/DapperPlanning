@@ -22,27 +22,36 @@
                             "domain": "Systems Architecture"
                         },
                         "metadata": {
-                            "assignee": "gboudreau",
-                            "milestone": "MVP",
-                            "weight": 5,
-                            "labels": ["Architecture", "MVC"],
-                            "template": "Heavyweight"
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
                         },
-                        "interface_boundary": "Local Controller/View",
-                        "products": ["DapperPlanning"],
-                        "capabilities": ["Core Architecture"],
-                        "weight": 5.0
+                        "interface_boundary": null,
+                        "products": [
+                            "DapperPlanning"
+                        ],
+                        "capabilities": [
+                            "Core Architecture"
+                        ],
+                        "weight": 5.0,
+                        "status": "Backlog"
                     }
                 ],
                 "metadata": {
-                    "assignee": "gboudreau",
-                    "milestone": "Phase 1",
+                    "assignee": "",
+                    "milestone": "",
                     "weight": 0,
-                    "labels": ["UI"],
-                    "template": "Heavyweight"
+                    "labels": [],
+                    "template": ""
                 },
-                "products": ["DapperPlanning"],
-                "capabilities": ["Native UI"]
+                "products": [
+                    "DapperPlanning"
+                ],
+                "capabilities": [
+                    "Native UI"
+                ]
             },
             {
                 "id": "feat-persistence-001",
@@ -62,27 +71,57 @@
                             "domain": "Data Management"
                         },
                         "metadata": {
-                            "assignee": "gboudreau",
-                            "milestone": "MVP",
-                            "weight": 3,
-                            "labels": ["Data", "Utility"],
-                            "template": "Heavyweight"
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
                         },
-                        "interface_boundary": "File I/O",
-                        "products": ["DapperPlanning"],
-                        "capabilities": ["Data Persistence"],
-                        "weight": 3.0
+                        "interface_boundary": null,
+                        "products": [
+                            "DapperPlanning"
+                        ],
+                        "capabilities": [
+                            "Data Persistence"
+                        ],
+                        "weight": 3.0,
+                        "status": "Backlog"
+                    },
+                    {
+                        "id": "5db7869a-5769-45a1-9caf-e8d56aa776d2",
+                        "title": "JSON File Format",
+                        "description": "## User Story\n**As a** developer, \n**I want** [action/feature], \n**So that** it provides a secondary human readable file format option.\n\n## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n## Technical Notes / Implementation Details\n- Architecture considerations:\n- API endpoints affected:\n\n## Testing Notes\n- Edge cases to consider:\n- Required test environments:\n\n## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?",
+                        "team": {
+                            "name": "Unassigned",
+                            "domain": ""
+                        },
+                        "metadata": {
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
+                        },
+                        "interface_boundary": null,
+                        "products": [],
+                        "capabilities": [],
+                        "weight": 2.0,
+                        "status": "Backlog"
                     }
                 ],
                 "metadata": {
-                    "assignee": "gboudreau",
-                    "milestone": "Phase 2",
+                    "assignee": "",
+                    "milestone": "",
                     "weight": 0,
-                    "labels": ["Storage"],
-                    "template": "Heavyweight"
+                    "labels": [],
+                    "template": ""
                 },
-                "products": ["DapperPlanning"],
-                "capabilities": ["Data Management"]
+                "products": [
+                    "DapperPlanning"
+                ],
+                "capabilities": [
+                    "Data Management"
+                ]
             },
             {
                 "id": "feat-gitlab-001",
@@ -102,37 +141,50 @@
                             "domain": "API Services"
                         },
                         "metadata": {
-                            "assignee": "gboudreau",
-                            "milestone": "Phase 2",
-                            "weight": 5,
-                            "labels": ["API", "GitLab"],
-                            "template": "Heavyweight"
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
                         },
-                        "interface_boundary": "External API",
-                        "products": ["DapperPlanning"],
-                        "capabilities": ["GitLab Integration"],
-                        "weight": 5.0
+                        "interface_boundary": null,
+                        "products": [
+                            "DapperPlanning"
+                        ],
+                        "capabilities": [
+                            "GitLab Integration"
+                        ],
+                        "weight": 5.0,
+                        "status": "Backlog"
                     }
                 ],
                 "metadata": {
-                    "assignee": "gboudreau",
-                    "milestone": "Phase 3",
+                    "assignee": "",
+                    "milestone": "",
                     "weight": 0,
-                    "labels": ["Integrations"],
-                    "template": "Heavyweight"
+                    "labels": [],
+                    "template": ""
                 },
-                "products": ["DapperPlanning"],
-                "capabilities": ["External Services"]
+                "products": [
+                    "DapperPlanning"
+                ],
+                "capabilities": [
+                    "External Services"
+                ]
             }
         ],
         "metadata": {
-            "assignee": "gboudreau",
-            "milestone": "6-Week MVP",
+            "assignee": "",
+            "milestone": "",
             "weight": 0,
-            "labels": ["Core"],
-            "template": "Heavyweight"
+            "labels": [],
+            "template": ""
         },
-        "products": ["DapperPlanning"],
-        "capabilities": ["Backlog Management"]
+        "products": [
+            "DapperPlanning"
+        ],
+        "capabilities": [
+            "Backlog Management"
+        ]
     }
 ]

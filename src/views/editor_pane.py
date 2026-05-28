@@ -156,6 +156,31 @@ class EditorPane:
         self.btn_update = ttk.Button(self.button_frame, text="Update Current Item", command=self._on_update_clicked)
         self.btn_update.pack(side=tk.RIGHT, padx=5)
 
+        # Enable mouse wheel scrolling recursively
+        self._bind_mousewheel(self.canvas)
+
+    def _on_mousewheel(self, event):
+        """Handles mouse wheel scrolling for the canvas."""
+        if event.num == 4:
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.canvas.yview_scroll(1, "units")
+        elif event.delta: # Windows/macOS
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    def _bind_mousewheel(self, widget):
+        """Recursively binds mouse wheel events to a widget and its children."""
+        # Widgets that handle their own vertical scrolling should be excluded
+        if isinstance(widget, (tk.Text, tk.Listbox, ttk.Scrollbar)):
+            return
+
+        widget.bind("<Button-4>", self._on_mousewheel, add="+")
+        widget.bind("<Button-5>", self._on_mousewheel, add="+")
+        widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        
+        for child in widget.winfo_children():
+            self._bind_mousewheel(child)
+
     def _load_config(self):
         """Loads user configuration for template defaults."""
         config = ThemeManager.get_general_settings()
