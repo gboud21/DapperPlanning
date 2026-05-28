@@ -13,16 +13,18 @@ from .editor_pane import EditorPane
 from .menu_bar import ApplicationMenuBar
 
 class MainWindow:
-    def __init__(self, root: tk.Tk, dispatcher: EventDispatcher):
+    def __init__(self, root: tk.Tk, dispatcher: EventDispatcher, workspace=None):
         """
         Initialize the MainWindow.
 
         Args:
             root (tk.Tk): The root Tkinter window.
             dispatcher (EventDispatcher): The event dispatcher for UI and model communication.
+            workspace (Workspace, optional): The application's workspace model.
         """
         self.root = root
         self.dispatcher = dispatcher
+        self.workspace = workspace
         self._last_maximized_state = False
         
         self.setup_ui()
@@ -59,7 +61,7 @@ class MainWindow:
         # 4. Right Pane (Editor)
         self.right_frame = ttk.Frame(self.paned_window, padding=10)
         self.paned_window.add(self.right_frame, weight=3)
-        self.editor_pane = EditorPane(self.right_frame, self.dispatcher)
+        self.editor_pane = EditorPane(self.right_frame, self.dispatcher, self.workspace)
 
     def _bind_events(self):
         """Binds overarching UI events."""

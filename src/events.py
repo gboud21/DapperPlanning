@@ -176,6 +176,12 @@ class UIGlobalTagAddRequestedEvent(Event):
     tag_value: str
 
 @dataclass
+class UIGlobalTagDeleteRequestedEvent(Event):
+    """Emitted when a user deletes a tag from the global master list."""
+    tag_type: str  # 'product' or 'capability'
+    tag_value: str
+
+@dataclass
 class AppThemeChangedEvent(Event):
     """Emitted by the Controller when the application theme has changed."""
     is_dark: bool

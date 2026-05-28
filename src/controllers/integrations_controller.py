@@ -1,6 +1,6 @@
 from src.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
-    UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent
+    UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.views.integrations_dialog import IntegrationsDialog
@@ -26,6 +26,7 @@ class IntegrationsController:
         self.dispatcher.subscribe(UIIntegrationsDialogOpenRequestedEvent, self.handle_open_dialog)
         self.dispatcher.subscribe(UIIntegrationsSaveRequestedEvent, self.handle_save_settings)
         self.dispatcher.subscribe(UIGlobalTagAddRequestedEvent, self.handle_global_tag_add)
+        self.dispatcher.subscribe(UIGlobalTagDeleteRequestedEvent, self.handle_global_tag_delete)
 
     def handle_open_dialog(self, event: UIIntegrationsDialogOpenRequestedEvent):
         current_settings = ThemeManager.get_integration_settings()
@@ -37,6 +38,13 @@ class IntegrationsController:
         Appends a new tag to the global settings and saves to disk.
         """
         ThemeManager.update_integration_tag(event.tag_type, event.tag_value)
+
+    def handle_global_tag_delete(self, event: UIGlobalTagDeleteRequestedEvent):
+        """
+        Removes a tag from the global settings and all workspace items.
+        """
+        ThemeManager.delete_integration_tag(event.tag_type, event.tag_value)
+        self.workspace.remove_global_tag(event.tag_type, event.tag_value)
 
     def handle_save_settings(self, event: UIIntegrationsSaveRequestedEvent):
         ThemeManager.save_integration_settings(

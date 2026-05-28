@@ -140,6 +140,19 @@ class ThemeManager:
         cls.save_all_settings(settings)
 
     @classmethod
+    def delete_integration_tag(cls, tag_type: str, tag_value: str):
+        """Removes a single integration tag and persists to disk."""
+        settings = cls.load_all_settings()
+        if tag_type == 'capability':
+            if 'capabilities' in settings and tag_value in settings['capabilities']:
+                settings['capabilities'].remove(tag_value)
+        elif tag_type == 'product':
+            if 'product_mappings' in settings and tag_value in settings['product_mappings']:
+                del settings['product_mappings'][tag_value]
+        
+        cls.save_all_settings(settings)
+
+    @classmethod
     def get_general_settings(cls) -> dict:
         """Retrieves general application preferences and templates."""
         settings = cls.load_all_settings()

@@ -1,24 +1,26 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import re
 from src.events import (
     EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent,
-    AppThemeChangedEvent, UIGlobalTagAddRequestedEvent
+    AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
 )
 from src.utils.template_generator import TemplateGenerator
 from src.utils.theme_manager import ThemeManager
 
 class EditorPane:
-    def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher):
+    def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher, workspace=None):
         """
         Initializes the EditorPane for viewing and editing item details.
 
         Args:
             parent_frame (ttk.Frame): The frame where the editor widgets will be placed.
             dispatcher (EventDispatcher): The application's event dispatcher.
+            workspace (Workspace, optional): The application's workspace model.
         """
         self.parent = parent_frame
         self.dispatcher = dispatcher
+        self.workspace = workspace
         self.current_selected_id = None
         
         # Register validation command
@@ -158,9 +160,17 @@ class EditorPane:
         # New Tag Entry
         entry_new = tk.Entry(left_container)
         entry_new.pack(fill=tk.X, pady=(2, 0))
-        btn_add_master = ttk.Button(left_container, text="Add to Master List", 
+        
+        btn_master_frame = ttk.Frame(left_container)
+        btn_master_frame.pack(fill=tk.X)
+        
+        btn_add_master = ttk.Button(btn_master_frame, text="Add", width=5,
                                     command=lambda: self._add_to_master(list_master, entry_new, tag_type))
-        btn_add_master.pack(fill=tk.X)
+        btn_add_master.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        btn_delete_master = ttk.Button(btn_master_frame, text="Delete", width=6,
+                                       command=lambda: self._delete_from_master_list(list_master, tag_type))
+        btn_delete_master.pack(side=tk.LEFT, padx=(2, 0))
         
         # Middle: Transfer Buttons
         mid_container = ttk.Frame(frame)
@@ -170,10 +180,6 @@ class EditorPane:
                                 command=lambda: self._transfer_items(list_master, list_assigned))
         btn_assign.pack(pady=5)
         
-        btn_remove = ttk.Button(mid_container, text="<<", width=5,
-                                command=lambda: self._transfer_items(list_assigned, list_master))
-        btn_remove.pack(pady=5)
-        
         # Right side: Assigned Tags
         right_container = ttk.Frame(frame)
         right_container.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
@@ -181,6 +187,10 @@ class EditorPane:
         ttk.Label(right_container, text="Assigned").pack(anchor=tk.W)
         list_assigned = tk.Listbox(right_container, height=6, exportselection=False)
         list_assigned.pack(fill=tk.BOTH, expand=True)
+
+        btn_delete_assigned = ttk.Button(right_container, text="Delete", 
+                                         command=lambda: self._remove_assigned_items(list_assigned))
+        btn_delete_assigned.pack(fill=tk.X)
 
         return {
             "master": list_master,
@@ -190,24 +200,93 @@ class EditorPane:
         }
 
     def _transfer_items(self, source, target):
-        """Moves selected items from source listbox to target listbox."""
+        """Copies selected items from master listbox to assigned listbox without removing from master."""
         selected_indices = source.curselection()
         if not selected_indices:
             return
             
-        items_to_move = [source.get(i) for i in selected_indices]
+        current_assigned = list(target.get(0, tk.END))
+        for i in selected_indices:
+            item = source.get(i)
+            if item not in current_assigned:
+                current_assigned.append(item)
         
-        # Remove from source
-        for i in reversed(selected_indices):
-            source.delete(i)
-            
-        # Add to target and sort
-        all_target_items = list(target.get(0, tk.END)) + items_to_move
-        all_target_items.sort()
-        
+        current_assigned.sort()
         target.delete(0, tk.END)
-        for item in all_target_items:
+        for item in current_assigned:
             target.insert(tk.END, item)
+
+    def _remove_assigned_items(self, list_assigned):
+        """Removes selected items from the assigned listbox."""
+        selected_indices = list_assigned.curselection()
+        if not selected_indices:
+            return
+            
+        for i in reversed(selected_indices):
+            list_assigned.delete(i)
+
+    def _delete_from_master_list(self, list_master, tag_type):
+        """Deletes a tag from the global master list after confirmation of impact."""
+        selected_index = list_master.curselection()
+        if not selected_index:
+            return
+            
+        tag_value = list_master.get(selected_index)
+        
+        # 1. Identify impacted objects in the workspace
+        impacted_items = []
+        from src.controllers.main_controller import MainController
+        # Note: EditorPane doesn't directly hold the workspace, but we can query through event dispatcher
+        # or better, since we follow MVC, we could dispatch an inquiry event. 
+        # However, for brevity and prompt requirements, we'll traverse if possible.
+        # Actually, the EditorPane doesn't have reference to workspace.
+        # I'll need to ask the dispatcher for the model or rely on the fact that 
+        # MainController/IntegrationsController will handle the actual deletion.
+        # To show the list in the prompt, I'll need to pass the list of items.
+        
+        # We'll use a trick: MainController is usually reachable via root/parent or we can add workspace ref.
+        # Since I am refactoring, I will add a workspace reference to EditorPane to allow this traversal.
+        
+        attr_name = 'products' if tag_type == 'product' else 'capabilities'
+        # Workspace traversal logic (moved here for the prompt)
+        from src.views.main_window import MainWindow
+        # This is getting messy. Let's assume the dispatcher can help or we provide workspace in __init__.
+        # I will update __init__ to accept workspace.
+        
+        if not hasattr(self, 'workspace') or not self.workspace:
+             # Fallback if workspace not injected yet
+             if messagebox.askyesno("Confirm Global Delete", f"Are you sure you want to delete '{tag_value}' from the global master list?"):
+                self.dispatcher.dispatch(UIGlobalTagDeleteRequestedEvent(tag_type=tag_type, tag_value=tag_value))
+                list_master.delete(selected_index)
+             return
+
+        for epic in self.workspace.get_epics():
+            if tag_value in getattr(epic, attr_name, []):
+                impacted_items.append(f"Epic: {epic.title}")
+            for feature in epic.features:
+                if tag_value in getattr(feature, attr_name, []):
+                    impacted_items.append(f"  Feature: {feature.title}")
+                for story in feature.stories:
+                    if tag_value in getattr(story, attr_name, []):
+                        impacted_items.append(f"    Story: {story.title}")
+        
+        msg = f"Are you sure you want to delete '{tag_value}' globally?\n\n"
+        if impacted_items:
+            msg += "The following items will be impacted:\n" + "\n".join(impacted_items[:15])
+            if len(impacted_items) > 15:
+                msg += f"\n...and {len(impacted_items)-15} more."
+        else:
+            msg += "No items in the current workspace currently use this tag."
+
+        if messagebox.askyesno("Confirm Global Delete", msg):
+            self.dispatcher.dispatch(UIGlobalTagDeleteRequestedEvent(tag_type=tag_type, tag_value=tag_value))
+            list_master.delete(selected_index)
+            # Also remove from current assigned list if present
+            ui = self.product_ui if tag_type == 'product' else self.capability_ui
+            assigned_items = list(ui['assigned'].get(0, tk.END))
+            if tag_value in assigned_items:
+                idx = assigned_items.index(tag_value)
+                ui['assigned'].delete(idx)
 
     def _add_to_master(self, list_master, entry_new, tag_type):
         """Adds a new tag to the local master listbox and dispatches global event."""
@@ -419,16 +498,14 @@ class EditorPane:
         self.canvas.yview_moveto(0)
 
     def _populate_dual_listbox(self, ui_dict, master_list, assigned_list):
-        """Populates the master and assigned listboxes based on diff logic."""
+        """Populates the master and assigned listboxes."""
         ui_dict['master'].delete(0, tk.END)
         ui_dict['assigned'].delete(0, tk.END)
-        
-        assigned_set = set(assigned_list)
         
         for item in sorted(assigned_list):
             ui_dict['assigned'].insert(tk.END, item)
             
+        # The user requested that items remain in the master list even if assigned
         for item in sorted(master_list):
-            if item not in assigned_set:
-                ui_dict['master'].insert(tk.END, item)
+            ui_dict['master'].insert(tk.END, item)
 

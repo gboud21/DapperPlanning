@@ -104,3 +104,33 @@ class Workspace:
             List[Epic]: A list of Epic objects.
         """
         return self._epics
+
+    def remove_global_tag(self, tag_type: str, tag_value: str) -> None:
+        """
+        Removes a specific tag from all items in the workspace.
+
+        Args:
+            tag_type (str): 'product' or 'capability'.
+            tag_value (str): The value of the tag to remove.
+        """
+        attr_name = 'products' if tag_type == 'product' else 'capabilities'
+        
+        for epic in self._epics:
+            if hasattr(epic, attr_name):
+                current_tags = getattr(epic, attr_name)
+                if tag_value in current_tags:
+                    current_tags.remove(tag_value)
+            
+            for feature in epic.features:
+                if hasattr(feature, attr_name):
+                    current_tags = getattr(feature, attr_name)
+                    if tag_value in current_tags:
+                        current_tags.remove(tag_value)
+                
+                for story in feature.stories:
+                    if hasattr(story, attr_name):
+                        current_tags = getattr(story, attr_name)
+                        if tag_value in current_tags:
+                            current_tags.remove(tag_value)
+                            
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._epics))
