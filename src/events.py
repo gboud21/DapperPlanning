@@ -170,6 +170,12 @@ class UIWindowStateChangedEvent(Event):
     is_maximized: bool
 
 @dataclass
+class UIGlobalTagAddRequestedEvent(Event):
+    """Emitted when a user adds a new tag to the global master list from the editor."""
+    tag_type: str  # 'product' or 'capability'
+    tag_value: str
+
+@dataclass
 class AppThemeChangedEvent(Event):
     """Emitted by the Controller when the application theme has changed."""
     is_dark: bool

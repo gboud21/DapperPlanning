@@ -122,6 +122,24 @@ class ThemeManager:
         cls.save_all_settings(settings)
 
     @classmethod
+    def update_integration_tag(cls, tag_type: str, tag_value: str):
+        """Updates a single integration tag and persists to disk."""
+        settings = cls.load_all_settings()
+        if tag_type == 'capability':
+            if 'capabilities' not in settings:
+                settings['capabilities'] = []
+            if tag_value not in settings['capabilities']:
+                settings['capabilities'].append(tag_value)
+                settings['capabilities'].sort()
+        elif tag_type == 'product':
+            if 'product_mappings' not in settings:
+                settings['product_mappings'] = {}
+            if tag_value not in settings['product_mappings']:
+                settings['product_mappings'][tag_value] = ""
+        
+        cls.save_all_settings(settings)
+
+    @classmethod
     def get_general_settings(cls) -> dict:
         """Retrieves general application preferences and templates."""
         settings = cls.load_all_settings()
