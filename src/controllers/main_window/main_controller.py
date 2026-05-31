@@ -8,9 +8,9 @@ from src.events import (
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
     UISaveWorkspaceRequestedEvent
 )
-from src.models.workspace import Workspace
-from .tree_controller import TreeController
-from .editor_controller import EditorController
+from src.models.agile_planning.workspace import Workspace
+from src.controllers.agile_planning.tree_view.tree_controller import TreeController
+from src.controllers.agile_planning.object_editor.editor_controller import EditorController
 from .menu_controller import MenuController
 from .integrations_controller import IntegrationsController
 from .settings_controller import SettingsController

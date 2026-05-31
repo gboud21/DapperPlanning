@@ -3,7 +3,7 @@ from src.events import (
     UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
-from src.views.integrations_dialog import IntegrationsDialog
+from src.views.main_window.integrations_dialog import IntegrationsDialog
 import tkinter as tk
 
 class IntegrationsController:

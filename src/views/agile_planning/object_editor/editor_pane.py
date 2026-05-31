@@ -249,7 +249,7 @@ class EditorPane:
         
         # 1. Identify impacted objects in the workspace
         impacted_items = []
-        from src.controllers.main_controller import MainController
+        from src.controllers.main_window.main_controller import MainController
         # Note: EditorPane doesn't directly hold the workspace, but we can query through event dispatcher
         # or better, since we follow MVC, we could dispatch an inquiry event. 
         # However, for brevity and prompt requirements, we'll traverse if possible.
@@ -263,7 +263,7 @@ class EditorPane:
         
         attr_name = 'products' if tag_type == 'product' else 'capabilities'
         # Workspace traversal logic (moved here for the prompt)
-        from src.views.main_window import MainWindow
+        from src.views.main_window.main_window import MainWindow
         # This is getting messy. Let's assume the dispatcher can help or we provide workspace in __init__.
         # I will update __init__ to accept workspace.
         

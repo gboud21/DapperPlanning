@@ -4,8 +4,8 @@ from src.events import (
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
     UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent
 )
-from src.models.workspace import Workspace
-from src.models.entities import Epic, Feature, Story, Team
+from src.models.agile_planning.workspace import Workspace
+from src.models.agile_planning.entities import Epic, Feature, Story, Team
 
 class TreeController:
     def __init__(self, dispatcher: EventDispatcher, workspace: Workspace):

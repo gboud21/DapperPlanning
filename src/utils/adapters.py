@@ -3,7 +3,7 @@ import json
 from dataclasses import asdict
 from abc import ABC, abstractmethod
 from typing import List, Any
-from src.models.entities import Epic
+from src.models.agile_planning.entities import Epic
 from src.utils.transformers import HierarchyFlattener, HierarchyBuilder
 
 class DataAdapter(ABC):

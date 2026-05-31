@@ -7,7 +7,7 @@ from src.events import (
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
     ModelWorkspaceLoadedEvent
 )
-from src.models.workspace import Workspace
+from src.models.agile_planning.workspace import Workspace
 from src.utils.adapters import DataAdapterFactory
 from src.utils.theme_manager import ThemeManager
 

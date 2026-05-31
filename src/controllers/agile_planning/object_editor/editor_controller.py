@@ -3,8 +3,8 @@ from src.events import (
     EventDispatcher, UIItemSaveRequestedEvent, UICreateItemRequestedEvent,
     ModelHierarchyUpdatedEvent
 )
-from src.models.workspace import Workspace
-from src.models.entities import Epic, Feature, Story, Team
+from src.models.agile_planning.workspace import Workspace
+from src.models.agile_planning.entities import Epic, Feature, Story, Team
 
 class EditorController:
     def __init__(self, dispatcher: EventDispatcher, workspace: Workspace):

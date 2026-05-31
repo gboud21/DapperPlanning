@@ -6,9 +6,9 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 from src.events import EventDispatcher
-from src.models.workspace import Workspace
-from src.views.main_window import MainWindow
-from src.controllers.main_controller import MainController
+from src.models.agile_planning.workspace import Workspace
+from src.views.main_window.main_window import MainWindow
+from src.controllers.main_window.main_controller import MainController
 
 def main():
     """

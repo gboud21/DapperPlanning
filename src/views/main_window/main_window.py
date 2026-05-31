@@ -8,8 +8,8 @@ from src.events import (
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
-from .tree_pane import TreePane
-from .editor_pane import EditorPane
+from src.views.agile_planning.tree_view.tree_pane import TreePane
+from src.views.agile_planning.object_editor.editor_pane import EditorPane
 from .menu_bar import ApplicationMenuBar
 
 class MainWindow:

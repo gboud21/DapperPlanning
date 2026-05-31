@@ -4,9 +4,9 @@ from src.events import (
     ModelHierarchyUpdatedEvent
 )
 from src.utils.theme_manager import ThemeManager
-from src.views.settings_dialog import SettingsDialog
+from src.views.main_window.settings_dialog import SettingsDialog
 from src.utils.paths import get_user_data_dir, get_app_config_dir
-from src.models.workspace import Workspace
+from src.models.agile_planning.workspace import Workspace
 import tkinter as tk
 import os
 import json
