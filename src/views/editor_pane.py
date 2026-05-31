@@ -7,6 +7,7 @@ from src.events import (
 )
 from src.utils.template_generator import TemplateGenerator
 from src.utils.theme_manager import ThemeManager
+from src.utils.ui_utils import enable_scroll_bubbling
 
 class EditorPane:
     def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher, workspace=None):
@@ -123,6 +124,7 @@ class EditorPane:
         ttk.Label(self.scrollable_frame, text="Description:").pack(anchor=tk.W)
         self.text_desc = tk.Text(self.scrollable_frame, height=10, width=50)
         self.text_desc.pack(anchor=tk.W, fill=tk.BOTH, expand=True, pady=(0, 10))
+        enable_scroll_bubbling(self.text_desc, self.canvas)
 
         # Dual-Listbox Tag Management
         self.product_ui = self._create_dual_listbox(self.scrollable_frame, "Products", "product")
@@ -156,6 +158,7 @@ class EditorPane:
         ttk.Label(left_container, text="Available").pack(anchor=tk.W)
         list_master = tk.Listbox(left_container, height=6, exportselection=False)
         list_master.pack(fill=tk.BOTH, expand=True)
+        enable_scroll_bubbling(list_master, self.canvas)
         
         # New Tag Entry
         entry_new = tk.Entry(left_container)
@@ -187,6 +190,7 @@ class EditorPane:
         ttk.Label(right_container, text="Assigned").pack(anchor=tk.W)
         list_assigned = tk.Listbox(right_container, height=6, exportselection=False)
         list_assigned.pack(fill=tk.BOTH, expand=True)
+        enable_scroll_bubbling(list_assigned, self.canvas)
 
         btn_delete_assigned = ttk.Button(right_container, text="Delete", 
                                          command=lambda: self._remove_assigned_items(list_assigned))
