@@ -27,8 +27,12 @@ class ApplicationMenuBar(tk.Menu):
         """Sets up the main menu bar cascades."""
         # File menu
         file_menu = tk.Menu(self, tearoff=0)
-        file_menu.add_command(label="Open Workspace...", command=lambda: self.dispatcher.dispatch(UIOpenWorkspaceRequestedEvent()))
-        file_menu.add_command(label="Save Workspace", command=lambda: self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent()))
+        file_menu.add_command(label="Open Workspace...", 
+                             command=lambda: self.dispatcher.dispatch(UIOpenWorkspaceRequestedEvent()),
+                             accelerator="Ctrl+O")
+        file_menu.add_command(label="Save Workspace", 
+                             command=lambda: self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent()),
+                             accelerator="Ctrl+S")
         file_menu.add_command(label="Save Workspace As...", command=lambda: self.dispatcher.dispatch(UISaveAsWorkspaceRequestedEvent()))
         file_menu.add_separator()
         file_menu.add_command(label="Import...", command=self._on_import)
@@ -73,126 +77,24 @@ class ApplicationMenuBar(tk.Menu):
         self.add_cascade(label="Help", menu=help_menu)
 
     def _bind_events(self):
-        """Binds UI events and subscriptions."""
+        """Binds UI events and global keyboard shortcuts."""
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
-
-    def handle_theme_change(self, event: AppThemeChangedEvent):
-        """Reacts to application-wide theme changes to update menu item states."""
-        if event.is_dark:
-            self.theme_menu.entryconfig("Dark Mode", state="disabled")
-            self.theme_menu.entryconfig("Light Mode", state="normal")
-        else:
-            self.theme_menu.entryconfig("Dark Mode", state="normal")
-            self.theme_menu.entryconfig("Light Mode", state="disabled")
-
-    def _on_import(self):
-        """Opens a file dialog to select a file to import and dispatches events."""
-        file_types = [
-            ("CSV Files", "*.csv"),
-            ("JSON Files", "*.json"),
-            ("All Files", "*.*")
-        ]
         
-        selected_type = tk.StringVar()
-        file_path = filedialog.askopenfilename(filetypes=file_types, typevariable=selected_type)
-        if not file_path:
-            return
+        # Global Keyboard Shortcuts
+        self.root.bind_all('<Control-o>', self._on_open_shortcut)
+        self.root.bind_all('<Command-o>', self._on_open_shortcut)  # macOS
+        self.root.bind_all('<Control-s>', self._on_save_shortcut)
+        self.root.bind_all('<Command-s>', self._on_save_shortcut)  # macOS
 
-        ext = os.path.splitext(file_path)[1].lower()
-        selection = selected_type.get()
-        
-        format_to_use = None
-        if selection == "CSV Files":
-            format_to_use = "csv"
-        elif selection == "JSON Files":
-            format_to_use = "json"
-        elif selection == "All Files" or not selection:
-            if ext == ".csv":
-                format_to_use = "csv"
-            elif ext == ".json":
-                format_to_use = "json"
+    def _on_open_shortcut(self, event):
+        """Handler for the Open Workspace shortcut."""
+        self.dispatcher.dispatch(UIOpenWorkspaceRequestedEvent())
+        return "break"
 
-        if not ext or ext not in [".csv", ".json"] or not format_to_use:
-            messagebox.showerror("Import Error", f"Unsupported or missing file extension: '{ext if ext else 'None'}'.\nPlease select a .csv or .json file.")
-            return self._on_import()
-
-        if format_to_use == "csv":
-            self.dispatcher.dispatch(UIImportCsvRequestedEvent(file_path=file_path))
-        elif format_to_use == "json":
-            self.dispatcher.dispatch(UIImportJsonRequestedEvent(file_path=file_path))
-
-    def _on_export(self):
-        """Opens a file dialog to select a save location and dispatches events."""
-        file_types = [
-            ("CSV Files", "*.csv"),
-            ("JSON Files", "*.json"),
-            ("All Files", "*.*")
-        ]
-        
-        selected_type = tk.StringVar()
-        file_path = filedialog.asksaveasfilename(filetypes=file_types, typevariable=selected_type)
-        if not file_path:
-            return
-
-        ext = os.path.splitext(file_path)[1].lower()
-        selection = selected_type.get()
-        
-        format_to_use = None
-        if selection == "CSV Files":
-            format_to_use = "csv"
-        elif selection == "JSON Files":
-            format_to_use = "json"
-        elif selection == "All Files" or not selection:
-            if ext == ".csv":
-                format_to_use = "csv"
-            elif ext == ".json":
-                format_to_use = "json"
-
-        if not ext or ext not in [".csv", ".json"] or not format_to_use:
-            messagebox.showerror("Export Error", f"Unsupported or missing file extension: '{ext if ext else 'None'}'.\nPlease ensure the filename ends with .csv or .json.")
-            return self._on_export()
-
-        if format_to_use == "csv":
-            self.dispatcher.dispatch(UIExportCsvRequestedEvent(file_path=file_path))
-        elif format_to_use == "json":
-            self.dispatcher.dispatch(UIExportJsonRequestedEvent(file_path=file_path))
-
-    def _show_about_dialog(self):
-        """Displays the about dialog."""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("About")
-        dialog.geometry("200x100")
-        dialog.transient(self.root)
-        dialog.grab_set()
-        
-        close_btn = ttk.Button(dialog, text="Close", command=dialog.destroy)
-        close_btn.pack(expand=True)
-
-    def _minimize_window(self):
-        self.root.iconify()
-
-    def _maximize_window(self):
-        try:
-            self.root.state("zoomed")
-        except tk.TclError:
-            try:
-                self.root.attributes("-zoomed", True)
-            except tk.TclError:
-                pass
-
-    def _restore_window(self):
-        try:
-            self.root.state("normal")
-        except tk.TclError:
-            pass
-        try:
-            self.root.attributes("-zoomed", False)
-        except tk.TclError:
-            pass
-
-    def _bind_events(self):
-        """Binds UI events and subscriptions."""
-        self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+    def _on_save_shortcut(self, event):
+        """Handler for the Save Workspace shortcut."""
+        self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
+        return "break"
 
     def handle_theme_change(self, event: AppThemeChangedEvent):
         """Reacts to application-wide theme changes to update menu item states."""
