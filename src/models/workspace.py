@@ -1,4 +1,6 @@
 from typing import List, Optional, Any
+import json
+from dataclasses import asdict
 from src.events import EventDispatcher, ModelHierarchyUpdatedEvent
 from .entities import Epic, Feature, Story
 
@@ -14,6 +16,20 @@ class Workspace:
         self.dispatcher = dispatcher
         self._epics: List[Epic] = []
         self.current_filepath: Optional[str] = None
+        self._clean_snapshot: Optional[str] = None
+
+    def _generate_snapshot(self) -> str:
+        """Reliably serializes the current epic hierarchy into a JSON string."""
+        data = [asdict(epic) for epic in self._epics]
+        return json.dumps(data, sort_keys=True)
+
+    def mark_as_clean(self) -> None:
+        """Stores the current state as the 'clean' reference state."""
+        self._clean_snapshot = self._generate_snapshot()
+
+    def has_unsaved_changes(self) -> bool:
+        """Returns True if the current state differs from the last clean state."""
+        return self._generate_snapshot() != self._clean_snapshot
 
     def add_epic(self, epic: Epic) -> None:
         """

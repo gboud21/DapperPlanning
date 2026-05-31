@@ -1,5 +1,5 @@
 import os
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from src.events import (
     EventDispatcher, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent, 
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent, 
@@ -42,6 +42,18 @@ class MenuController:
 
     def handle_open_workspace(self, event: UIOpenWorkspaceRequestedEvent):
         """Handles requests to open a workspace from a file."""
+        if self.workspace.has_unsaved_changes():
+            response = messagebox.askyesnocancel(
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to save before opening a new workspace?"
+            )
+            if response is True:
+                self.handle_save_workspace(UISaveWorkspaceRequestedEvent())
+                if self.workspace.has_unsaved_changes():
+                    return # Save was cancelled or failed
+            elif response is None:
+                return # User cancelled the Open operation
+
         file_path = filedialog.askopenfilename(
             filetypes=[("JSON Files", "*.json"), ("CSV Files", "*.csv"), ("All Files", "*.*")]
         )
@@ -60,6 +72,7 @@ class MenuController:
             
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
             self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
+            self.workspace.mark_as_clean()
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Open Error", message=str(e)))
 
@@ -73,6 +86,7 @@ class MenuController:
             ext = os.path.splitext(self.workspace.current_filepath)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
             adapter.export_data(self.workspace.current_filepath, self.workspace.get_epics())
+            self.workspace.mark_as_clean()
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Save Error", message=str(e)))
 
@@ -93,6 +107,7 @@ class MenuController:
             self.workspace.current_filepath = file_path
             ThemeManager.set_last_workspace(file_path)
             self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
+            self.workspace.mark_as_clean()
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Save As Error", message=str(e)))
 

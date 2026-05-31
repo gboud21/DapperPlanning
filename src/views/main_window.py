@@ -5,7 +5,7 @@ from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
     UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
-    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent
+    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from .tree_pane import TreePane
@@ -69,6 +69,9 @@ class MainWindow:
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self._handle_workspace_loaded)
         
+        # Intercept window close
+        self.root.protocol("WM_DELETE_WINDOW", lambda: self.dispatcher.dispatch(UIAppCloseRequestedEvent()))
+
         # Bind to property changes to detect maximization
         self.root.bind("<Configure>", self._on_configure)
 

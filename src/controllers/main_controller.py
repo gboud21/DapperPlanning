@@ -1,10 +1,12 @@
 import os
 import tkinter as tk
+from tkinter import messagebox
 from src.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent,
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
-    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent
+    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
+    UISaveWorkspaceRequestedEvent
 )
 from src.models.workspace import Workspace
 from .tree_controller import TreeController
@@ -74,6 +76,7 @@ class MainController:
             # Notify views to update
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
             self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
+            self.workspace.mark_as_clean()
         except Exception as e:
             # Silently fail initial load if file is corrupt, or notify via event
             print(f"Failed to load initial workspace: {e}")
@@ -82,6 +85,29 @@ class MainController:
         """Subscribes to overarching application events."""
         self.dispatcher.subscribe(UISyncRequestedEvent, self.handle_sync)
         self.dispatcher.subscribe(UIWindowStateChangedEvent, self.handle_window_state_changed)
+        self.dispatcher.subscribe(UIAppCloseRequestedEvent, self.handle_app_close)
+
+    def handle_app_close(self, event: UIAppCloseRequestedEvent):
+        """Intercepts application close to check for unsaved changes."""
+        if not self.workspace.has_unsaved_changes():
+            self.root.destroy()
+            return
+
+        response = messagebox.askyesnocancel(
+            "Unsaved Changes",
+            "You have unsaved changes. Do you want to save before exiting?"
+        )
+
+        if response is True:  # Yes
+            # Trigger save via MenuController's logic
+            # Since events are dispatched and handled synchronously in the main thread:
+            self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
+            # After save attempt, we check again if it's clean (save might have been cancelled in 'Save As' dialog)
+            if not self.workspace.has_unsaved_changes():
+                self.root.destroy()
+        elif response is False:  # No
+            self.root.destroy()
+        # If response is None (Cancel), we do nothing, effectively aborting the close.
 
     def handle_sync(self, event: UISyncRequestedEvent):
         """Handles synchronization with external services (GitLab)."""

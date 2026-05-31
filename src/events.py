@@ -61,6 +61,11 @@ class ModelWorkspaceLoadedEvent(Event):
     filepath: str
 
 @dataclass
+class UIAppCloseRequestedEvent(Event):
+    """Emitted by the View when the user tries to close the application."""
+    pass
+
+@dataclass
 class UIExportCsvRequestedEvent(Event):
     """Emitted by the View when the user selects a save location for the CSV export."""
     file_path: str
