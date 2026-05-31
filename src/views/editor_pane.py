@@ -8,6 +8,7 @@ from src.events import (
 from src.utils.template_generator import TemplateGenerator
 from src.utils.theme_manager import ThemeManager
 from src.utils.ui_utils import enable_scroll_bubbling
+from src.utils.debouncer import Debouncer
 
 class EditorPane:
     def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher, workspace=None):
@@ -23,6 +24,7 @@ class EditorPane:
         self.dispatcher = dispatcher
         self.workspace = workspace
         self.current_selected_id = None
+        self._is_populating = False
         
         # Register validation command
         self.vcmd = (self.parent.register(self._validate_weight), '%P')
@@ -30,6 +32,9 @@ class EditorPane:
         self._setup_ui()
         self._bind_events()
         self._load_config()
+
+        # Instantiate debouncer for description text
+        self.text_debouncer = Debouncer(widget=self.canvas, wait_ms=750, callback=self._trigger_auto_save)
 
     def _validate_weight(self, new_value: str) -> bool:
         """Validates that the input is a number with at most one decimal place."""
@@ -110,21 +115,27 @@ class EditorPane:
         ttk.Label(self.scrollable_frame, text="Title:").pack(anchor=tk.W)
         self.entry_title = tk.Entry(self.scrollable_frame, width=50)
         self.entry_title.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        self.entry_title.bind("<FocusOut>", self._trigger_auto_save)
+        self.entry_title.bind("<Return>", self._trigger_auto_save)
 
         # Weight Entry
         ttk.Label(self.scrollable_frame, text="Weight:").pack(anchor=tk.W)
         self.entry_weight = tk.Entry(self.scrollable_frame, validate='key', validatecommand=self.vcmd)
         self.entry_weight.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        self.entry_weight.bind("<FocusOut>", self._trigger_auto_save)
+        self.entry_weight.bind("<Return>", self._trigger_auto_save)
 
         # Status Combobox
         ttk.Label(self.scrollable_frame, text="Status:").pack(anchor=tk.W)
         self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done'), state="readonly", style="Preferences.TCombobox")
         self.combo_status.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        self.combo_status.bind("<<ComboboxSelected>>", self._trigger_auto_save)
 
         ttk.Label(self.scrollable_frame, text="Description:").pack(anchor=tk.W)
         self.text_desc = tk.Text(self.scrollable_frame, height=10, width=50)
         self.text_desc.pack(anchor=tk.W, fill=tk.BOTH, expand=True, pady=(0, 10))
         enable_scroll_bubbling(self.text_desc, self.canvas)
+        self.text_desc.bind("<KeyRelease>", lambda e: self.text_debouncer.schedule())
 
         # Dual-Listbox Tag Management
         self.product_ui = self._create_dual_listbox(self.scrollable_frame, "Products", "product")
@@ -136,9 +147,6 @@ class EditorPane:
 
         self.btn_create = ttk.Button(self.button_frame, text="Create as New Child", command=self._on_save_clicked)
         self.btn_create.pack(side=tk.RIGHT, padx=5)
-
-        self.btn_update = ttk.Button(self.button_frame, text="Update Current Item", command=self._on_update_clicked)
-        self.btn_update.pack(side=tk.RIGHT, padx=5)
 
         # Enable mouse wheel scrolling recursively
         self._bind_mousewheel(self.canvas)
@@ -219,6 +227,7 @@ class EditorPane:
         target.delete(0, tk.END)
         for item in current_assigned:
             target.insert(tk.END, item)
+        self._trigger_auto_save()
 
     def _remove_assigned_items(self, list_assigned):
         """Removes selected items from the assigned listbox."""
@@ -228,6 +237,7 @@ class EditorPane:
             
         for i in reversed(selected_indices):
             list_assigned.delete(i)
+        self._trigger_auto_save()
 
     def _delete_from_master_list(self, list_master, tag_type):
         """Deletes a tag from the global master list after confirmation of impact."""
@@ -363,7 +373,6 @@ class EditorPane:
     def _force_redraw(self):
         """Explicitly triggers updates on the scrollable container and its children."""
         self.scrollable_frame.update()
-        self.btn_update.update()
         self.btn_create.update()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
@@ -408,9 +417,9 @@ class EditorPane:
                 relief="flat"
             )
 
-    def _on_update_clicked(self):
-        """Dispatches the update request for the currently selected item."""
-        if not self.current_selected_id:
+    def _trigger_auto_save(self, *args):
+        """Dispatches the update request automatically when data changes."""
+        if self._is_populating or not self.current_selected_id:
             return
             
         title = self.entry_title.get()
@@ -419,7 +428,10 @@ class EditorPane:
         capabilities = list(self.capability_ui['assigned'].get(0, tk.END))
         
         weight_str = self.entry_weight.get()
-        weight = float(weight_str) if weight_str else 0.0
+        try:
+            weight = float(weight_str) if weight_str else 0.0
+        except ValueError:
+            weight = 0.0
         
         status = self.combo_status.get() or 'Backlog'
         
@@ -459,47 +471,51 @@ class EditorPane:
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
         """Populates the fields when a model item becomes active."""
-        self.current_selected_id = getattr(event.item_data, 'id', None)
-        item_type = getattr(event, 'item_type', 'Item')
-        self.lbl_editor_title.config(text=f"Editing {item_type}")
-        
-        self.combo_item_type.set(item_type)
-        
-        self.entry_title.delete(0, tk.END)
-        self.entry_title.insert(0, getattr(event.item_data, 'title', ''))
-        
-        # Populate weight and set state
-        self.entry_weight.config(state='normal')
-        self.entry_weight.delete(0, tk.END)
-        weight = getattr(event.item_data, 'weight', 0.0)
-        self.entry_weight.insert(0, f"{weight:.1f}")
-        
-        # Populate status and set state
-        self.combo_status.set(getattr(event.item_data, 'status', 'Backlog'))
-        
-        if item_type in ['Epic', 'Feature']:
-            self.entry_weight.config(state='disabled')
-            self.combo_status.config(state='disabled')
-        else:
+        self._is_populating = True
+        try:
+            self.current_selected_id = getattr(event.item_data, 'id', None)
+            item_type = getattr(event, 'item_type', 'Item')
+            self.lbl_editor_title.config(text=f"Editing {item_type}")
+            
+            self.combo_item_type.set(item_type)
+            
+            self.entry_title.delete(0, tk.END)
+            self.entry_title.insert(0, getattr(event.item_data, 'title', ''))
+            
+            # Populate weight and set state
             self.entry_weight.config(state='normal')
-            self.combo_status.config(state='readonly')
+            self.entry_weight.delete(0, tk.END)
+            weight = getattr(event.item_data, 'weight', 0.0)
+            self.entry_weight.insert(0, f"{weight:.1f}")
+            
+            # Populate status and set state
+            self.combo_status.set(getattr(event.item_data, 'status', 'Backlog'))
+            
+            if item_type in ['Epic', 'Feature']:
+                self.entry_weight.config(state='disabled')
+                self.combo_status.config(state='disabled')
+            else:
+                self.entry_weight.config(state='normal')
+                self.combo_status.config(state='readonly')
 
-        self.text_desc.delete("1.0", tk.END)
-        self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))
+            self.text_desc.delete("1.0", tk.END)
+            self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))
 
-        # Fetch Global Settings for Tags
-        settings = ThemeManager.get_integration_settings()
-        master_products = sorted(settings.get('product_mappings', {}).keys())
-        master_capabilities = sorted(settings.get('capabilities', []))
-        
-        assigned_products = getattr(event.item_data, 'products', [])
-        assigned_capabilities = getattr(event.item_data, 'capabilities', [])
+            # Fetch Global Settings for Tags
+            settings = ThemeManager.get_integration_settings()
+            master_products = sorted(settings.get('product_mappings', {}).keys())
+            master_capabilities = sorted(settings.get('capabilities', []))
+            
+            assigned_products = getattr(event.item_data, 'products', [])
+            assigned_capabilities = getattr(event.item_data, 'capabilities', [])
 
-        self._populate_dual_listbox(self.product_ui, master_products, assigned_products)
-        self._populate_dual_listbox(self.capability_ui, master_capabilities, assigned_capabilities)
-        
-        # Reset scroll position to top when switching items
-        self.canvas.yview_moveto(0)
+            self._populate_dual_listbox(self.product_ui, master_products, assigned_products)
+            self._populate_dual_listbox(self.capability_ui, master_capabilities, assigned_capabilities)
+            
+            # Reset scroll position to top when switching items
+            self.canvas.yview_moveto(0)
+        finally:
+            self._is_populating = False
 
     def _populate_dual_listbox(self, ui_dict, master_list, assigned_list):
         """Populates the master and assigned listboxes."""

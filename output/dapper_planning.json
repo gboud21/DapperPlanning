@@ -203,7 +203,7 @@
                     {
                         "id": "65a7aaaf-163a-4818-8da8-7b34d4f9e012",
                         "title": "Product Attribute Management",
-                        "description": "TODO: Add Description",
+                        "description": "## User Story\n**As a** engineer, \n**I want** [action/feature], \n**So that** .\n\n## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n## Technical Notes / Implementation Details\n- Architecture considerations:\n- API endpoints affected:\n\n## Testing Notes\n- Edge cases to consider:\n- Required test environments:\n\n## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?",
                         "team": {
                             "name": "Unassigned",
                             "domain": ""
@@ -228,7 +228,7 @@
                     {
                         "id": "5fbec60a-b8e5-42c9-b2e5-4d4564c0a5d1",
                         "title": "Capability Attribute Management",
-                        "description": "TODO: Add Description",
+                        "description": "## User Story\n**As a** engineer, \n**I want** [action/feature], \n**So that** [value/benefit].\n\n## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n## Technical Notes / Implementation Details\n- Architecture considerations:\n- API endpoints affected:\n\n## Testing Notes\n- Edge cases to consider:\n- Required test environments:\n\n## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?",
                         "team": {
                             "name": "Unassigned",
                             "domain": ""
