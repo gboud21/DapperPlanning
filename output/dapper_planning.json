@@ -249,6 +249,27 @@
                         ],
                         "weight": 1.0,
                         "status": "In Progress"
+                    },
+                    {
+                        "id": "7ef91655-e186-4fb7-aa29-03b84cca0009",
+                        "title": "Add Scroll Bubbling",
+                        "description": "## User Story\n**As a** [role/persona], \n**I want** [action/feature], \n**So that** [value/benefit].\n\n## Acceptance Criteria\n- [ ] **Scenario 1:** Given [context], When [event], Then [outcome]\n- [ ] **Scenario 2:** \n\n## Technical Notes / Implementation Details\n- Architecture considerations:\n- API endpoints affected:\n\n## Testing Notes\n- Edge cases to consider:\n- Required test environments:\n\n## Out of Scope\nExplicitly state what is NOT being delivered as part of this item to prevent scope creep:\n- [ ] \n\n## Security & Compliance\n- [ ] Does this impact PII/PHI?\n- [ ] Is a security review required?\n- [ ] SOC2 / GDPR implications?",
+                        "team": {
+                            "name": "Unassigned",
+                            "domain": ""
+                        },
+                        "metadata": {
+                            "assignee": "",
+                            "milestone": "",
+                            "weight": 0,
+                            "labels": [],
+                            "template": ""
+                        },
+                        "interface_boundary": null,
+                        "products": [],
+                        "capabilities": [],
+                        "weight": 1.0,
+                        "status": "In Progress"
                     }
                 ],
                 "metadata": {

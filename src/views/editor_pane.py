@@ -76,17 +76,17 @@ class EditorPane:
         params_frame.columnconfigure(3, weight=1)
 
         ttk.Label(params_frame, text="Tool:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
-        self.combo_tool = ttk.Combobox(params_frame, values=["GitLab", "Jira"], state="readonly")
+        self.combo_tool = ttk.Combobox(params_frame, values=["GitLab", "Jira"], state="readonly", style="Preferences.TCombobox")
         self.combo_tool.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=2)
         self.combo_tool.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
 
         ttk.Label(params_frame, text="Methodology:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=2)
-        self.combo_methodology = ttk.Combobox(params_frame, values=["Scrum", "Kanban", "SAFe"], state="readonly")
+        self.combo_methodology = ttk.Combobox(params_frame, values=["Scrum", "Kanban", "SAFe"], state="readonly", style="Preferences.TCombobox")
         self.combo_methodology.grid(row=0, column=3, sticky=tk.EW, padx=5, pady=2)
         self.combo_methodology.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
 
         ttk.Label(params_frame, text="Type:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
-        self.combo_type = ttk.Combobox(params_frame, values=["Heavyweight", "Lightweight"], state="readonly")
+        self.combo_type = ttk.Combobox(params_frame, values=["Heavyweight", "Lightweight"], state="readonly", style="Preferences.TCombobox")
         self.combo_type.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
         self.combo_type.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
 
@@ -102,7 +102,7 @@ class EditorPane:
         # Item Type Selection
         ttk.Label(self.scrollable_frame, text="Item Type:").pack(anchor=tk.W)
         self.combo_item_type = ttk.Combobox(self.scrollable_frame, state="readonly", 
-                                            values=("Epic", "Feature", "Story"))
+                                            values=("Epic", "Feature", "Story"), style="Preferences.TCombobox")
         self.combo_item_type.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
         self.combo_item_type.bind("<<ComboboxSelected>>", lambda e: self._refresh_description_template())
 
@@ -117,7 +117,7 @@ class EditorPane:
 
         # Status Combobox
         ttk.Label(self.scrollable_frame, text="Status:").pack(anchor=tk.W)
-        self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done'), state="readonly")
+        self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done'), state="readonly", style="Preferences.TCombobox")
         self.combo_status.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
 
         ttk.Label(self.scrollable_frame, text="Description:").pack(anchor=tk.W)
