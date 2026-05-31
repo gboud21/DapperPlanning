@@ -1,9 +1,9 @@
-from src.events import (
+from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
     UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
-from src.views.main_window.integrations_dialog import IntegrationsDialog
+from src.features.integrations.integrations_dialog import IntegrationsDialog
 import tkinter as tk
 
 class IntegrationsController:

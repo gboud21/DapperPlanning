@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from src.events import (
+from src.core.events import (
     EventDispatcher, UISettingsSaveRequestedEvent, AppThemeChangedEvent, 
     UITemplateConfigExportRequestedEvent
 )

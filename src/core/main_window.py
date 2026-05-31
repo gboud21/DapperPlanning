@@ -1,16 +1,16 @@
 import tkinter as tk
 import os
 from tkinter import ttk, filedialog, messagebox as msgbox, messagebox
-from src.events import (
+from src.core.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
     UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
-from src.views.agile_planning.tree_view.tree_pane import TreePane
-from src.views.agile_planning.object_editor.editor_pane import EditorPane
-from .menu_bar import ApplicationMenuBar
+from src.features.agile_planning.tree_pane import TreePane
+from src.features.agile_planning.editor_pane import EditorPane
+from src.core.menu_bar import ApplicationMenuBar
 
 class MainWindow:
     def __init__(self, root: tk.Tk, dispatcher: EventDispatcher, workspace=None):

@@ -1,12 +1,12 @@
-from src.events import (
+from src.core.events import (
     EventDispatcher, UISettingsDialogOpenRequestedEvent, UISettingsSaveRequestedEvent,
     AppThemeChangedEvent, UITemplateConfigExportRequestedEvent, UIErrorNotificationEvent,
     ModelHierarchyUpdatedEvent
 )
 from src.utils.theme_manager import ThemeManager
-from src.views.main_window.settings_dialog import SettingsDialog
+from src.features.settings.settings_dialog import SettingsDialog
 from src.utils.paths import get_user_data_dir, get_app_config_dir
-from src.models.agile_planning.workspace import Workspace
+from src.features.agile_planning.workspace import Workspace
 import tkinter as tk
 import os
 import json

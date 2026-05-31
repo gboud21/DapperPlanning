@@ -1,19 +1,19 @@
 import os
 import tkinter as tk
 from tkinter import messagebox
-from src.events import (
+from src.core.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent,
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
     UISaveWorkspaceRequestedEvent
 )
-from src.models.agile_planning.workspace import Workspace
-from src.controllers.agile_planning.tree_view.tree_controller import TreeController
-from src.controllers.agile_planning.object_editor.editor_controller import EditorController
-from .menu_controller import MenuController
-from .integrations_controller import IntegrationsController
-from .settings_controller import SettingsController
+from src.features.agile_planning.workspace import Workspace
+from src.features.agile_planning.tree_controller import TreeController
+from src.features.agile_planning.editor_controller import EditorController
+from src.core.menu_controller import MenuController
+from src.features.integrations.integrations_controller import IntegrationsController
+from src.features.settings.settings_controller import SettingsController
 from src.utils.adapters import DataAdapterFactory
 from src.utils.theme_manager import ThemeManager
 

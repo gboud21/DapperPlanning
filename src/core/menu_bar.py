@@ -1,7 +1,7 @@
 import tkinter as tk
 import os
 from tkinter import ttk, filedialog, messagebox
-from src.events import (
+from src.core.events import (
     EventDispatcher, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent, 
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,

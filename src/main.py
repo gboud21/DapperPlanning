@@ -5,10 +5,10 @@ import os
 # Ensure the root of the project is in the path to allow imports from 'src'
 sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-from src.events import EventDispatcher
-from src.models.agile_planning.workspace import Workspace
-from src.views.main_window.main_window import MainWindow
-from src.controllers.main_window.main_controller import MainController
+from src.core.events import EventDispatcher
+from src.features.agile_planning.workspace import Workspace
+from src.core.main_window import MainWindow
+from src.core.main_controller import MainController
 
 def main():
     """

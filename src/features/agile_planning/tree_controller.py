@@ -1,11 +1,11 @@
 import uuid
-from src.events import (
+from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
     UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent
 )
-from src.models.agile_planning.workspace import Workspace
-from src.models.agile_planning.entities import Epic, Feature, Story, Team
+from src.features.agile_planning.workspace import Workspace
+from src.features.agile_planning.entities import Epic, Feature, Story, Team
 
 class TreeController:
     def __init__(self, dispatcher: EventDispatcher, workspace: Workspace):

@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from src.events import EventDispatcher, UIIntegrationsSaveRequestedEvent, AppThemeChangedEvent
+from src.core.events import EventDispatcher, UIIntegrationsSaveRequestedEvent, AppThemeChangedEvent
 
 class IntegrationsDialog(tk.Toplevel):
     def __init__(self, parent: tk.Tk, dispatcher: EventDispatcher, current_settings: dict):
