@@ -17,8 +17,8 @@ The model follows a strict parent-child relationship:
 - **TreeController / EditorController**: Handle model mutations and ensure `Workspace` is updated correctly.
 
 ## Workspace Model
-`src.features.agile_planning.workspace.Workspace` manages the state of the current project, including "Unsaved Changes" tracking via JSON snapshots.
+`src.domain.workspace.Workspace` manages the state of the current project, including "Unsaved Changes" tracking via JSON snapshots.
 
 ## Domain Rules
-- All status/weight roll-ups for Epics and Features must be implemented as properties in `entities.py`.
+- All status/weight roll-ups for Epics and Features must be implemented as properties in `src/domain/entities.py`.
 - No direct manipulation of the `_epics` list outside of the `Workspace` class.

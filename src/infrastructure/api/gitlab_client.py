@@ -1,6 +1,6 @@
 import urllib.request
 import json
-from src.features.agile_planning.entities import Epic, Story
+from src.domain.entities import Epic, Story
 
 class GitLabClient:
     def __init__(self, base_url: str, token: str, group_id: str, project_id: str):

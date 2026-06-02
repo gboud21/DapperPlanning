@@ -1,3 +1,7 @@
+import tkinter as tk
+import os
+import json
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UISettingsDialogOpenRequestedEvent, UISettingsSaveRequestedEvent,
     AppThemeChangedEvent, UITemplateConfigExportRequestedEvent, UIErrorNotificationEvent,
@@ -6,24 +10,20 @@ from src.core.events import (
 from src.utils.theme_manager import ThemeManager
 from src.features.settings.settings_dialog import SettingsDialog
 from src.utils.paths import get_user_data_dir, get_app_config_dir
-from src.features.agile_planning.workspace import Workspace
-import tkinter as tk
-import os
-import json
+from src.domain.workspace import Workspace
 
 class SettingsController:
-    def __init__(self, root: tk.Tk, dispatcher: EventDispatcher, workspace: Workspace):
+    def __init__(self, context: AppContext):
         """
         Initializes the SettingsController.
 
         Args:
-            root (tk.Tk): The root Tkinter window.
-            dispatcher (EventDispatcher): The application's event dispatcher.
-            workspace (Workspace): The application's workspace model.
+            context (AppContext): The application context for dependency injection.
         """
-        self.root = root
-        self.dispatcher = dispatcher
-        self.workspace = workspace
+        self.context = context
+        self.root: tk.Tk = context.resolve('root_window')
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.workspace: Workspace = context.resolve('workspace')
         
         self._subscribe_events()
 

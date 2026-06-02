@@ -1,6 +1,7 @@
 import tkinter as tk
 import os
 from tkinter import ttk, filedialog, messagebox as msgbox, messagebox
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
     UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
@@ -13,18 +14,18 @@ from src.features.agile_planning.editor_pane import EditorPane
 from src.core.menu_bar import ApplicationMenuBar
 
 class MainWindow:
-    def __init__(self, root: tk.Tk, dispatcher: EventDispatcher, workspace=None):
+    def __init__(self, root: tk.Tk, context: AppContext):
         """
         Initialize the MainWindow.
 
         Args:
             root (tk.Tk): The root Tkinter window.
-            dispatcher (EventDispatcher): The event dispatcher for UI and model communication.
-            workspace (Workspace, optional): The application's workspace model.
+            context (AppContext): The application context for dependency injection.
         """
         self.root = root
-        self.dispatcher = dispatcher
-        self.workspace = workspace
+        self.context = context
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.workspace = context.resolve('workspace')
         self._last_maximized_state = False
         
         self.setup_ui()

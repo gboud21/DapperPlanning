@@ -1,22 +1,23 @@
 import uuid
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIItemSaveRequestedEvent, UICreateItemRequestedEvent,
     ModelHierarchyUpdatedEvent
 )
-from src.features.agile_planning.workspace import Workspace
-from src.features.agile_planning.entities import Epic, Feature, Story, Team
+from src.domain.workspace import Workspace
+from src.domain.entities import Epic, Feature, Story, Team
 
 class EditorController:
-    def __init__(self, dispatcher: EventDispatcher, workspace: Workspace):
+    def __init__(self, context: AppContext):
         """
         Initializes the EditorController.
 
         Args:
-            dispatcher (EventDispatcher): The application's event dispatcher.
-            workspace (Workspace): The model representing the agile workspace.
+            context (AppContext): The application context for dependency injection.
         """
-        self.dispatcher = dispatcher
-        self.workspace = workspace
+        self.context = context
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.workspace: Workspace = context.resolve('workspace')
         
         self._subscribe_events()
 

@@ -1,6 +1,7 @@
 import os
 import tkinter as tk
 from tkinter import messagebox
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent,
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
@@ -8,35 +9,34 @@ from src.core.events import (
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
     UISaveWorkspaceRequestedEvent
 )
-from src.features.agile_planning.workspace import Workspace
+from src.domain.workspace import Workspace
 from src.features.agile_planning.tree_controller import TreeController
 from src.features.agile_planning.editor_controller import EditorController
 from src.core.menu_controller import MenuController
 from src.features.integrations.integrations_controller import IntegrationsController
 from src.features.settings.settings_controller import SettingsController
-from src.utils.adapters import DataAdapterFactory
+from src.infrastructure.storage.adapters import DataAdapterFactory
 from src.utils.theme_manager import ThemeManager
 
 class MainController:
-    def __init__(self, dispatcher: EventDispatcher, workspace: Workspace, root_window):
+    def __init__(self, context: AppContext):
         """
         Initializes the MainController and its sub-controllers.
 
         Args:
-            dispatcher (EventDispatcher): The application's event dispatcher.
-            workspace (Workspace): The model representing the agile workspace.
-            root_window: The root Tkinter window reference.
+            context (AppContext): The application context for dependency injection.
         """
-        self.dispatcher = dispatcher
-        self.workspace = workspace
-        self.root = root_window
+        self.context = context
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.workspace: Workspace = context.resolve('workspace')
+        self.root: tk.Tk = context.resolve('root_window')
         
-        # Instantiate sub-controllers
-        self.tree_controller = TreeController(dispatcher, workspace)
-        self.editor_controller = EditorController(dispatcher, workspace)
-        self.menu_controller = MenuController(dispatcher, workspace)
-        self.integrations_controller = IntegrationsController(self.root, dispatcher, workspace)
-        self.settings_controller = SettingsController(self.root, dispatcher, workspace)
+        # Instantiate sub-controllers passing the context
+        self.tree_controller = TreeController(context)
+        self.editor_controller = EditorController(context)
+        self.menu_controller = MenuController(context)
+        self.integrations_controller = IntegrationsController(context)
+        self.settings_controller = SettingsController(context)
         
         self._subscribe_events()
 

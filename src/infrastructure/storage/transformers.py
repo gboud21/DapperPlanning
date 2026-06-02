@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from src.features.agile_planning.entities import Epic, Feature, Story, Team
+from src.domain.entities import Epic, Feature, Story, Team
 
 class HierarchyFlattener:
     @staticmethod

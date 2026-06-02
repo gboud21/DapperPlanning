@@ -2,7 +2,7 @@ from typing import List, Optional, Any
 import json
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
-from src.features.agile_planning.entities import Epic, Feature, Story
+from src.domain.entities import Epic, Feature, Story
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):

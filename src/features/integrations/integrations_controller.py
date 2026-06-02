@@ -1,24 +1,24 @@
+import tkinter as tk
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
     UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.features.integrations.integrations_dialog import IntegrationsDialog
-import tkinter as tk
 
 class IntegrationsController:
-    def __init__(self, root: tk.Tk, dispatcher: EventDispatcher, workspace):
+    def __init__(self, context: AppContext):
         """
         Initializes the IntegrationsController.
 
         Args:
-            root (tk.Tk): The root Tkinter window.
-            dispatcher (EventDispatcher): The application's event dispatcher.
-            workspace: The model representing the agile workspace.
+            context (AppContext): The application context for dependency injection.
         """
-        self.root = root
-        self.dispatcher = dispatcher
-        self.workspace = workspace
+        self.context = context
+        self.root: tk.Tk = context.resolve('root_window')
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.workspace = context.resolve('workspace')
         
         self._subscribe_events()
 
