@@ -6,7 +6,7 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent, 
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
-    ModelWorkspaceLoadedEvent
+    ModelWorkspaceLoadedEvent, UINewWorkspaceRequestedEvent
 )
 from src.domain.workspace import Workspace
 from src.infrastructure.storage.adapters import DataAdapterFactory
@@ -35,11 +35,31 @@ class MenuController:
         self.dispatcher.subscribe(UIOpenWorkspaceRequestedEvent, self.handle_open_workspace)
         self.dispatcher.subscribe(UISaveWorkspaceRequestedEvent, self.handle_save_workspace)
         self.dispatcher.subscribe(UISaveAsWorkspaceRequestedEvent, self.handle_save_as_workspace)
+        self.dispatcher.subscribe(UINewWorkspaceRequestedEvent, self.handle_new_workspace)
 
     def handle_theme_toggle(self, event: UIThemeToggleRequestedEvent):
         """Handles theme toggle requests from the UI."""
         ThemeManager.save_settings(event.is_dark)
         self.dispatcher.dispatch(AppThemeChangedEvent(is_dark=event.is_dark))
+
+    def handle_new_workspace(self, event: UINewWorkspaceRequestedEvent):
+        """Handles requests to create a new, empty workspace."""
+        if self.workspace.has_unsaved_changes():
+            response = messagebox.askyesnocancel(
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to save before creating a new workspace?"
+            )
+            if response is True:
+                self.handle_save_workspace(UISaveWorkspaceRequestedEvent())
+                if self.workspace.has_unsaved_changes():
+                    return # Save was cancelled or failed
+            elif response is None:
+                return # User cancelled the New operation
+
+        self.workspace.clear()
+        self.workspace.mark_as_clean()
+        self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=None))
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=[]))
 
     def handle_open_workspace(self, event: UIOpenWorkspaceRequestedEvent):
         """Handles requests to open a workspace from a file."""

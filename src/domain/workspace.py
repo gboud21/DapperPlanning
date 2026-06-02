@@ -27,6 +27,11 @@ class Workspace:
         """Stores the current state as the 'clean' reference state."""
         self._clean_snapshot = self._generate_snapshot()
 
+    def clear(self) -> None:
+        """Resets the workspace to an empty state."""
+        self._epics = []
+        self.current_filepath = None
+
     def has_unsaved_changes(self) -> bool:
         """Returns True if the current state differs from the last clean state."""
         return self._generate_snapshot() != self._clean_snapshot

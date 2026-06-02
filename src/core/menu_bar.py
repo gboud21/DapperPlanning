@@ -6,7 +6,7 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
-    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent
+    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, UINewWorkspaceRequestedEvent
 )
 
 class ApplicationMenuBar(tk.Menu):
@@ -28,6 +28,9 @@ class ApplicationMenuBar(tk.Menu):
         """Sets up the main menu bar cascades."""
         # File menu
         file_menu = tk.Menu(self, tearoff=0)
+        file_menu.add_command(label="New Workspace", 
+                             command=lambda: self.dispatcher.dispatch(UINewWorkspaceRequestedEvent()),
+                             accelerator="Ctrl+N")
         file_menu.add_command(label="Open Workspace...", 
                              command=lambda: self.dispatcher.dispatch(UIOpenWorkspaceRequestedEvent()),
                              accelerator="Ctrl+O")
@@ -85,10 +88,17 @@ class ApplicationMenuBar(tk.Menu):
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
         
         # Global Keyboard Shortcuts
+        self.root.bind_all('<Control-n>', self._on_new_shortcut)
+        self.root.bind_all('<Command-n>', self._on_new_shortcut)  # macOS
         self.root.bind_all('<Control-o>', self._on_open_shortcut)
         self.root.bind_all('<Command-o>', self._on_open_shortcut)  # macOS
         self.root.bind_all('<Control-s>', self._on_save_shortcut)
         self.root.bind_all('<Command-s>', self._on_save_shortcut)  # macOS
+
+    def _on_new_shortcut(self, event):
+        """Handler for the New Workspace shortcut."""
+        self.dispatcher.dispatch(UINewWorkspaceRequestedEvent())
+        return "break"
 
     def _on_open_shortcut(self, event):
         """Handler for the Open Workspace shortcut."""

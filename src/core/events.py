@@ -52,6 +52,11 @@ class UIOpenWorkspaceRequestedEvent(Event):
     pass
 
 @dataclass
+class UINewWorkspaceRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'New Workspace'."""
+    pass
+
+@dataclass
 class UISaveWorkspaceRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Save Workspace'."""
     pass
@@ -205,7 +210,7 @@ class ModelHierarchyUpdatedEvent(Event):
 @dataclass
 class ModelWorkspaceLoadedEvent(Event):
     """Emitted when a workspace is loaded, containing the filepath."""
-    filepath: str
+    filepath: Optional[str] = None
 
 @dataclass
 class ModelSyncProgressEvent(Event):

@@ -107,7 +107,10 @@ class MainWindow:
 
     def _handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
         """Updates the window title when a workspace is loaded."""
-        self.root.title(f"DapperPlanning - {event.filepath}")
+        if event.filepath:
+            self.root.title(f"DapperPlanning - {event.filepath}")
+        else:
+            self.root.title("DapperPlanning - Untitled")
 
     def _show_error(self, event: UIErrorNotificationEvent):
         """Displays an error dialog."""
