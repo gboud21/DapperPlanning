@@ -1,11 +1,18 @@
 import tkinter as tk
+from tkinter import messagebox
 from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
-    UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
+    UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
+    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, ModelConflictDetectedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.features.integrations.integrations_dialog import IntegrationsDialog
+from src.features.integrations.sync_progress_modal import SyncProgressModal
+from src.features.integrations.conflict_resolution_modal import ConflictResolutionModal
+from src.features.integrations.sync_worker import SyncWorker
+from src.infrastructure.api.gitlab_client import GitLabClient
+from src.infrastructure.storage.settings_manager import SettingsManager
 
 class IntegrationsController:
     def __init__(self, context: AppContext):
@@ -19,6 +26,7 @@ class IntegrationsController:
         self.root: tk.Tk = context.resolve('root_window')
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
         self.workspace = context.resolve('workspace')
+        self.settings: SettingsManager = context.resolve('settings_manager')
         
         self._subscribe_events()
 
@@ -27,26 +35,96 @@ class IntegrationsController:
         self.dispatcher.subscribe(UIIntegrationsSaveRequestedEvent, self.handle_save_settings)
         self.dispatcher.subscribe(UIGlobalTagAddRequestedEvent, self.handle_global_tag_add)
         self.dispatcher.subscribe(UIGlobalTagDeleteRequestedEvent, self.handle_global_tag_delete)
+        self.dispatcher.subscribe(UIGitLabPullRequestedEvent, self.handle_pull_request)
+        self.dispatcher.subscribe(UIGitLabPushRequestedEvent, self.handle_push_request)
+        self.dispatcher.subscribe(ModelConflictDetectedEvent, self.handle_conflict_detected)
 
-    def handle_open_dialog(self, event: UIIntegrationsDialogOpenRequestedEvent):
-        current_settings = ThemeManager.get_integration_settings()
-        # Instantiate the dialog, it handles its own UI lifecycle but dispatches save events
-        IntegrationsDialog(self.root, self.dispatcher, current_settings)
+    def _is_gitlab_configured(self) -> bool:
+        """Returns True if essential GitLab credentials are set."""
+        url = self.settings.get('auth_url', '')
+        pat = self.settings.get('auth_pat', '')
+        # Checking for group ID as it's required for epic/feature creation in our current client
+        gid = self.settings.get('epic_group_id', '')
+        
+        return all([url, pat, gid])
+
+    def handle_open_dialog(self, event: UIIntegrationsDialogOpenRequestedEvent = None):
+        """Opens the Integrations Dialog. Returns the dialog instance."""
+        current_settings = self.settings._settings # Use shared manager
+        dialog = IntegrationsDialog(self.root, self.dispatcher, current_settings)
+        return dialog
+
+    def handle_pull_request(self, event: UIGitLabPullRequestedEvent):
+        if not self._is_gitlab_configured():
+            if messagebox.askyesno('Configuration Required', 'GitLab integration is not configured. Would you like to configure it now?'):
+                dialog = self.handle_open_dialog()
+                self.root.wait_window(dialog) # Pause execution until dialog closes
+                
+                if not self._is_gitlab_configured():
+                    return # Still not configured after dialog closed
+            else:
+                return # User opted out
+
+        if self._initialize_gitlab_client():
+            SyncProgressModal(self.root, self.dispatcher)
+            worker = SyncWorker(self.context, sync_type='pull')
+            worker.start()
+
+    def handle_push_request(self, event: UIGitLabPushRequestedEvent):
+        if not self._is_gitlab_configured():
+            if messagebox.askyesno('Configuration Required', 'GitLab integration is not configured. Would you like to configure it now?'):
+                dialog = self.handle_open_dialog()
+                self.root.wait_window(dialog) # Pause execution until dialog closes
+                
+                if not self._is_gitlab_configured():
+                    return # Still not configured after dialog closed
+            else:
+                return # User opted out
+
+        if self._initialize_gitlab_client():
+            SyncProgressModal(self.root, self.dispatcher)
+            worker = SyncWorker(self.context, sync_type='push')
+            worker.start()
+
+    def handle_conflict_detected(self, event: ModelConflictDetectedEvent):
+        """Displays the conflict resolution modal on the main thread."""
+        ConflictResolutionModal(self.root, self.dispatcher, event.local_item, event.remote_item)
+
+    def _initialize_gitlab_client(self) -> bool:
+        """Loads settings and registers the GitLabClient in the context."""
+        url = self.settings.get('auth_url')
+        pat = self.settings.get('auth_pat')
+        gid = self.settings.get('epic_group_id')
+        pid = self.settings.get('product_mappings', {}).get('Default', '') 
+
+        # This check is redundant due to _is_gitlab_configured but kept for robustness
+        if not url or not pat:
+            self.dispatcher.dispatch(UIErrorNotificationEvent(
+                title="Connection Error", 
+                message="Please configure GitLab connection settings first."
+            ))
+            return False
+            
+        client = GitLabClient(url, pat, gid, pid)
+        self.context.register('gitlab_client', client)
+        return True
 
     def handle_global_tag_add(self, event: UIGlobalTagAddRequestedEvent):
-        """
-        Appends a new tag to the global settings and saves to disk.
-        """
         ThemeManager.update_integration_tag(event.tag_type, event.tag_value)
 
     def handle_global_tag_delete(self, event: UIGlobalTagDeleteRequestedEvent):
-        """
-        Removes a tag from the global settings and all workspace items.
-        """
-        ThemeManager.delete_integration_tag(event.tag_type, event.tag_value)
+        ThemeManager.update_integration_tag(event.tag_type, event.tag_value)
         self.workspace.remove_global_tag(event.tag_type, event.tag_value)
 
     def handle_save_settings(self, event: UIIntegrationsSaveRequestedEvent):
+        self.settings.set('auth_url', event.auth_url)
+        self.settings.set('auth_pat', event.auth_pat)
+        self.settings.set('epic_group_id', event.epic_group_id)
+        self.settings.set('product_mappings', event.product_mappings)
+        self.settings.set('capabilities', event.capabilities)
+        self.settings.save()
+        
+        # Keep ThemeManager in sync for other components that might still use it
         ThemeManager.save_integration_settings(
             auth_url=event.auth_url,
             auth_pat=event.auth_pat,
@@ -54,38 +132,3 @@ class IntegrationsController:
             product_mappings=event.product_mappings,
             capabilities=event.capabilities
         )
-
-    def validate_sync_readiness(self, workspace) -> bool:
-        """
-        Stubs validation to ensure all items have mapped products.
-        """
-        settings = ThemeManager.get_integration_settings()
-        mappings = settings.get('product_mappings', {})
-
-        for epic in workspace.get_epics():
-            for prod in getattr(epic, 'products', []):
-                if prod not in mappings:
-                    self.dispatcher.dispatch(UIErrorNotificationEvent(
-                        title="Sync Error",
-                        message=f"Missing Project ID mapping for Product: {prod}"
-                    ))
-                    return False
-            
-            for feature in epic.features:
-                for prod in getattr(feature, 'products', []):
-                    if prod not in mappings:
-                        self.dispatcher.dispatch(UIErrorNotificationEvent(
-                            title="Sync Error",
-                            message=f"Missing Project ID mapping for Product: {prod}"
-                        ))
-                        return False
-                
-                for story in feature.stories:
-                    for prod in getattr(story, 'products', []):
-                        if prod not in mappings:
-                            self.dispatcher.dispatch(UIErrorNotificationEvent(
-                                title="Sync Error",
-                                message=f"Missing Project ID mapping for Product: {prod}"
-                            ))
-                            return False
-        return True

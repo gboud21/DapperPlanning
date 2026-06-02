@@ -1,22 +1,18 @@
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Type
+from typing import Any, Callable, Dict, List, Type, Optional
 import threading
 import tkinter as tk
 
 class Event:
     pass
 
+# --- UI Events ---
+
 @dataclass
 class UIItemSelectedEvent(Event):
     """Emitted by the View when the user clicks an item in the tree."""
     item_id: str
     item_type: str
-
-@dataclass
-class ModelActiveItemChangedEvent(Event):
-    """Emitted by the Controller when the active item data is ready for the View to render."""
-    item_type: str
-    item_data: Any
 
 @dataclass
 class UIItemSaveRequestedEvent(Event):
@@ -30,15 +26,25 @@ class UIItemSaveRequestedEvent(Event):
     status: str = 'Backlog'
 
 @dataclass
-class ModelHierarchyUpdatedEvent(Event):
-    """Emitted by the Workspace when the data structure changes, prompting a tree redraw."""
-    root_items: List[Any]
-    expand_id: str = None
-
-@dataclass
 class UISyncRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Sync to GitLab'."""
     pass
+
+@dataclass
+class UIGitLabPullRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Pull from GitLab'."""
+    pass
+
+@dataclass
+class UIGitLabPushRequestedEvent(Event):
+    """Emitted by the View when the user clicks 'Push to GitLab'."""
+    pass
+
+@dataclass
+class UIConflictResolvedEvent(Event):
+    """Emitted by the Conflict Resolution Modal when a user chooses which version to keep."""
+    resolution: str  # 'local' or 'remote'
+    item_id: str
 
 @dataclass
 class UIOpenWorkspaceRequestedEvent(Event):
@@ -54,11 +60,6 @@ class UISaveWorkspaceRequestedEvent(Event):
 class UISaveAsWorkspaceRequestedEvent(Event):
     """Emitted by the View when the user clicks 'Save Workspace As'."""
     pass
-
-@dataclass
-class ModelWorkspaceLoadedEvent(Event):
-    """Emitted when a workspace is loaded, containing the filepath."""
-    filepath: str
 
 @dataclass
 class UIAppCloseRequestedEvent(Event):
@@ -186,10 +187,45 @@ class UIGlobalTagDeleteRequestedEvent(Event):
     tag_type: str  # 'product' or 'capability'
     tag_value: str
 
+
+# --- Model / App Events ---
+
+@dataclass
+class ModelActiveItemChangedEvent(Event):
+    """Emitted by the Controller when the active item data is ready for the View to render."""
+    item_type: str
+    item_data: Any
+
+@dataclass
+class ModelHierarchyUpdatedEvent(Event):
+    """Emitted by the Workspace when the data structure changes, prompting a tree redraw."""
+    root_items: List[Any]
+    expand_id: str = None
+
+@dataclass
+class ModelWorkspaceLoadedEvent(Event):
+    """Emitted when a workspace is loaded, containing the filepath."""
+    filepath: str
+
+@dataclass
+class ModelSyncProgressEvent(Event):
+    """Emitted by the SyncWorker to update the progress modal."""
+    message: str
+    percent: float
+
+@dataclass
+class ModelConflictDetectedEvent(Event):
+    """Emitted when a data mismatch is found during sync, requiring user intervention."""
+    local_item: Any
+    remote_item: Any
+
 @dataclass
 class AppThemeChangedEvent(Event):
     """Emitted by the Controller when the application theme has changed."""
     is_dark: bool
+
+
+# --- Dispatcher ---
 
 class EventDispatcher:
     def __init__(self, root_window: tk.Tk):
@@ -211,4 +247,5 @@ class EventDispatcher:
             if threading.get_ident() == self._main_thread_id:
                 listener(event)
             else:
+                # Thread-safe dispatch using Tkinter's .after()
                 self._root.after(0, listener, event)

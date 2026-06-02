@@ -5,7 +5,8 @@ from src.core.events import (
     EventDispatcher, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent, 
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
-    UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent
+    UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
+    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent
 )
 
 class ApplicationMenuBar(tk.Menu):
@@ -68,6 +69,9 @@ class ApplicationMenuBar(tk.Menu):
 
         # Integrations menu
         integrations_menu = tk.Menu(self, tearoff=0)
+        integrations_menu.add_command(label="Pull from GitLab", command=lambda: self.dispatcher.dispatch(UIGitLabPullRequestedEvent()))
+        integrations_menu.add_command(label="Push to GitLab", command=lambda: self.dispatcher.dispatch(UIGitLabPushRequestedEvent()))
+        integrations_menu.add_separator()
         integrations_menu.add_command(label="Manage Connections...", command=lambda: self.dispatcher.dispatch(UIIntegrationsDialogOpenRequestedEvent()))
         self.add_cascade(label="Integrations", menu=integrations_menu)
         

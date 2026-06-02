@@ -35,19 +35,6 @@ class GitLabMetadata:
 class Story:
     """
     Represents a user story or a small, deliverable piece of work.
-
-    Attributes:
-        id (str): A unique identifier for the story.
-        title (str): The title or brief description of the story.
-        description (str): A detailed description of the story.
-        team (Team): The team responsible for the story.
-        metadata (GitLabMetadata): GitLab-specific metadata for the story.
-        interface_boundary (Optional[str]): Describes any external interfaces or boundaries
-                                            this story interacts with.
-        products (List[str]): List of associated product names/tags.
-        capabilities (List[str]): List of associated capability names/tags.
-        weight (float): The weight assigned to the story.
-        status (str): The status of the story (e.g., 'Backlog', 'In Progress', 'In Review', 'Done').
     """
     id: str
     title: str
@@ -59,21 +46,14 @@ class Story:
     capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
     status: str = 'Backlog'
+    # Sync Metadata
+    gitlab_id: Optional[int] = None
+    last_synced_at: Optional[str] = None
 
 @dataclass
 class Feature:
     """
     Represents a distinct feature, composed of multiple stories.
-
-    Attributes:
-        id (str): A unique identifier for the feature.
-        title (str): The title or brief description of the feature.
-        description (str): A detailed description of the feature.
-        team (Team): The team responsible for the feature.
-        stories (List[Story]): A list of stories that make up this feature.
-        metadata (GitLabMetadata): GitLab-specific metadata for the feature.
-        products (List[str]): List of associated product names/tags.
-        capabilities (List[str]): List of associated capability names/tags.
     """
     id: str
     title: str
@@ -83,6 +63,9 @@ class Feature:
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
+    # Sync Metadata
+    gitlab_id: Optional[int] = None
+    last_synced_at: Optional[str] = None
 
     @property
     def weight(self) -> float:
@@ -105,15 +88,6 @@ class Feature:
 class Epic:
     """
     Represents a large body of work, composed of multiple features.
-
-    Attributes:
-        id (str): A unique identifier for the epic.
-        title (str): The title or brief description of the epic.
-        description (str): A detailed description of the epic.
-        features (List[Feature]): A list of features that belong to this epic.
-        metadata (GitLabMetadata): GitLab-specific metadata for the epic.
-        products (List[str]): List of associated product names/tags.
-        capabilities (List[str]): List of associated capability names/tags.
     """
     id: str
     title: str
@@ -122,6 +96,9 @@ class Epic:
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
+    # Sync Metadata
+    gitlab_id: Optional[int] = None
+    last_synced_at: Optional[str] = None
 
     @property
     def weight(self) -> float:

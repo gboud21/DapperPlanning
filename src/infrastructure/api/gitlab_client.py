@@ -4,92 +4,60 @@ from src.domain.entities import Epic, Story
 
 class GitLabClient:
     def __init__(self, base_url: str, token: str, group_id: str, project_id: str):
-        """
-        Initializes the GitLabClient with necessary authentication and project details.
-
-        Args:
-            base_url (str): The base URL of the GitLab instance (e.g., "https://gitlab.com").
-            token (str): A private access token with appropriate permissions.
-            group_id (str): The ID of the GitLab group where epics are managed.
-            project_id (str): The ID of the GitLab project where issues (stories) are managed.
-        """
         self.base_url = base_url
         self.headers = {"PRIVATE-TOKEN": token, "Content-Type": "application/json"}
         self.group_id = group_id
         self.project_id = project_id
 
-    def _post(self, endpoint: str, payload: dict) -> dict:
-        """
-        Sends a POST request to the GitLab API.
-
-        Args:
-            endpoint (str): The API endpoint to hit (e.g., "groups/{group_id}/epics").
-            payload (dict): The JSON payload to send with the request.
-
-        Returns:
-            dict: The JSON response from the GitLab API, or an empty dictionary
-                  if an error occurs.
-        """
+    def _request(self, endpoint: str, payload: dict = None, method: str = 'GET') -> dict:
         url = f"{self.base_url}/api/v4/{endpoint}"
-        data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(url, data=data, headers=self.headers, method='POST')
+        data = json.dumps(payload).encode('utf-8') if payload else None
+        req = urllib.request.Request(url, data=data, headers=self.headers, method=method)
         try:
             with urllib.request.urlopen(req) as response:
                 return json.loads(response.read().decode())
         except Exception as e:
-            print(f"API Error: {e}")
+            print(f"API Error ({method} {endpoint}): {e}")
             return {}
 
-    def create_epic(self, epic: Epic, is_feature: bool = False, parent_id: str = None) -> str:
-        """
-        Creates a new epic in GitLab.
+    def get_epics(self) -> list:
+        """Fetches all epics for the group."""
+        return self._request(f"groups/{self.group_id}/epics")
 
-        Args:
-            epic (Epic): The Epic object containing details for the new epic.
-            is_feature (bool): If True, adds a "Feature" label to the epic.
-                               (Note: In GitLab, features are often represented as epics with a specific label).
-            parent_id (str, optional): The ID of the parent epic if this is a sub-epic.
+    def get_issues(self) -> list:
+        """Fetches all issues for the project."""
+        return self._request(f"projects/{self.project_id}/issues")
 
-        Returns:
-            str: The IID (internal ID) of the newly created GitLab epic, or an empty string if creation fails.
-        """
+    def create_epic(self, epic: Epic, is_feature: bool = False, parent_id: str = None) -> dict:
         labels = epic.metadata.labels.copy()
-        if is_feature:
-            labels.append("Feature")
-            
+        if is_feature: labels.append("Feature")
         payload = {
             "title": epic.title,
-            "description": f"{epic.metadata.template}\\n\\n{epic.description}",
+            "description": f"{epic.metadata.template}\n\n{epic.description}",
             "labels": ",".join(labels)
         }
-        if parent_id:
-            payload["parent_id"] = parent_id
-            
-        response = self._post(f"groups/{self.group_id}/epics", payload)
-        return str(response.get("iid", ""))
+        if parent_id: payload["parent_id"] = parent_id
+        return self._request(f"groups/{self.group_id}/epics", payload, method='POST')
 
-    def create_story(self, story: Story, epic_iid: str) -> str:
-        """
-        Creates a new issue (story) in GitLab, associating it with a given epic.
+    def update_epic(self, gitlab_id: int, epic: Epic) -> dict:
+        payload = {"title": epic.title, "description": epic.description}
+        return self._request(f"groups/{self.group_id}/epics/{gitlab_id}", payload, method='PUT')
 
-        Args:
-            story (Story): The Story object containing details for the new issue.
-            epic_iid (str): The IID (internal ID) of the parent epic to associate this story with.
-
-        Returns:
-            str: The IID (internal ID) of the newly created GitLab issue, or an empty string if creation fails.
-        """
+    def create_story(self, story: Story, epic_iid: int) -> dict:
         labels = story.metadata.labels.copy()
-        if story.interface_boundary:
-            labels.append(f"boundary::{story.interface_boundary}")
-
         payload = {
             "title": story.title,
-            "description": f"{story.metadata.template}\\n\\n{story.description}",
+            "description": story.description,
             "epic_iid": epic_iid,
             "labels": ",".join(labels),
             "weight": round(story.weight)
         }
-        
-        response = self._post(f"projects/{self.project_id}/issues", payload)
-        return str(response.get("iid", ""))
+        return self._request(f"projects/{self.project_id}/issues", payload, method='POST')
+
+    def update_story(self, gitlab_id: int, story: Story) -> dict:
+        payload = {
+            "title": story.title,
+            "description": story.description,
+            "weight": round(story.weight)
+        }
+        return self._request(f"projects/{self.project_id}/issues/{gitlab_id}", payload, method='PUT')

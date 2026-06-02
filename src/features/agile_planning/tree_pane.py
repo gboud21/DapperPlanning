@@ -24,14 +24,16 @@ class TreePane:
 
     def _setup_ui(self):
         """Sets up the Treeview and its context menu."""
+        self.tree_scroll = ttk.Scrollbar(self.parent, orient=tk.VERTICAL)
+        self.tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
         self.tree = ttk.Treeview(self.parent, selectmode="browse")
         self.tree.heading("#0", text="Agile Hierarchy", anchor=tk.W)
         
-        self.tree_scroll = ttk.Scrollbar(self.parent, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.tree_scroll.set)
+        self.tree_scroll.configure(command=self.tree.yview)
         
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Tag Configuration for visual hierarchy
         self.tree.tag_configure('Epic', font=("TkDefaultFont", 10, "bold"))

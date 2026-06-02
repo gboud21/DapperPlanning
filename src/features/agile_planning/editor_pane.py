@@ -1,28 +1,31 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import re
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent,
     AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
 )
 from src.utils.template_generator import TemplateGenerator
-from src.utils.theme_manager import ThemeManager
 from src.utils.ui_utils import enable_scroll_bubbling
 from src.utils.debouncer import Debouncer
+from src.infrastructure.storage.settings_manager import SettingsManager
 
 class EditorPane:
-    def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher, workspace=None):
+    def __init__(self, parent_frame: ttk.Frame, context: AppContext):
         """
         Initializes the EditorPane for viewing and editing item details.
 
         Args:
             parent_frame (ttk.Frame): The frame where the editor widgets will be placed.
-            dispatcher (EventDispatcher): The application's event dispatcher.
-            workspace (Workspace, optional): The application's workspace model.
+            context (AppContext): The application context for dependency injection.
         """
         self.parent = parent_frame
-        self.dispatcher = dispatcher
-        self.workspace = workspace
+        self.context = context
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.workspace = context.resolve('workspace')
+        self.settings: SettingsManager = context.resolve('settings_manager')
+        
         self.current_selected_id = None
         self._is_populating = False
         
@@ -34,7 +37,7 @@ class EditorPane:
         self._load_config()
 
         # Instantiate debouncer for description text
-        self.text_debouncer = Debouncer(widget=self.canvas, wait_ms=750, callback=self._trigger_auto_save)
+        self.text_debouncer = Debouncer(self.canvas, 750, self._trigger_auto_save)
 
     def _validate_weight(self, new_value: str) -> bool:
         """Validates that the input is a number with at most one decimal place."""
@@ -45,8 +48,11 @@ class EditorPane:
     def _setup_ui(self):
         """Sets up the labels, entries, and action buttons with a scrollbar."""
         # Create a canvas and scrollbar
+        self.scrollbar = ttk.Scrollbar(self.parent, orient="vertical")
+        self.scrollbar.pack(side="right", fill="y")
+        
         self.canvas = tk.Canvas(self.parent, borderwidth=0, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self.parent, orient="vertical", command=self.canvas.yview)
+        self.canvas.pack(side="left", fill="both", expand=True)
         
         # Create a frame to hold the content
         self.scrollable_frame = ttk.Frame(self.canvas)
@@ -62,13 +68,10 @@ class EditorPane:
         self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.scrollbar.configure(command=self.canvas.yview)
         
         # Bind canvas resize to frame width
         self.canvas.bind("<Configure>", self._on_canvas_configure)
-
-        # Pack scrollbar first, then canvas
-        self.scrollbar.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
 
         # Content widgets
         self.lbl_editor_title = ttk.Label(self.scrollable_frame, text="Select an item to edit", font=("Arial", 14, "bold"))
@@ -200,7 +203,7 @@ class EditorPane:
         list_assigned.pack(fill=tk.BOTH, expand=True)
         enable_scroll_bubbling(list_assigned, self.canvas)
 
-        btn_delete_assigned = ttk.Button(right_container, text="Delete", 
+        btn_delete_assigned = ttk.Button(right_container, text="Remove", 
                                          command=lambda: self._remove_assigned_items(list_assigned))
         btn_delete_assigned.pack(fill=tk.X)
 
@@ -249,26 +252,9 @@ class EditorPane:
         
         # 1. Identify impacted objects in the workspace
         impacted_items = []
-        from src.core.main_controller import MainController
-        # Note: EditorPane doesn't directly hold the workspace, but we can query through event dispatcher
-        # or better, since we follow MVC, we could dispatch an inquiry event. 
-        # However, for brevity and prompt requirements, we'll traverse if possible.
-        # Actually, the EditorPane doesn't have reference to workspace.
-        # I'll need to ask the dispatcher for the model or rely on the fact that 
-        # MainController/IntegrationsController will handle the actual deletion.
-        # To show the list in the prompt, I'll need to pass the list of items.
-        
-        # We'll use a trick: MainController is usually reachable via root/parent or we can add workspace ref.
-        # Since I am refactoring, I will add a workspace reference to EditorPane to allow this traversal.
-        
         attr_name = 'products' if tag_type == 'product' else 'capabilities'
-        # Workspace traversal logic (moved here for the prompt)
-        from src.core.main_window import MainWindow
-        # This is getting messy. Let's assume the dispatcher can help or we provide workspace in __init__.
-        # I will update __init__ to accept workspace.
         
         if not hasattr(self, 'workspace') or not self.workspace:
-             # Fallback if workspace not injected yet
              if messagebox.askyesno("Confirm Global Delete", f"Are you sure you want to delete '{tag_value}' from the global master list?"):
                 self.dispatcher.dispatch(UIGlobalTagDeleteRequestedEvent(tag_type=tag_type, tag_value=tag_value))
                 list_master.delete(selected_index)
@@ -345,7 +331,7 @@ class EditorPane:
 
     def _load_config(self):
         """Loads user configuration for template defaults."""
-        config = ThemeManager.get_general_settings()
+        config = self.settings._settings
         self.combo_tool.set(config.get('target_tool', 'GitLab'))
         self.combo_methodology.set(config.get('methodology', 'Scrum'))
         self.combo_type.set(config.get('description_type', 'Heavyweight'))
@@ -363,6 +349,7 @@ class EditorPane:
         )
         self.text_desc.delete("1.0", tk.END)
         self.text_desc.insert("1.0", content)
+        self._trigger_auto_save()
 
     def _on_canvas_configure(self, event):
         """Adjusts the scrollable frame width to match the canvas width."""
@@ -502,7 +489,7 @@ class EditorPane:
             self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))
 
             # Fetch Global Settings for Tags
-            settings = ThemeManager.get_integration_settings()
+            settings = self.settings._settings
             master_products = sorted(settings.get('product_mappings', {}).keys())
             master_capabilities = sorted(settings.get('capabilities', []))
             
@@ -525,7 +512,5 @@ class EditorPane:
         for item in sorted(assigned_list):
             ui_dict['assigned'].insert(tk.END, item)
             
-        # The user requested that items remain in the master list even if assigned
         for item in sorted(master_list):
             ui_dict['master'].insert(tk.END, item)
-
