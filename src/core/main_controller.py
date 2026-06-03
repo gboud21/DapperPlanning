@@ -68,9 +68,11 @@ class MainController:
         try:
             ext = os.path.splitext(file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics = adapter.import_data(file_path)
+            root_epics, active_product, products = adapter.import_data(file_path)
             
             self.workspace._epics = root_epics
+            self.workspace.products = products
+            self.workspace.active_product_name = active_product
             self.workspace.current_filepath = file_path
             
             # Notify views to update

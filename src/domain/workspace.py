@@ -15,12 +15,36 @@ class Workspace:
         """
         self.dispatcher = dispatcher
         self._epics: List[Epic] = []
+        self._products: List[Product] = []
+        self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
 
+    @property
+    def products(self) -> List[Product]:
+        return self._products
+
+    @products.setter
+    def products(self, value: List[Product]):
+        self._products = value
+
+    @property
+    def active_product_name(self) -> Optional[str]:
+        return self._active_product_name
+
+    @active_product_name.setter
+    def active_product_name(self, value: Optional[str]):
+        if self._active_product_name != value:
+            self._active_product_name = value
+
     def _generate_snapshot(self) -> str:
-        """Reliably serializes the current epic hierarchy into a JSON string."""
-        data = [asdict(epic) for epic in self._epics]
+        """Reliably serializes the current epic hierarchy and metadata into a JSON string."""
+        from src.domain.entities import Product
+        data = {
+            "active_product_name": self._active_product_name,
+            "products": [asdict(p) for p in self._products],
+            "epics": [asdict(epic) for epic in self._epics]
+        }
         return json.dumps(data, sort_keys=True)
 
     def mark_as_clean(self) -> None:
@@ -30,6 +54,8 @@ class Workspace:
     def clear(self) -> None:
         """Resets the workspace to an empty state."""
         self._epics = []
+        self._products = []
+        self._active_product_name = None
         self.current_filepath = None
 
     def has_unsaved_changes(self) -> bool:
@@ -45,7 +71,10 @@ class Workspace:
         """
         self._epics.append(epic)
         # Notify the rest of the application that the data has changed
-        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._epics))
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self._epics,
+            products=self._products
+        ))
 
     def update_item_details(self, item_id: str, title: str, description: str, products: List[str] = None, capabilities: List[str] = None) -> None:
         """
@@ -66,7 +95,10 @@ class Workspace:
                 item.products = products
             if hasattr(item, 'capabilities') and capabilities is not None:
                 item.capabilities = capabilities
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._epics))
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                root_items=self._epics,
+                products=self._products
+            ))
 
     def delete_item(self, item_id: str) -> None:
         """
@@ -79,7 +111,10 @@ class Workspace:
         for i, epic in enumerate(self._epics):
             if epic.id == item_id:
                 self._epics.pop(i)
-                self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._epics))
+                self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                    root_items=self._epics,
+                    products=self._products
+                ))
                 return
 
         # Check sub-items
@@ -87,12 +122,18 @@ class Workspace:
             for j, feature in enumerate(epic.features):
                 if feature.id == item_id:
                     epic.features.pop(j)
-                    self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._epics))
+                    self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                        root_items=self._epics,
+                        products=self._products
+                    ))
                     return
                 for k, story in enumerate(feature.stories):
                     if story.id == item_id:
                         feature.stories.pop(k)
-                        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self._epics))
+                        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                            root_items=self._epics,
+                            products=self._products
+                        ))
                         return
 
     def _find_item_by_id(self, item_id: str) -> Optional[Any]:

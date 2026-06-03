@@ -84,10 +84,12 @@ class MenuController:
         try:
             ext = os.path.splitext(file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics = adapter.import_data(file_path)
+            root_epics, active_product, products = adapter.import_data(file_path)
             
             # Update Workspace
             self.workspace._epics = root_epics
+            self.workspace.products = products
+            self.workspace.active_product_name = active_product
             self.workspace.current_filepath = file_path
             ThemeManager.set_last_workspace(file_path)
             
@@ -106,7 +108,12 @@ class MenuController:
         try:
             ext = os.path.splitext(self.workspace.current_filepath)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(self.workspace.current_filepath, self.workspace.get_epics())
+            adapter.export_data(
+                self.workspace.current_filepath, 
+                self.workspace.get_epics(),
+                active_product_name=self.workspace.active_product_name,
+                products=self.workspace.products
+            )
             self.workspace.mark_as_clean()
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Save Error", message=str(e)))
@@ -123,7 +130,12 @@ class MenuController:
         try:
             ext = os.path.splitext(file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(file_path, self.workspace.get_epics())
+            adapter.export_data(
+                file_path, 
+                self.workspace.get_epics(),
+                active_product_name=self.workspace.active_product_name,
+                products=self.workspace.products
+            )
             
             self.workspace.current_filepath = file_path
             ThemeManager.set_last_workspace(file_path)
@@ -137,7 +149,7 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(event.file_path, self.workspace.get_epics())
+            adapter.export_data(event.file_path, self.workspace.get_epics(), active_product_name=self.workspace.active_product_name, products=self.workspace.products)
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Export Error", message=str(e)))
 
@@ -146,7 +158,7 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(event.file_path, self.workspace.get_epics())
+            adapter.export_data(event.file_path, self.workspace.get_epics(), active_product_name=self.workspace.active_product_name, products=self.workspace.products)
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Export Error", message=str(e)))
 
@@ -155,10 +167,14 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics = adapter.import_data(event.file_path)
+            root_epics, active_product, products = adapter.import_data(event.file_path)
             
             # Update Workspace
             self.workspace._epics = root_epics
+            if active_product:
+                self.workspace.active_product_name = active_product
+            if products:
+                self.workspace.products = products
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Import Error", message=str(e)))
@@ -168,10 +184,14 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics = adapter.import_data(event.file_path)
+            root_epics, active_product, products = adapter.import_data(event.file_path)
             
             # Update Workspace
             self.workspace._epics = root_epics
+            if active_product:
+                self.workspace.active_product_name = active_product
+            if products:
+                self.workspace.products = products
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Import Error", message=str(e)))

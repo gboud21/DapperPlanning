@@ -36,6 +36,7 @@ class TreePane:
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Tag Configuration for visual hierarchy
+        self.tree.tag_configure('Product', font=("TkDefaultFont", 10, "bold"), foreground="#0078d7")
         self.tree.tag_configure('Epic', font=("TkDefaultFont", 10, "bold"))
         self.tree.tag_configure('Feature_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
         self.tree.tag_configure('Story_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
@@ -122,7 +123,18 @@ class TreePane:
         if selected_id:
             tags = self.tree.item(selected_id, "tags")
             item_type = tags[0] if tags else "Unknown"
-            self.dispatcher.dispatch(UIItemSelectedEvent(item_id=selected_id, item_type=item_type))
+            
+            # Extract raw item id if it's prefixed (Product:ItemID or PROD:ProductName)
+            raw_id = selected_id
+            if ":" in selected_id:
+                parts = selected_id.split(":", 1)
+                raw_id = parts[1]
+                
+            self.dispatcher.dispatch(UIItemSelectedEvent(
+                item_id=raw_id, 
+                item_type=item_type,
+                full_iid=selected_id
+            ))
 
     def render_tree(self, event: ModelHierarchyUpdatedEvent):
         """Renders the tree view while preserving expanded state."""
@@ -141,18 +153,43 @@ class TreePane:
         for item in self.tree.get_children():
             self.tree.delete(item)
             
-        if event.root_items:
-            self._populate_nodes("", event.root_items)
+        # Group items by Product
+        if event.products:
+            for product in event.products:
+                prod_iid = f"PROD:{product.name}"
+                self.tree.insert("", tk.END, iid=prod_iid, text=product.name, tags=('Product',))
+                
+                # Filter epics that belong to this product
+                relevant_epics = [e for e in event.root_items if product.name in getattr(e, 'products', [])]
+                self._populate_nodes(prod_iid, relevant_epics, prod_prefix=product.name)
+            
+            # Handle Epics with no assigned products
+            unassigned_epics = [e for e in event.root_items if not getattr(e, 'products', [])]
+            if unassigned_epics:
+                self.tree.insert("", tk.END, iid="PROD:Unassigned", text="Unassigned", tags=('Product',))
+                self._populate_nodes("PROD:Unassigned", unassigned_epics, prod_prefix="Unassigned")
+        else:
+            # Legacy/Fallback: No product nodes
+            if event.root_items:
+                self._populate_nodes("", event.root_items)
             
         for item_id in all_expanded:
             if self.tree.exists(item_id):
                 self.tree.item(item_id, open=True)
 
-    def _populate_nodes(self, parent_iid: str, items: list):
+        if event.select_id and self.tree.exists(event.select_id):
+            self.tree.selection_set(event.select_id)
+            self.tree.see(event.select_id)
+            self.tree.focus(event.select_id)
+
+    def _populate_nodes(self, parent_iid: str, items: list, prod_prefix: str = ""):
         """Recursively populates nodes from Agile objects."""
         show_status = ThemeManager.load_all_settings().get('show_status_in_tree', True)
         for item in items:
-            item_id = getattr(item, 'id', str(id(item)))
+            raw_id = getattr(item, 'id', str(id(item)))
+            # Ensure unique iid if item appears multiple times under different products
+            item_id = f"{prod_prefix}:{raw_id}" if prod_prefix else raw_id
+            
             title = getattr(item, 'title', "Untitled")
             weight = getattr(item, 'weight', 0.0)
             status = getattr(item, 'status', 'Backlog')
@@ -166,6 +203,6 @@ class TreePane:
             node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=display_text, tags=(item_type,))
             
             if item_type == "Epic" and hasattr(item, "features"):
-                self._populate_nodes(node_iid, item.features)
+                self._populate_nodes(node_iid, item.features, prod_prefix=prod_prefix)
             elif item_type == "Feature" and hasattr(item, "stories"):
-                self._populate_nodes(node_iid, item.stories)
+                self._populate_nodes(node_iid, item.stories, prod_prefix=prod_prefix)

@@ -14,6 +14,7 @@ class UIItemSelectedEvent(Event):
     """Emitted by the View when the user clicks an item in the tree."""
     item_id: str
     item_type: str
+    full_iid: str = ""
 
 @dataclass
 class UIItemSaveRequestedEvent(Event):
@@ -91,6 +92,7 @@ class UIIntegrationsSaveRequestedEvent(Event):
     product_mappings: dict[str, str]
     capabilities: list[str]
     product_project_ids: Dict[str, Optional[int]] = field(default_factory=dict)
+    active_product_name: Optional[str] = None
 
 @dataclass
 class UISettingsDialogOpenRequestedEvent(Event):
@@ -172,7 +174,9 @@ class ModelActiveItemChangedEvent(Event):
 @dataclass
 class ModelHierarchyUpdatedEvent(Event):
     root_items: List[Any]
+    products: List[Any] = field(default_factory=list)
     expand_id: str = None
+    select_id: str = None
 
 @dataclass
 class ModelWorkspaceLoadedEvent(Event):
@@ -189,6 +193,7 @@ class ModelSyncErrorEvent(Event):
     title: str
     error_message: str
     suggested_solution: str
+    debug_info: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ModelConflictDetectedEvent(Event):

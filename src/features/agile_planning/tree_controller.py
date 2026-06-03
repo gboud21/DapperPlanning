@@ -3,7 +3,7 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
-    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent
+    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
 )
 from src.domain.workspace import Workspace
 from src.domain.entities import Epic, Feature, Story, Team
@@ -33,9 +33,31 @@ class TreeController:
         self.dispatcher.subscribe(UIAddFeatureRequestedEvent, self.handle_add_feature)
         self.dispatcher.subscribe(UIAddStoryRequestedEvent, self.handle_add_story)
         self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Restores active product selection after workspace load."""
+        if self.workspace.active_product_name:
+            # Re-dispatch hierarchy update with select_id for the product
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                root_items=self.workspace.get_epics(),
+                products=self.workspace.products,
+                select_id=f"PROD:{self.workspace.active_product_name}",
+                expand_id=f"PROD:{self.workspace.active_product_name}"
+            ))
 
     def handle_item_selected(self, event: UIItemSelectedEvent):
         """Fetches item data and notifies the view (EditorPane)."""
+        # Track Active Product Selection
+        if ":" in event.full_iid:
+            parts = event.full_iid.split(":", 1)
+            # If full_iid is "PROD:Name", product name is parts[1]
+            # If full_iid is "Name:ItemID", product name is parts[0]
+            product_name = parts[1] if parts[0] == "PROD" else parts[0]
+            
+            if product_name != "Unassigned":
+                self.workspace.active_product_name = product_name
+
         item = self.workspace._find_item_by_id(event.item_id)
         if item:
             self.dispatcher.dispatch(

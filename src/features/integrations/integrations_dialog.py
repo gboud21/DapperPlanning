@@ -73,14 +73,22 @@ class IntegrationsDialog(tk.Toplevel):
         self.product_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.product_tab, text="Product Routing")
 
-        # Treeview for product mappings
-        self.tree_products = ttk.Treeview(self.product_tab, columns=("Name", "ProjectID"), show="headings", height=10)
+        # 1. Active Product Selection
+        active_frame = ttk.LabelFrame(self.product_tab, text="Sync Context", padding=10)
+        active_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        
+        ttk.Label(active_frame, text="Active Product for Sync:").pack(side=tk.LEFT, padx=(0, 10))
+        self.combo_active_prod = ttk.Combobox(active_frame, state="readonly")
+        self.combo_active_prod.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # 2. Treeview for product mappings
+        self.tree_products = ttk.Treeview(self.product_tab, columns=("Name", "ProjectID"), show="headings", height=8)
         self.tree_products.heading("Name", text="Product Name")
         self.tree_products.heading("ProjectID", text="GitLab Project ID")
         self.tree_products.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tree_products.bind("<<TreeviewSelect>>", self._on_product_selected)
 
-        # Form to add/update
+        # 3. Form to add/update
         form_frame = ttk.Frame(self.product_tab)
         form_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
 
@@ -95,6 +103,20 @@ class IntegrationsDialog(tk.Toplevel):
 
         ttk.Button(form_frame, text="Add/Update", command=self._add_update_product).pack(side=tk.LEFT, padx=5)
         ttk.Button(form_frame, text="Remove", command=self._remove_product).pack(side=tk.LEFT, padx=5)
+
+    def _refresh_active_product_options(self):
+        """Updates the Combobox with current product names."""
+        product_names = sorted(list(self._pending_product_updates.keys()))
+        self.combo_active_prod['values'] = product_names
+        
+        # Preserve selection if still valid
+        current = self.combo_active_prod.get()
+        if current not in product_names:
+            if product_names:
+                # Default to first one if nothing selected or previous selection gone
+                self.combo_active_prod.set(product_names[0])
+            else:
+                self.combo_active_prod.set("")
 
     def _on_product_selected(self, event):
         selected = self.tree_products.selection()
@@ -118,6 +140,7 @@ class IntegrationsDialog(tk.Toplevel):
         
         val = self.entry_prod_id.get().strip()
         self._pending_product_updates[name] = int(val) if val else None
+        self._refresh_active_product_options()
 
     def _setup_capabilities_tab(self):
         self.caps_tab = ttk.Frame(self.notebook)
@@ -160,6 +183,9 @@ class IntegrationsDialog(tk.Toplevel):
                 borderwidth=0
             )
         
+        # Style Combobox for high contrast in settings
+        self.combo_active_prod.configure(style='Preferences.TCombobox')
+
         self.list_caps.configure(
             bg=palette['field_bg'],
             fg=palette['fg'],
@@ -180,10 +206,19 @@ class IntegrationsDialog(tk.Toplevel):
         for name, pid in mappings.items():
             proj_id = project_ids.get(name, "")
             self.tree_products.insert("", tk.END, values=(name, proj_id))
+            # Sync pending map for initial load
+            self._pending_product_updates[name] = project_ids.get(name)
 
         capabilities = self.current_settings.get('capabilities', [])
         for cap in capabilities:
             self.list_caps.insert(tk.END, cap)
+            
+        self._refresh_active_product_options()
+        
+        # Set current active product from settings or workspace
+        active_prod = self.current_settings.get('active_product_name')
+        if active_prod:
+            self.combo_active_prod.set(active_prod)
 
     def _add_update_product(self):
         name = self.entry_prod_name.get().strip()
@@ -195,14 +230,19 @@ class IntegrationsDialog(tk.Toplevel):
         proj_id = int(pid) if pid else None
 
         # Check if already exists
+        found = False
         for item in self.tree_products.get_children():
             if self.tree_products.item(item, "values")[0] == name:
                 self.tree_products.item(item, values=(name, pid if pid else ""))
                 self._pending_product_updates[name] = proj_id
-                return
+                found = True
+                break
         
-        self.tree_products.insert("", tk.END, values=(name, pid if pid else ""))
-        self._pending_product_updates[name] = proj_id
+        if not found:
+            self.tree_products.insert("", tk.END, values=(name, pid if pid else ""))
+            self._pending_product_updates[name] = proj_id
+            
+        self._refresh_active_product_options()
         self.entry_prod_name.delete(0, tk.END)
         self.entry_prod_id.delete(0, tk.END)
 
@@ -213,6 +253,7 @@ class IntegrationsDialog(tk.Toplevel):
             if name in self._pending_product_updates:
                 del self._pending_product_updates[name]
             self.tree_products.delete(item)
+        self._refresh_active_product_options()
 
     def _add_capability(self):
         cap = self.entry_cap_name.get().strip()
@@ -239,6 +280,7 @@ class IntegrationsDialog(tk.Toplevel):
             epic_group_id=self.entry_group_id.get().strip(),
             product_mappings=product_mappings,
             capabilities=capabilities,
-            product_project_ids=self._pending_product_updates
+            product_project_ids=self._pending_product_updates,
+            active_product_name=self.combo_active_prod.get()
         ))
         self.destroy()

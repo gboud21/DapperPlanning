@@ -34,6 +34,17 @@ class SyncWorker(threading.Thread):
 
     def run(self):
         from src.infrastructure.api.gitlab_client import GitLabBaseError
+        
+        # Prepare basic debug info
+        debug_info = {
+            "Base URL": self.gitlab_client.base_url,
+            "Group ID": self.gitlab_client.group_id,
+            "Project ID": self.gitlab_client.project_id,
+            "Sync Type": self.sync_type,
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Token": self.gitlab_client.headers.get("PRIVATE-TOKEN", "N/A")
+        }
+
         try:
             if self.sync_type == 'pull':
                 self._execute_pull()
@@ -44,13 +55,15 @@ class SyncWorker(threading.Thread):
             self._safe_dispatch(ModelSyncErrorEvent(
                 title="GitLab Sync Error",
                 error_message=e.error_message,
-                suggested_solution=e.suggested_solution
+                suggested_solution=e.suggested_solution,
+                debug_info=debug_info
             ))
         except Exception as e:
             self._safe_dispatch(ModelSyncErrorEvent(
                 title="Unexpected Sync Error",
                 error_message=str(e),
-                suggested_solution="Check the application logs and verify your network connection."
+                suggested_solution="Check the application logs and verify your network connection.",
+                debug_info=debug_info
             ))
         finally:
             self._safe_dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))
