@@ -1,0 +1,25 @@
+from src.core.base_feature import FeatureModule
+from src.core.app_context import AppContext
+
+class NewFeatureModule(FeatureModule):
+    """
+    Template for new feature slices. 
+    Copy this to src/features/<feature_name>/module.py
+    """
+    
+    def setup_controllers(self):
+        """
+        Initialize feature-specific controllers here.
+        Example: self.controller = MyFeatureController(self.context)
+        """
+        # self.controller = MyFeatureController(self.context)
+        pass
+
+    def setup_ui_components(self):
+        """
+        Initialize feature-specific UI components here.
+        Note: Complex UI layout should still be managed by MainWindow, 
+        but specialized components can be initialized here and 
+        registered in AppContext if needed by other features.
+        """
+        pass

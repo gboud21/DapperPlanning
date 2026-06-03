@@ -4,9 +4,10 @@ import threading
 import tkinter as tk
 
 class Event:
+    """Base class for all application events."""
     pass
 
-# --- UI Events ---
+# --- 1. UI ACTION EVENTS (Requests for mutation or navigation) ---
 
 @dataclass
 class UIItemSelectedEvent(Event):
@@ -27,78 +28,63 @@ class UIItemSaveRequestedEvent(Event):
 
 @dataclass
 class UISyncRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Sync to GitLab'."""
     pass
 
 @dataclass
 class UIGitLabPullRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Pull from GitLab'."""
     pass
 
 @dataclass
 class UIGitLabPushRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Push to GitLab'."""
     pass
 
 @dataclass
 class UIConflictResolvedEvent(Event):
-    """Emitted by the Conflict Resolution Modal when a user chooses which version to keep."""
     resolution: str  # 'local' or 'remote'
     item_id: str
 
 @dataclass
 class UIOpenWorkspaceRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Open Workspace'."""
     pass
 
 @dataclass
 class UINewWorkspaceRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'New Workspace'."""
     pass
 
 @dataclass
 class UISaveWorkspaceRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Save Workspace'."""
     pass
 
 @dataclass
 class UISaveAsWorkspaceRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Save Workspace As'."""
     pass
 
 @dataclass
 class UIAppCloseRequestedEvent(Event):
-    """Emitted by the View when the user tries to close the application."""
     pass
 
 @dataclass
 class UIExportCsvRequestedEvent(Event):
-    """Emitted by the View when the user selects a save location for the CSV export."""
     file_path: str
 
 @dataclass
 class UIExportJsonRequestedEvent(Event):
-    """Emitted by the View when the user selects a JSON file to import."""
     file_path: str
 
 @dataclass
 class UIImportCsvRequestedEvent(Event):
-    """Emitted by the View when the user selects a CSV file to import."""
     file_path: str
 
 @dataclass
 class UIImportJsonRequestedEvent(Event):
-    """Emitted by the View when the user selects a JSON file to import."""
     file_path: str
 
 @dataclass
 class UIIntegrationsDialogOpenRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Manage Connections'."""
     pass
 
 @dataclass
 class UIIntegrationsSaveRequestedEvent(Event):
-    """Emitted by the Integrations Dialog when the user clicks 'Save & Close'."""
     auth_url: str
     auth_pat: str
     epic_group_id: str
@@ -107,12 +93,10 @@ class UIIntegrationsSaveRequestedEvent(Event):
 
 @dataclass
 class UISettingsDialogOpenRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Preferences'."""
     pass
 
 @dataclass
 class UISettingsSaveRequestedEvent(Event):
-    """Emitted by the Settings Dialog when the user clicks 'Save & Close'."""
     theme: str
     auto_save: bool
     log_level: str
@@ -129,38 +113,26 @@ class UISettingsSaveRequestedEvent(Event):
 
 @dataclass
 class UITemplateConfigExportRequestedEvent(Event):
-    """Emitted by the Settings Dialog when the user clicks 'Export Configuration'."""
     payload: dict
 
 @dataclass
-class UIErrorNotificationEvent(Event):
-    """Emitted by Controllers when an operation fails, prompting the View to show an error dialog."""
-    title: str
-    message: str
-
-@dataclass
 class UIAddEpicRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Add Epic' in the context menu."""
-    parent_id: str = None  # None for root level epics
+    parent_id: str = None
 
 @dataclass
 class UIAddFeatureRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Add Feature' in the context menu."""
     parent_epic_id: str
 
 @dataclass
 class UIAddStoryRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Add Story' in the context menu."""
     parent_feature_id: str
 
 @dataclass
 class UIDeleteItemRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Delete' in the context menu."""
     item_id: str
 
 @dataclass
 class UICreateItemRequestedEvent(Event):
-    """Emitted by the View when the user clicks 'Create as New Child' to create a new item."""
     parent_id: str
     item_type: str
     title: str
@@ -172,65 +144,111 @@ class UICreateItemRequestedEvent(Event):
 
 @dataclass
 class UIThemeToggleRequestedEvent(Event):
-    """Emitted by the View when the user toggles the theme."""
     is_dark: bool
 
 @dataclass
 class UIWindowStateChangedEvent(Event):
-    """Emitted by the View when the window is maximized or restored."""
     is_maximized: bool
 
 @dataclass
 class UIGlobalTagAddRequestedEvent(Event):
-    """Emitted when a user adds a new tag to the global master list from the editor."""
-    tag_type: str  # 'product' or 'capability'
+    tag_type: str
     tag_value: str
 
 @dataclass
 class UIGlobalTagDeleteRequestedEvent(Event):
-    """Emitted when a user deletes a tag from the global master list."""
-    tag_type: str  # 'product' or 'capability'
+    tag_type: str
     tag_value: str
 
 
-# --- Model / App Events ---
+# --- 2. MODEL NOTIFICATION EVENTS (State change broadcasts) ---
 
 @dataclass
 class ModelActiveItemChangedEvent(Event):
-    """Emitted by the Controller when the active item data is ready for the View to render."""
     item_type: str
     item_data: Any
 
 @dataclass
 class ModelHierarchyUpdatedEvent(Event):
-    """Emitted by the Workspace when the data structure changes, prompting a tree redraw."""
     root_items: List[Any]
     expand_id: str = None
 
 @dataclass
 class ModelWorkspaceLoadedEvent(Event):
-    """Emitted when a workspace is loaded, containing the filepath."""
     filepath: Optional[str] = None
 
 @dataclass
 class ModelSyncProgressEvent(Event):
-    """Emitted by the SyncWorker to update the progress modal."""
     message: str
     percent: float
 
 @dataclass
 class ModelConflictDetectedEvent(Event):
-    """Emitted when a data mismatch is found during sync, requiring user intervention."""
     local_item: Any
     remote_item: Any
 
+
+# --- 3. SYSTEM INTERRUPT EVENTS (App-wide lifecycle & errors) ---
+
 @dataclass
 class AppThemeChangedEvent(Event):
-    """Emitted by the Controller when the application theme has changed."""
     is_dark: bool
 
+@dataclass
+class UIErrorNotificationEvent(Event):
+    title: str
+    message: str
 
-# --- Dispatcher ---
+
+# --- NAMESPACE GROUPINGS (For Type Safety & Discovery) ---
+
+class Actions:
+    """Namespace for all UI-driven Requests and Actions."""
+    ITEM_SELECTED = UIItemSelectedEvent
+    ITEM_SAVE = UIItemSaveRequestedEvent
+    SYNC = UISyncRequestedEvent
+    GITLAB_PULL = UIGitLabPullRequestedEvent
+    GITLAB_PUSH = UIGitLabPushRequestedEvent
+    CONFLICT_RESOLVED = UIConflictResolvedEvent
+    WORKSPACE_OPEN = UIOpenWorkspaceRequestedEvent
+    WORKSPACE_NEW = UINewWorkspaceRequestedEvent
+    WORKSPACE_SAVE = UISaveWorkspaceRequestedEvent
+    WORKSPACE_SAVE_AS = UISaveAsWorkspaceRequestedEvent
+    APP_CLOSE = UIAppCloseRequestedEvent
+    EXPORT_CSV = UIExportCsvRequestedEvent
+    EXPORT_JSON = UIExportJsonRequestedEvent
+    IMPORT_CSV = UIImportCsvRequestedEvent
+    IMPORT_JSON = UIImportJsonRequestedEvent
+    INTEGRATIONS_OPEN = UIIntegrationsDialogOpenRequestedEvent
+    INTEGRATIONS_SAVE = UIIntegrationsSaveRequestedEvent
+    SETTINGS_OPEN = UISettingsDialogOpenRequestedEvent
+    SETTINGS_SAVE = UISettingsSaveRequestedEvent
+    TEMPLATE_EXPORT = UITemplateConfigExportRequestedEvent
+    ADD_EPIC = UIAddEpicRequestedEvent
+    ADD_FEATURE = UIAddFeatureRequestedEvent
+    ADD_STORY = UIAddStoryRequestedEvent
+    DELETE_ITEM = UIDeleteItemRequestedEvent
+    CREATE_ITEM = UICreateItemRequestedEvent
+    THEME_TOGGLE = UIThemeToggleRequestedEvent
+    WINDOW_STATE = UIWindowStateChangedEvent
+    TAG_ADD = UIGlobalTagAddRequestedEvent
+    TAG_DELETE = UIGlobalTagDeleteRequestedEvent
+
+class Notifications:
+    """Namespace for all State Update and Sync Notifications."""
+    ACTIVE_ITEM_CHANGED = ModelActiveItemChangedEvent
+    HIERARCHY_UPDATED = ModelHierarchyUpdatedEvent
+    WORKSPACE_LOADED = ModelWorkspaceLoadedEvent
+    SYNC_PROGRESS = ModelSyncProgressEvent
+    CONFLICT_DETECTED = ModelConflictDetectedEvent
+
+class System:
+    """Namespace for Application-wide Interrupts and Core Events."""
+    THEME_CHANGED = AppThemeChangedEvent
+    ERROR = UIErrorNotificationEvent
+
+
+# --- DISPATCHER ---
 
 class EventDispatcher:
     def __init__(self, root_window: tk.Tk):
@@ -244,13 +262,45 @@ class EventDispatcher:
         self._listeners[event_type].append(listener)
 
     def dispatch(self, event: Event) -> None:
+        """
+        Dispatches an event to all registered listeners.
+        Includes runtime telemetry for thread-safety validation.
+        """
         event_type = type(event)
+        event_name = event_type.__name__
+        thread_id = threading.get_ident()
+        is_main_thread = thread_id == self._main_thread_id
+        
+        # Runtime Telemetry
+        origin = "MAIN" if is_main_thread else f"BG:{threading.current_thread().name}"
+        delivery = "DIRECT" if is_main_thread else "QUEUED"
+        print(f"[EVENT_TRACE] [{origin}] {event_name} ({delivery})")
+
         if event_type not in self._listeners:
             return
 
         for listener in self._listeners[event_type]:
-            if threading.get_ident() == self._main_thread_id:
+            if is_main_thread:
                 listener(event)
             else:
                 # Thread-safe dispatch using Tkinter's .after()
                 self._root.after(0, listener, event)
+
+__all__ = [
+    'Event', 'EventDispatcher', 'Actions', 'Notifications', 'System',
+    # Keeping individual events for backward compatibility
+    'UIItemSelectedEvent', 'UIItemSaveRequestedEvent', 'UISyncRequestedEvent',
+    'UIGitLabPullRequestedEvent', 'UIGitLabPushRequestedEvent', 'UIConflictResolvedEvent',
+    'UIOpenWorkspaceRequestedEvent', 'UINewWorkspaceRequestedEvent', 'UISaveWorkspaceRequestedEvent',
+    'UISaveAsWorkspaceRequestedEvent', 'UIAppCloseRequestedEvent', 'UIExportCsvRequestedEvent',
+    'UIExportJsonRequestedEvent', 'UIImportCsvRequestedEvent', 'UIImportJsonRequestedEvent',
+    'UIIntegrationsDialogOpenRequestedEvent', 'UIIntegrationsSaveRequestedEvent',
+    'UISettingsDialogOpenRequestedEvent', 'UISettingsSaveRequestedEvent',
+    'UITemplateConfigExportRequestedEvent', 'UIAddEpicRequestedEvent',
+    'UIAddFeatureRequestedEvent', 'UIAddStoryRequestedEvent', 'UIDeleteItemRequestedEvent',
+    'UICreateItemRequestedEvent', 'UIThemeToggleRequestedEvent', 'UIWindowStateChangedEvent',
+    'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
+    'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
+    'ModelSyncProgressEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
+    'UIErrorNotificationEvent'
+]
