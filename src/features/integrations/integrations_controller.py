@@ -4,11 +4,13 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
     UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
-    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, ModelConflictDetectedEvent
+    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, ModelConflictDetectedEvent,
+    ModelSyncErrorEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.features.integrations.integrations_dialog import IntegrationsDialog
 from src.features.integrations.sync_progress_modal import SyncProgressModal
+from src.features.integrations.sync_error_modal import SyncErrorModal
 from src.features.integrations.conflict_resolution_modal import ConflictResolutionModal
 from src.features.integrations.sync_worker import SyncWorker
 from src.infrastructure.api.gitlab_client import GitLabClient
@@ -28,6 +30,7 @@ class IntegrationsController:
         self.workspace = context.resolve('workspace')
         self.settings: SettingsManager = context.resolve('settings_manager')
         
+        self.progress_modal = None
         self._subscribe_events()
 
     def _subscribe_events(self):
@@ -38,6 +41,7 @@ class IntegrationsController:
         self.dispatcher.subscribe(UIGitLabPullRequestedEvent, self.handle_pull_request)
         self.dispatcher.subscribe(UIGitLabPushRequestedEvent, self.handle_push_request)
         self.dispatcher.subscribe(ModelConflictDetectedEvent, self.handle_conflict_detected)
+        self.dispatcher.subscribe(ModelSyncErrorEvent, self.handle_sync_error)
 
     def _is_gitlab_configured(self) -> bool:
         """Returns True if essential GitLab credentials are set."""
@@ -66,7 +70,7 @@ class IntegrationsController:
                 return # User opted out
 
         if self._initialize_gitlab_client():
-            SyncProgressModal(self.root, self.dispatcher)
+            self.progress_modal = SyncProgressModal(self.root, self.dispatcher)
             worker = SyncWorker(self.context, sync_type='pull')
             worker.start()
 
@@ -82,9 +86,24 @@ class IntegrationsController:
                 return # User opted out
 
         if self._initialize_gitlab_client():
-            SyncProgressModal(self.root, self.dispatcher)
+            self.progress_modal = SyncProgressModal(self.root, self.dispatcher)
             worker = SyncWorker(self.context, sync_type='push')
             worker.start()
+
+    def handle_sync_error(self, event: ModelSyncErrorEvent):
+        """Closes the progress modal and displays the error resolution modal."""
+        if self.progress_modal and self.progress_modal.winfo_exists():
+            self.progress_modal.destroy()
+            self.progress_modal = None
+        
+        is_dark = ThemeManager.load_settings()
+        SyncErrorModal(
+            self.root, 
+            event.title, 
+            event.error_message, 
+            event.suggested_solution, 
+            is_dark=is_dark
+        )
 
     def handle_conflict_detected(self, event: ModelConflictDetectedEvent):
         """Displays the conflict resolution modal on the main thread."""

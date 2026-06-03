@@ -1,6 +1,22 @@
 import urllib.request
+import urllib.error
 import json
 from src.domain.entities import Epic, Story
+
+class GitLabBaseError(Exception):
+    def __init__(self, error_message: str, suggested_solution: str):
+        super().__init__(error_message)
+        self.error_message = error_message
+        self.suggested_solution = suggested_solution
+
+class GitLabAuthError(GitLabBaseError):
+    pass
+
+class GitLabNotFoundError(GitLabBaseError):
+    pass
+
+class GitLabNetworkError(GitLabBaseError):
+    pass
 
 class GitLabClient:
     def __init__(self, base_url: str, token: str, group_id: str, project_id: str):
@@ -16,9 +32,26 @@ class GitLabClient:
         try:
             with urllib.request.urlopen(req) as response:
                 return json.loads(response.read().decode())
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise GitLabAuthError(
+                    f"Authentication Failed ({e.code})", 
+                    "Verify your Personal Access Token in Integrations Settings and ensure it has API scope."
+                )
+            elif e.code == 404:
+                raise GitLabNotFoundError(
+                    f"Resource Not Found ({e.code})", 
+                    "Verify your GitLab Project ID/Group ID is correct and that the resource exists."
+                )
+            else:
+                raise GitLabBaseError(f"API Error: {e}", "Check the GitLab status or contact your administrator.")
+        except urllib.error.URLError as e:
+            raise GitLabNetworkError(
+                f"Network Error: {e.reason}", 
+                "Check your internet connection and verify the GitLab URL is reachable."
+            )
         except Exception as e:
-            print(f"API Error ({method} {endpoint}): {e}")
-            return {}
+            raise GitLabBaseError(f"Unexpected Error: {e}", "An internal error occurred.")
 
     def get_epics(self) -> list:
         """Fetches all epics for the group."""

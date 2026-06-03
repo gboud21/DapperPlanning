@@ -3,8 +3,8 @@ import time
 from datetime import datetime
 from src.core.app_context import AppContext
 from src.core.events import (
-    ModelSyncProgressEvent, ModelConflictDetectedEvent, UIConflictResolvedEvent,
-    UIErrorNotificationEvent, ModelHierarchyUpdatedEvent
+    ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
+    UIConflictResolvedEvent, ModelHierarchyUpdatedEvent
 )
 from src.domain.entities import Epic, Feature, Story
 
@@ -33,15 +33,26 @@ class SyncWorker(threading.Thread):
             self.conflict_event.set()
 
     def run(self):
+        from src.infrastructure.api.gitlab_client import GitLabBaseError
         try:
             if self.sync_type == 'pull':
                 self._execute_pull()
             elif self.sync_type == 'push':
                 self._execute_push()
-        except Exception as e:
-            self._safe_dispatch(UIErrorNotificationEvent(title="Sync Error", message=str(e)))
-        finally:
             self._safe_dispatch(ModelSyncProgressEvent(message="Done.", percent=100))
+        except GitLabBaseError as e:
+            self._safe_dispatch(ModelSyncErrorEvent(
+                title="GitLab Sync Error",
+                error_message=e.error_message,
+                suggested_solution=e.suggested_solution
+            ))
+        except Exception as e:
+            self._safe_dispatch(ModelSyncErrorEvent(
+                title="Unexpected Sync Error",
+                error_message=str(e),
+                suggested_solution="Check the application logs and verify your network connection."
+            ))
+        finally:
             self._safe_dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))
 
     def _safe_dispatch(self, event):

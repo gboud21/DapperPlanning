@@ -184,6 +184,13 @@ class ModelSyncProgressEvent(Event):
     percent: float
 
 @dataclass
+class ModelSyncErrorEvent(Event):
+    """Emitted when the SyncWorker encounters an error."""
+    title: str
+    error_message: str
+    suggested_solution: str
+
+@dataclass
 class ModelConflictDetectedEvent(Event):
     local_item: Any
     remote_item: Any
@@ -241,6 +248,7 @@ class Notifications:
     HIERARCHY_UPDATED = ModelHierarchyUpdatedEvent
     WORKSPACE_LOADED = ModelWorkspaceLoadedEvent
     SYNC_PROGRESS = ModelSyncProgressEvent
+    SYNC_ERROR = ModelSyncErrorEvent
     CONFLICT_DETECTED = ModelConflictDetectedEvent
 
 class System:
@@ -302,6 +310,6 @@ __all__ = [
     'UICreateItemRequestedEvent', 'UIThemeToggleRequestedEvent', 'UIWindowStateChangedEvent',
     'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
-    'ModelSyncProgressEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
+    'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
     'UIErrorNotificationEvent'
 ]
