@@ -121,6 +121,7 @@ class IntegrationsController:
         self.settings.set('auth_pat', event.auth_pat)
         self.settings.set('epic_group_id', event.epic_group_id)
         self.settings.set('product_mappings', event.product_mappings)
+        self.settings.set('product_project_ids', event.product_project_ids)
         self.settings.set('capabilities', event.capabilities)
         self.settings.save()
         
@@ -130,5 +131,6 @@ class IntegrationsController:
             auth_pat=event.auth_pat,
             epic_group_id=event.epic_group_id,
             product_mappings=event.product_mappings,
-            capabilities=event.capabilities
+            capabilities=event.capabilities,
+            product_project_ids=event.product_project_ids
         )

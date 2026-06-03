@@ -18,6 +18,10 @@ class IntegrationsDialog(tk.Toplevel):
         self.dispatcher = dispatcher
         self.current_settings = current_settings
         self.is_dark = False # Will be updated via AppThemeChangedEvent
+        self._pending_product_updates = {} # Maps product_name -> project_id (int or None)
+        
+        # Register integer validation
+        self.vcmd_int = (self.register(self._validate_integer), '%P')
 
         self.transient(parent)
         self.grab_set()
@@ -25,6 +29,12 @@ class IntegrationsDialog(tk.Toplevel):
         self._setup_ui()
         self._bind_events()
         self._load_current_settings()
+
+    def _validate_integer(self, P_value: str) -> bool:
+        """Returns True if P_value is empty or is a digit."""
+        if P_value == "":
+            return True
+        return P_value.isdigit()
 
     def _setup_ui(self):
         self.notebook = ttk.Notebook(self)
@@ -66,8 +76,9 @@ class IntegrationsDialog(tk.Toplevel):
         # Treeview for product mappings
         self.tree_products = ttk.Treeview(self.product_tab, columns=("Name", "ProjectID"), show="headings", height=10)
         self.tree_products.heading("Name", text="Product Name")
-        self.tree_products.heading("ProjectID", text="Target Project ID")
+        self.tree_products.heading("ProjectID", text="GitLab Project ID")
         self.tree_products.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.tree_products.bind("<<TreeviewSelect>>", self._on_product_selected)
 
         # Form to add/update
         form_frame = ttk.Frame(self.product_tab)
@@ -78,11 +89,35 @@ class IntegrationsDialog(tk.Toplevel):
         self.entry_prod_name.pack(side=tk.LEFT, padx=5)
 
         ttk.Label(form_frame, text="Project ID:").pack(side=tk.LEFT)
-        self.entry_prod_id = tk.Entry(form_frame, width=15)
+        self.entry_prod_id = tk.Entry(form_frame, width=15, validate='key', validatecommand=self.vcmd_int)
         self.entry_prod_id.pack(side=tk.LEFT, padx=5)
+        self.entry_prod_id.bind("<KeyRelease>", self._on_prod_id_keyup)
 
         ttk.Button(form_frame, text="Add/Update", command=self._add_update_product).pack(side=tk.LEFT, padx=5)
         ttk.Button(form_frame, text="Remove", command=self._remove_product).pack(side=tk.LEFT, padx=5)
+
+    def _on_product_selected(self, event):
+        selected = self.tree_products.selection()
+        if not selected:
+            return
+        
+        name, pid = self.tree_products.item(selected[0], "values")
+        self.entry_prod_name.delete(0, tk.END)
+        self.entry_prod_name.insert(0, name)
+        
+        self.entry_prod_id.delete(0, tk.END)
+        # Check pending first, then current display
+        val = self._pending_product_updates.get(name, pid)
+        if val is not None:
+            self.entry_prod_id.insert(0, str(val))
+
+    def _on_prod_id_keyup(self, event):
+        name = self.entry_prod_name.get().strip()
+        if not name:
+            return
+        
+        val = self.entry_prod_id.get().strip()
+        self._pending_product_updates[name] = int(val) if val else None
 
     def _setup_capabilities_tab(self):
         self.caps_tab = ttk.Frame(self.notebook)
@@ -141,8 +176,10 @@ class IntegrationsDialog(tk.Toplevel):
         self.entry_group_id.insert(0, self.current_settings.get('epic_group_id', ''))
 
         mappings = self.current_settings.get('product_mappings', {})
+        project_ids = self.current_settings.get('product_project_ids', {})
         for name, pid in mappings.items():
-            self.tree_products.insert("", tk.END, values=(name, pid))
+            proj_id = project_ids.get(name, "")
+            self.tree_products.insert("", tk.END, values=(name, proj_id))
 
         capabilities = self.current_settings.get('capabilities', [])
         for cap in capabilities:
@@ -151,22 +188,30 @@ class IntegrationsDialog(tk.Toplevel):
     def _add_update_product(self):
         name = self.entry_prod_name.get().strip()
         pid = self.entry_prod_id.get().strip()
-        if not name or not pid:
+        if not name:
             return
+
+        # pid can be empty (None)
+        proj_id = int(pid) if pid else None
 
         # Check if already exists
         for item in self.tree_products.get_children():
             if self.tree_products.item(item, "values")[0] == name:
-                self.tree_products.item(item, values=(name, pid))
+                self.tree_products.item(item, values=(name, pid if pid else ""))
+                self._pending_product_updates[name] = proj_id
                 return
         
-        self.tree_products.insert("", tk.END, values=(name, pid))
+        self.tree_products.insert("", tk.END, values=(name, pid if pid else ""))
+        self._pending_product_updates[name] = proj_id
         self.entry_prod_name.delete(0, tk.END)
         self.entry_prod_id.delete(0, tk.END)
 
     def _remove_product(self):
         selected = self.tree_products.selection()
         for item in selected:
+            name = self.tree_products.item(item, "values")[0]
+            if name in self._pending_product_updates:
+                del self._pending_product_updates[name]
             self.tree_products.delete(item)
 
     def _add_capability(self):
@@ -181,10 +226,10 @@ class IntegrationsDialog(tk.Toplevel):
             self.list_caps.delete(selected)
 
     def _on_save_clicked(self):
-        product_mappings = {}
+        product_mappings = {} # We keep this for backward compat or other routing
         for item in self.tree_products.get_children():
             name, pid = self.tree_products.item(item, "values")
-            product_mappings[name] = pid
+            product_mappings[name] = name # routing to self name for now
 
         capabilities = list(self.list_caps.get(0, tk.END))
 
@@ -193,6 +238,7 @@ class IntegrationsDialog(tk.Toplevel):
             auth_pat=self.entry_pat.get().strip(),
             epic_group_id=self.entry_group_id.get().strip(),
             product_mappings=product_mappings,
-            capabilities=capabilities
+            capabilities=capabilities,
+            product_project_ids=self._pending_product_updates
         ))
         self.destroy()

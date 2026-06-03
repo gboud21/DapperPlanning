@@ -2,6 +2,14 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 @dataclass
+class Product:
+    """
+    Represents a product that work items can be assigned to.
+    """
+    name: str
+    gitlab_project_id: Optional[int] = None
+
+@dataclass
 class Team:
     """
     Represents a development team.

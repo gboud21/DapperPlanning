@@ -90,6 +90,7 @@ class UIIntegrationsSaveRequestedEvent(Event):
     epic_group_id: str
     product_mappings: dict[str, str]
     capabilities: list[str]
+    product_project_ids: Dict[str, Optional[int]] = field(default_factory=dict)
 
 @dataclass
 class UISettingsDialogOpenRequestedEvent(Event):

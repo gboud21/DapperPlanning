@@ -126,6 +126,19 @@ class Workspace:
         """
         return self._epics
 
+    def get_products(self) -> List[str]:
+        """
+        Retrieves a unique list of all product names used in the workspace.
+        """
+        products = set()
+        for epic in self._epics:
+            products.update(getattr(epic, 'products', []))
+            for feature in epic.features:
+                products.update(getattr(feature, 'products', []))
+                for story in feature.stories:
+                    products.update(getattr(story, 'products', []))
+        return sorted(list(products))
+
     def remove_global_tag(self, tag_type: str, tag_value: str) -> None:
         """
         Removes a specific tag from all items in the workspace.

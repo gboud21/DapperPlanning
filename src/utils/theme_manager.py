@@ -57,6 +57,7 @@ class ThemeManager:
             'auth_pat': '',
             'epic_group_id': '',
             'product_mappings': {},
+            'product_project_ids': {},
             'capabilities': []
         }
 
@@ -109,7 +110,7 @@ class ThemeManager:
         }
 
     @classmethod
-    def save_integration_settings(cls, auth_url: str, auth_pat: str, epic_group_id: str, product_mappings: dict, capabilities: list):
+    def save_integration_settings(cls, auth_url: str, auth_pat: str, epic_group_id: str, product_mappings: dict, capabilities: list, product_project_ids: dict = None):
         """Saves integration-related settings."""
         settings = cls.load_all_settings()
         settings.update({
@@ -119,6 +120,8 @@ class ThemeManager:
             'product_mappings': product_mappings,
             'capabilities': capabilities
         })
+        if product_project_ids is not None:
+            settings['product_project_ids'] = product_project_ids
         cls.save_all_settings(settings)
 
     @classmethod
