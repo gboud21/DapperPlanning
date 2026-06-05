@@ -8,6 +8,7 @@ class Product:
     """
     name: str
     gitlab_project_id: Optional[int] = None
+    gitlab_group_id: Optional[int] = None
 
 @dataclass
 class Team:

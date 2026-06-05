@@ -40,3 +40,20 @@ def get_app_config_dir() -> Path:
     """
     # Dynamically resolve based on the location of this file (src/utils/paths.py)
     return Path(__file__).parent.parent / 'config'
+
+def get_output_dir() -> Path:
+    """
+    Returns the absolute path to the output directory at the project root.
+    Ensures the directory exists.
+    
+    Returns:
+        Path: The absolute path to the output directory.
+    """
+    # Root is 3 levels up from src/utils/paths.py
+    root = Path(__file__).parent.parent.parent
+    output_dir = root / 'output'
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
+
+# Global path constants
+GITLAB_SYNC_OUTPUT_FILE = get_output_dir() / 'gitlab_integration.json'

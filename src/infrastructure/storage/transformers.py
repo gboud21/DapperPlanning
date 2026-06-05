@@ -107,3 +107,65 @@ class HierarchyBuilder:
             return None
 
         return [dict_to_obj(e_dict, "Epic") for e_dict in data]
+
+class GitLabTransformer:
+    def transform_pull_data(self, raw_epics: List[Dict[str, Any]], raw_issues: List[Dict[str, Any]]) -> List[Epic]:
+        """
+        Transforms flat GitLab API data into nested Domain entities.
+        
+        Mapping Rules:
+        - raw_epics with 'Epics' label -> Epic
+        - raw_epics with 'Feature' label -> Feature (children of Epics)
+        - raw_issues -> Story (children of Features)
+        """
+        epics_by_gitlab_id = {}
+        features_by_iid = {}
+        root_epics = []
+
+        # Step A: Process Epics
+        for r_epic in raw_epics:
+            labels = r_epic.get('labels', [])
+            if 'Epics' in labels:
+                epic = Epic(
+                    id=f"gl-{r_epic['id']}",
+                    title=r_epic.get('title', ''),
+                    description=r_epic.get('description', ''),
+                    gitlab_id=r_epic['id']
+                )
+                epics_by_gitlab_id[r_epic['id']] = epic
+                root_epics.append(epic)
+
+        # Step B: Process Features (Sub-epics)
+        for r_feat in raw_epics:
+            labels = r_feat.get('labels', [])
+            if 'Feature' in labels:
+                feature = Feature(
+                    id=f"gl-f-{r_feat['id']}",
+                    title=r_feat.get('title', ''),
+                    description=r_feat.get('description', ''),
+                    team=Team(name=""), # Placeholder
+                    gitlab_id=r_feat['id']
+                )
+                features_by_iid[r_feat['iid']] = feature
+                
+                parent_id = r_feat.get('parent_id')
+                if parent_id in epics_by_gitlab_id:
+                    epics_by_gitlab_id[parent_id].features.append(feature)
+
+        # Step C: Process Stories (Issues)
+        for r_issue in raw_issues:
+            story = Story(
+                id=f"gl-s-{r_issue['id']}",
+                title=r_issue.get('title', ''),
+                description=r_issue.get('description', ''),
+                team=Team(name=""), # Placeholder
+                weight=float(r_issue.get('weight') or 0.0),
+                gitlab_id=r_issue['id']
+            )
+            
+            # Link to Feature via epic_iid (in GitLab Issues response)
+            epic_iid = r_issue.get('epic_iid')
+            if epic_iid in features_by_iid:
+                features_by_iid[epic_iid].stories.append(story)
+
+        return root_epics

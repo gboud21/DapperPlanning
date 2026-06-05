@@ -159,6 +159,7 @@ class IntegrationsController:
         self.settings.set('epic_group_id', event.epic_group_id)
         self.settings.set('product_mappings', event.product_mappings)
         self.settings.set('product_project_ids', event.product_project_ids)
+        self.settings.set('product_group_ids', event.product_group_ids)
         self.settings.set('capabilities', event.capabilities)
         self.settings.set('active_product_name', event.active_product_name)
         self.settings.save()
@@ -177,12 +178,18 @@ class IntegrationsController:
         from src.domain.entities import Product
         workspace_products = self.workspace.products
         
-        for name, proj_id in event.product_project_ids.items():
+        # We need to iterate over all products mentioned in either project_ids or group_ids
+        all_product_names = set(event.product_project_ids.keys()) | set(event.product_group_ids.keys())
+
+        for name in all_product_names:
+            proj_id = event.product_project_ids.get(name)
+            grp_id = event.product_group_ids.get(name)
             existing = next((p for p in workspace_products if p.name == name), None)
             if existing:
                 existing.gitlab_project_id = proj_id
+                existing.gitlab_group_id = grp_id
             else:
-                workspace_products.append(Product(name=name, gitlab_project_id=proj_id))
+                workspace_products.append(Product(name=name, gitlab_project_id=proj_id, gitlab_group_id=grp_id))
         
         self.workspace.products = workspace_products
         self.workspace.active_product_name = event.active_product_name

@@ -1,5 +1,6 @@
 import threading
 import time
+import json
 from datetime import datetime
 from src.core.app_context import AppContext
 from src.core.events import (
@@ -7,6 +8,8 @@ from src.core.events import (
     UIConflictResolvedEvent, ModelHierarchyUpdatedEvent
 )
 from src.domain.entities import Epic, Feature, Story
+from src.infrastructure.storage.transformers import GitLabTransformer
+from src.utils.paths import GITLAB_SYNC_OUTPUT_FILE
 
 class SyncWorker(threading.Thread):
     def __init__(self, context: AppContext, sync_type: str = 'pull'):
@@ -74,22 +77,91 @@ class SyncWorker(threading.Thread):
 
     def _execute_pull(self, dry_run=False):
         self._safe_dispatch(ModelSyncProgressEvent(message="Fetching remote data...", percent=10))
-        remote_epics = self.gitlab_client.get_epics()
-        remote_issues = self.gitlab_client.get_issues()
         
-        total_items = len(remote_epics) + len(remote_issues)
-        if total_items == 0: return
+        # Determine current product IDs
+        active_product_name = self.workspace.active_product_name
+        product_entity = next((p for p in self.workspace.products if p.name == active_product_name), None)
+        
+        if not product_entity or not product_entity.gitlab_project_id or not product_entity.gitlab_group_id:
+            from src.infrastructure.api.gitlab_client import GitLabBaseError
+            raise GitLabBaseError(
+                "Incomplete Product Configuration",
+                f"Product '{active_product_name}' requires both a GitLab Project ID and Group ID for this sync operation."
+            )
 
-        # Map remote data to objects for comparison
-        # (This is simplified for demonstration)
-        processed = 0
-        for r_epic in remote_epics:
-            self._process_item(r_epic, 'Epic', dry_run)
-            processed += 1
-            self._safe_dispatch(ModelSyncProgressEvent(
-                message=f"Syncing Epic: {r_epic.get('title')}", 
-                percent=10 + (processed / total_items * 80)
-            ))
+        # Fetch from both endpoints
+        remote_epics = self.gitlab_client.fetch_group_epics(product_entity.gitlab_group_id)
+        remote_issues = self.gitlab_client.fetch_project_issues(product_entity.gitlab_project_id)
+        
+        # Audit/Debug Logging: Save raw results to disk
+        try:
+            dump_data = {
+                "timestamp": datetime.now().isoformat(),
+                "sync_type": "pull",
+                "product": active_product_name,
+                "project_id": product_entity.gitlab_project_id,
+                "group_id": product_entity.gitlab_group_id,
+                "remote_epics": remote_epics,
+                "remote_issues": remote_issues
+            }
+            with open(GITLAB_SYNC_OUTPUT_FILE, 'w', encoding='utf-8') as f:
+                json.dump(dump_data, f, indent=4)
+        except IOError as e:
+            print(f"Warning: Failed to write GitLab sync audit log: {e}")
+
+        # Transform to Domain Objects
+        transformer = GitLabTransformer()
+        remote_epics_domain = transformer.transform_pull_data(remote_epics, remote_issues)
+
+        # Process the hierarchy
+        self._safe_dispatch(ModelSyncProgressEvent(message="Comparing with local state...", percent=90))
+        
+        # Simple implementation: we flatten the remote tree and process each item
+        from src.infrastructure.storage.transformers import HierarchyFlattener
+        # Note: we need a way to map remote domain objects back to raw dicts if _process_item expects dicts
+        # Or we update _process_item to handle Domain objects. 
+        # For now, let's keep the existing logic by converting domain back to simple comparison stubs or updating _process_item.
+        
+        for r_epic in remote_epics_domain:
+            self._process_domain_item(r_epic, dry_run)
+            for r_feat in r_epic.features:
+                self._process_domain_item(r_feat, dry_run)
+                for r_story in r_feat.stories:
+                    self._process_domain_item(r_story, dry_run)
+
+    def _process_domain_item(self, remote_item, dry_run):
+        """Helper to process domain objects instead of raw dicts."""
+        local_item = self._find_local_by_gitlab_id(remote_item.gitlab_id)
+        
+        if not local_item:
+            if not dry_run:
+                # Logic to add new item could go here
+                pass
+            return
+
+        # Compare
+        if self._has_diff_domain(local_item, remote_item):
+            self.active_conflict_id = local_item.id
+            self.conflict_event.clear()
+            
+            self._safe_dispatch(ModelConflictDetectedEvent(local_item=local_item, remote_item=remote_item))
+            
+            # Wait for user input
+            self.conflict_event.wait()
+            
+            if self.last_resolution == 'remote' and not dry_run:
+                local_item.title = remote_item.title
+                local_item.description = remote_item.description
+                if hasattr(local_item, 'weight') and hasattr(remote_item, 'weight'):
+                    local_item.weight = remote_item.weight
+                local_item.last_synced_at = datetime.now().isoformat()
+
+    def _has_diff_domain(self, local, remote):
+        if local.title != remote.title: return True
+        if local.description != remote.description: return True
+        if hasattr(local, 'weight') and hasattr(remote, 'weight'):
+            if local.weight != remote.weight: return True
+        return False
 
     def _execute_push(self):
         self._safe_dispatch(ModelSyncProgressEvent(message="Checking for remote conflicts...", percent=5))

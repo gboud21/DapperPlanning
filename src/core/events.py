@@ -92,6 +92,7 @@ class UIIntegrationsSaveRequestedEvent(Event):
     product_mappings: dict[str, str]
     capabilities: list[str]
     product_project_ids: Dict[str, Optional[int]] = field(default_factory=dict)
+    product_group_ids: Dict[str, Optional[int]] = field(default_factory=dict)
     active_product_name: Optional[str] = None
 
 @dataclass

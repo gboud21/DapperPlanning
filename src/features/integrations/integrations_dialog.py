@@ -19,6 +19,7 @@ class IntegrationsDialog(tk.Toplevel):
         self.current_settings = current_settings
         self.is_dark = False # Will be updated via AppThemeChangedEvent
         self._pending_product_updates = {} # Maps product_name -> project_id (int or None)
+        self._pending_group_updates = {} # Maps product_name -> group_id (int or None)
         
         # Register integer validation
         self.vcmd_int = (self.register(self._validate_integer), '%P')
@@ -83,9 +84,10 @@ class IntegrationsDialog(tk.Toplevel):
         self.combo_active_prod.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # 2. Treeview for product mappings
-        self.tree_products = ttk.Treeview(self.product_tab, columns=("Name", "ProjectID"), show="headings", height=8)
+        self.tree_products = ttk.Treeview(self.product_tab, columns=("Name", "ProjectID", "GroupID"), show="headings", height=8)
         self.tree_products.heading("Name", text="Product Name")
         self.tree_products.heading("ProjectID", text="GitLab Project ID")
+        self.tree_products.heading("GroupID", text="GitLab Group ID")
         self.tree_products.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tree_products.bind("<<TreeviewSelect>>", self._on_product_selected)
 
@@ -93,17 +95,24 @@ class IntegrationsDialog(tk.Toplevel):
         form_frame = ttk.Frame(self.product_tab)
         form_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
 
-        ttk.Label(form_frame, text="Name:").pack(side=tk.LEFT)
+        ttk.Label(form_frame, text="Name:").grid(row=0, column=0, sticky=tk.W, padx=2)
         self.entry_prod_name = tk.Entry(form_frame, width=15)
-        self.entry_prod_name.pack(side=tk.LEFT, padx=5)
+        self.entry_prod_name.grid(row=0, column=1, padx=2)
 
-        ttk.Label(form_frame, text="Project ID:").pack(side=tk.LEFT)
-        self.entry_prod_id = tk.Entry(form_frame, width=15, validate='key', validatecommand=self.vcmd_int)
-        self.entry_prod_id.pack(side=tk.LEFT, padx=5)
+        ttk.Label(form_frame, text="Project ID:").grid(row=0, column=2, sticky=tk.W, padx=2)
+        self.entry_prod_id = tk.Entry(form_frame, width=10, validate='key', validatecommand=self.vcmd_int)
+        self.entry_prod_id.grid(row=0, column=3, padx=2)
         self.entry_prod_id.bind("<KeyRelease>", self._on_prod_id_keyup)
 
-        ttk.Button(form_frame, text="Add/Update", command=self._add_update_product).pack(side=tk.LEFT, padx=5)
-        ttk.Button(form_frame, text="Remove", command=self._remove_product).pack(side=tk.LEFT, padx=5)
+        ttk.Label(form_frame, text="Group ID:").grid(row=0, column=4, sticky=tk.W, padx=2)
+        self.entry_prod_group_id = tk.Entry(form_frame, width=10, validate='key', validatecommand=self.vcmd_int)
+        self.entry_prod_group_id.grid(row=0, column=5, padx=2)
+        self.entry_prod_group_id.bind("<KeyRelease>", self._on_prod_group_id_keyup)
+
+        btn_frame = ttk.Frame(form_frame)
+        btn_frame.grid(row=0, column=6, padx=5)
+        ttk.Button(btn_frame, text="Add/Update", command=self._add_update_product).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Remove", command=self._remove_product).pack(side=tk.LEFT, padx=2)
 
     def _refresh_active_product_options(self):
         """Updates the Combobox with current product names."""
@@ -124,15 +133,20 @@ class IntegrationsDialog(tk.Toplevel):
         if not selected:
             return
         
-        name, pid = self.tree_products.item(selected[0], "values")
+        name, pid, gid = self.tree_products.item(selected[0], "values")
         self.entry_prod_name.delete(0, tk.END)
         self.entry_prod_name.insert(0, name)
         
         self.entry_prod_id.delete(0, tk.END)
         # Check pending first, then current display
-        val = self._pending_product_updates.get(name, pid)
-        if val is not None:
-            self.entry_prod_id.insert(0, str(val))
+        val_pid = self._pending_product_updates.get(name, pid)
+        if val_pid is not None and val_pid != "":
+            self.entry_prod_id.insert(0, str(val_pid))
+
+        self.entry_prod_group_id.delete(0, tk.END)
+        val_gid = self._pending_group_updates.get(name, gid)
+        if val_gid is not None and val_gid != "":
+            self.entry_prod_group_id.insert(0, str(val_gid))
 
     def _on_prod_id_keyup(self, event):
         name = self.entry_prod_name.get().strip()
@@ -141,6 +155,15 @@ class IntegrationsDialog(tk.Toplevel):
         
         val = self.entry_prod_id.get().strip()
         self._pending_product_updates[name] = int(val) if val else None
+        self._refresh_active_product_options()
+
+    def _on_prod_group_id_keyup(self, event):
+        name = self.entry_prod_name.get().strip()
+        if not name:
+            return
+        
+        val = self.entry_prod_group_id.get().strip()
+        self._pending_group_updates[name] = int(val) if val else None
         self._refresh_active_product_options()
 
     def _setup_capabilities_tab(self):
@@ -171,7 +194,7 @@ class IntegrationsDialog(tk.Toplevel):
         # Style all tk.Entry widgets
         entries = [
             self.entry_url, self.entry_pat, self.entry_group_id,
-            self.entry_prod_name, self.entry_prod_id, self.entry_cap_name
+            self.entry_prod_name, self.entry_prod_id, self.entry_prod_group_id, self.entry_cap_name
         ]
         for entry in entries:
             entry.configure(
@@ -204,11 +227,14 @@ class IntegrationsDialog(tk.Toplevel):
 
         mappings = self.current_settings.get('product_mappings', {})
         project_ids = self.current_settings.get('product_project_ids', {})
-        for name, pid in mappings.items():
+        group_ids = self.current_settings.get('product_group_ids', {})
+        for name, _ in mappings.items():
             proj_id = project_ids.get(name, "")
-            self.tree_products.insert("", tk.END, values=(name, proj_id))
+            grp_id = group_ids.get(name, "")
+            self.tree_products.insert("", tk.END, values=(name, proj_id, grp_id))
             # Sync pending map for initial load
             self._pending_product_updates[name] = project_ids.get(name)
+            self._pending_group_updates[name] = group_ids.get(name)
 
         capabilities = self.current_settings.get('capabilities', [])
         for cap in capabilities:
@@ -224,28 +250,33 @@ class IntegrationsDialog(tk.Toplevel):
     def _add_update_product(self):
         name = self.entry_prod_name.get().strip()
         pid = self.entry_prod_id.get().strip()
+        gid = self.entry_prod_group_id.get().strip()
         if not name:
             return
 
-        # pid can be empty (None)
+        # pid/gid can be empty (None)
         proj_id = int(pid) if pid else None
+        grp_id = int(gid) if gid else None
 
         # Check if already exists
         found = False
         for item in self.tree_products.get_children():
             if self.tree_products.item(item, "values")[0] == name:
-                self.tree_products.item(item, values=(name, pid if pid else ""))
+                self.tree_products.item(item, values=(name, pid if pid else "", gid if gid else ""))
                 self._pending_product_updates[name] = proj_id
+                self._pending_group_updates[name] = grp_id
                 found = True
                 break
         
         if not found:
-            self.tree_products.insert("", tk.END, values=(name, pid if pid else ""))
+            self.tree_products.insert("", tk.END, values=(name, pid if pid else "", gid if gid else ""))
             self._pending_product_updates[name] = proj_id
+            self._pending_group_updates[name] = grp_id
             
         self._refresh_active_product_options()
         self.entry_prod_name.delete(0, tk.END)
         self.entry_prod_id.delete(0, tk.END)
+        self.entry_prod_group_id.delete(0, tk.END)
 
     def _remove_product(self):
         selected = self.tree_products.selection()
@@ -253,6 +284,8 @@ class IntegrationsDialog(tk.Toplevel):
             name = self.tree_products.item(item, "values")[0]
             if name in self._pending_product_updates:
                 del self._pending_product_updates[name]
+            if name in self._pending_group_updates:
+                del self._pending_group_updates[name]
             self.tree_products.delete(item)
         self._refresh_active_product_options()
 
@@ -270,7 +303,7 @@ class IntegrationsDialog(tk.Toplevel):
     def _on_save_clicked(self):
         product_mappings = {} # We keep this for backward compat or other routing
         for item in self.tree_products.get_children():
-            name, pid = self.tree_products.item(item, "values")
+            name, pid, gid = self.tree_products.item(item, "values")
             product_mappings[name] = name # routing to self name for now
 
         capabilities = list(self.list_caps.get(0, tk.END))
@@ -282,6 +315,7 @@ class IntegrationsDialog(tk.Toplevel):
             product_mappings=product_mappings,
             capabilities=capabilities,
             product_project_ids=self._pending_product_updates,
+            product_group_ids=self._pending_group_updates,
             active_product_name=self.combo_active_prod.get()
         ))
         self.destroy()

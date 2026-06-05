@@ -39,7 +39,7 @@ class GitLabClient:
         self.project_id = project_id
 
     def _request(self, endpoint: str, payload: dict = None, method: str = 'GET') -> dict:
-        # Ensure endpoint doesn't start with a slash
+        # This remains for single requests (POST, PUT, single GET)
         clean_endpoint = endpoint.lstrip('/')
         url = f"{self.base_url}/api/v4/{clean_endpoint}"
         
@@ -80,13 +80,59 @@ class GitLabClient:
         except Exception as e:
             raise GitLabBaseError(f"Unexpected Error: {e}", "An internal error occurred.")
 
+    def _request_all(self, endpoint: str) -> list:
+        """Handles GitLab pagination to fetch all records for a GET request."""
+        results = []
+        page = 1
+        per_page = 100
+        
+        # Ensure endpoint doesn't have query params yet, or handle them
+        connector = "&" if "?" in endpoint else "?"
+        
+        while True:
+            paged_endpoint = f"{endpoint}{connector}page={page}&per_page={per_page}"
+            clean_endpoint = paged_endpoint.lstrip('/')
+            url = f"{self.base_url}/api/v4/{clean_endpoint}"
+            
+            req = urllib.request.Request(url, headers=self.headers, method='GET')
+            try:
+                with urllib.request.urlopen(req) as response:
+                    data = json.loads(response.read().decode())
+                    if not data:
+                        break
+                    results.extend(data)
+                    
+                    # Check X-Next-Page header if available
+                    next_page = response.getheader('X-Next-Page')
+                    if not next_page:
+                        break
+                    page = int(next_page)
+            except urllib.error.HTTPError as e:
+                # Reuse error handling logic or raise
+                if e.code in (401, 403, 404):
+                    # We can call self._request to trigger standard error handling
+                    self._request(paged_endpoint)
+                raise GitLabBaseError(f"API Error: {e}", "Check the GitLab status.")
+            except Exception as e:
+                raise GitLabBaseError(f"Unexpected Error: {e}", "An error occurred during paginated fetch.")
+                
+        return results
+
+    def fetch_group_epics(self, group_id: int) -> list[dict]:
+        """Fetches all epics for a given group ID."""
+        return self._request_all(f"groups/{group_id}/epics")
+
     def get_epics(self) -> list:
         """Free Tier: Fetches Tasks (issue_type=task) to act as Epics/Features."""
         return self._request(f"projects/{self.project_id}/issues?issue_type=task")
 
+    def fetch_project_issues(self, project_id: int) -> list[dict]:
+        """Fetches all issues for a given project ID."""
+        return self._request_all(f"projects/{project_id}/issues?issue_type=issue")
+
     def get_issues(self) -> list:
         """Fetches all standard issues for the project."""
-        return self._request(f"projects/{self.project_id}/issues?issue_type=issue")
+        return self.fetch_project_issues(int(self.project_id))
 
     def create_epic(self, epic: Epic, is_feature: bool = False, parent_id: str = None) -> dict:
         """Free Tier: Creates a Task to act as an Epic or Feature."""
