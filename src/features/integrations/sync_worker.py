@@ -123,20 +123,47 @@ class SyncWorker(threading.Thread):
     def _execute_push(self):
         self._safe_dispatch(ModelSyncProgressEvent(message="Pushing local changes...", percent=10))
         
+        # Determine active product IDs for context
+        active_product_name = self.workspace.active_product_name
+        product_entity = next((p for p in self.workspace.products if p.name == active_product_name), None)
+        
+        if not product_entity or not product_entity.gitlab_project_id:
+            from src.infrastructure.api.gitlab_client import GitLabBaseError
+            raise GitLabBaseError(
+                "Missing Project ID", 
+                f"Product '{active_product_name}' must have a GitLab Project ID configured."
+            )
+
+        pid = product_entity.gitlab_project_id
+        gid = product_entity.gitlab_group_id # May be None for Free Tier
+        
         epics = self.workspace.get_epics()
         total_items = self._count_items(epics)
         processed = 0
 
         for epic in epics:
+            # Only push items that belong to the active product (or have no product assigned)
+            if epic.products and active_product_name not in epic.products:
+                continue
+
             if not epic.gitlab_id:
                 print(f"[Push] Creating new Epic: {epic.title}")
-                resp = self.gitlab_client.create_epic(epic)
+                # create_epic now automatically detects tier based on gid
+                resp = self.gitlab_client.create_group_epic(gid, epic) if gid else self.gitlab_client.create_project_task(pid, epic)
                 epic.gitlab_id = resp.get('id')
                 epic.gitlab_iid = resp.get('iid')
                 epic.last_synced_at = datetime.now().isoformat()
             elif self._has_local_changes(epic):
                 print(f"[Push] Updating existing Epic IID {epic.gitlab_iid}...")
-                self.gitlab_client.update_epic(epic.gitlab_iid, epic)
+                if gid:
+                    try:
+                        self.gitlab_client.update_group_epic(gid, epic.gitlab_iid, epic)
+                    except Exception as e:
+                        # Fallback to project task if group epic update fails (might be a legacy task)
+                        print(f"Warning: Group Epic update failed for IID {epic.gitlab_iid}, trying Project Task: {e}")
+                        self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic)
+                else:
+                    self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic)
                 epic.last_synced_at = datetime.now().isoformat()
             
             processed += 1
@@ -145,13 +172,21 @@ class SyncWorker(threading.Thread):
             for feature in epic.features:
                 if not feature.gitlab_id:
                     print(f"[Push] Creating new Feature: {feature.title}")
-                    resp = self.gitlab_client.create_epic(feature, is_feature=True, parent_id=epic.gitlab_id)
+                    resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id) if gid else \
+                           self.gitlab_client.create_project_task(pid, feature, is_feature=True, parent_id=str(epic.gitlab_id))
                     feature.gitlab_id = resp.get('id')
                     feature.gitlab_iid = resp.get('iid')
                     feature.last_synced_at = datetime.now().isoformat()
                 elif self._has_local_changes(feature):
                     print(f"[Push] Updating existing Feature IID {feature.gitlab_iid}...")
-                    self.gitlab_client.update_epic(feature.gitlab_iid, feature)
+                    if gid:
+                        try:
+                            self.gitlab_client.update_group_epic(gid, feature.gitlab_iid, feature)
+                        except Exception as e:
+                            print(f"Warning: Group Epic update failed for Feature IID {feature.gitlab_iid}, trying Project Task: {e}")
+                            self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature)
+                    else:
+                        self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature)
                     feature.last_synced_at = datetime.now().isoformat()
                 
                 processed += 1
@@ -160,13 +195,13 @@ class SyncWorker(threading.Thread):
                 for story in feature.stories:
                     if not story.gitlab_id:
                         print(f"[Push] Creating new Story: {story.title}")
-                        resp = self.gitlab_client.create_story(story, feature.gitlab_iid)
+                        resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid)
                         story.gitlab_id = resp.get('id')
                         story.gitlab_iid = resp.get('iid')
                         story.last_synced_at = datetime.now().isoformat()
                     elif self._has_local_changes(story):
                         print(f"[Push] Updating existing Story IID {story.gitlab_iid}...")
-                        self.gitlab_client.update_story(story.gitlab_iid, story)
+                        self.gitlab_client.update_story(pid, story.gitlab_iid, story)
                         story.last_synced_at = datetime.now().isoformat()
                     
                     processed += 1

@@ -1,6 +1,7 @@
 import urllib.request
 import urllib.error
 import json
+from typing import List, Optional, Union, Any
 from src.domain.entities import Epic, Story
 
 class GitLabBaseError(Exception):
@@ -127,23 +128,36 @@ class GitLabClient:
                 
         return results
 
-    def fetch_group_epics(self, group_id: int) -> list[dict]:
+    def fetch_group_epics(self, group_id: Union[int, str]) -> list[dict]:
         """Fetches all epics for a given group ID."""
         return self._request_all(f"groups/{group_id}/epics")
 
-    def get_epics(self) -> list:
-        """Free Tier: Fetches Tasks (issue_type=task) to act as Epics/Features."""
-        return self._request(f"projects/{self.project_id}/issues?issue_type=task")
+    def fetch_project_issues(self, project_id: Union[int, str], issue_type: str = "issue") -> list[dict]:
+        """Fetches all issues/tasks for a given project ID."""
+        return self._request_all(f"projects/{project_id}/issues?issue_type={issue_type}")
 
-    def fetch_project_issues(self, project_id: int) -> list[dict]:
-        """Fetches all issues for a given project ID."""
-        return self._request_all(f"projects/{project_id}/issues?issue_type=issue")
+    def create_group_epic(self, group_id: Union[int, str], epic: Epic, parent_id: Optional[int] = None) -> dict:
+        """Premium Tier: Creates an Epic in the Group."""
+        payload = {
+            "title": epic.title,
+            "description": epic.description,
+            "labels": ",".join(epic.metadata.labels)
+        }
+        if parent_id:
+            payload["parent_id"] = parent_id
+            
+        return self._request(f"groups/{group_id}/epics", payload, method='POST')
 
-    def get_issues(self) -> list:
-        """Fetches all standard issues for the project."""
-        return self.fetch_project_issues(int(self.project_id))
+    def update_group_epic(self, group_id: Union[int, str], gitlab_iid: int, epic: Epic) -> dict:
+        """Premium Tier: Updates the Group-level Epic."""
+        payload = {
+            "title": epic.title, 
+            "description": epic.description,
+            "labels": ",".join(epic.metadata.labels)
+        }
+        return self._request(f"groups/{group_id}/epics/{gitlab_iid}", payload, method='PUT')
 
-    def create_epic(self, epic: Epic, is_feature: bool = False, parent_id: str = None) -> dict:
+    def create_project_task(self, project_id: Union[int, str], epic: Epic, is_feature: bool = False, parent_id: str = None) -> dict:
         """Free Tier: Creates a Task to act as an Epic or Feature."""
         labels = epic.metadata.labels.copy()
         labels.append("Epic" if not is_feature else "Feature")
@@ -157,14 +171,18 @@ class GitLabClient:
             "labels": ",".join(labels),
             "issue_type": "task"
         }
-        return self._request(f"projects/{self.project_id}/issues", payload, method='POST')
+        return self._request(f"projects/{project_id}/issues", payload, method='POST')
 
-    def update_epic(self, gitlab_iid: int, epic: Epic) -> dict:
-        """Updates the Group-level Epic."""
-        payload = {"title": epic.title, "description": epic.description}
-        return self._request(f"groups/{self.group_id}/epics/{gitlab_iid}", payload, method='PUT')
+    def update_project_task(self, project_id: Union[int, str], gitlab_iid: int, epic: Epic) -> dict:
+        """Free Tier: Updates a Task acting as an Epic or Feature."""
+        payload = {
+            "title": epic.title, 
+            "description": epic.description,
+            "labels": ",".join(epic.metadata.labels)
+        }
+        return self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')
 
-    def create_story(self, story: Story, epic_iid: int) -> dict:
+    def create_story(self, project_id: Union[int, str], story: Story, epic_iid: int) -> dict:
         """Creates a standard Issue for the Story."""
         labels = story.metadata.labels.copy()
         payload = {
@@ -174,12 +192,11 @@ class GitLabClient:
             "weight": round(story.weight),
             "issue_type": "issue"
         }
-        return self._request(f"projects/{self.project_id}/issues", payload, method='POST')
+        return self._request(f"projects/{project_id}/issues", payload, method='POST')
 
-    def update_story(self, gitlab_iid: int, story: Story) -> dict:
+    def update_story(self, project_id: Union[int, str], gitlab_iid: int, story: Story) -> dict:
         """Updates the project-level Issue with title, description, weight, and state."""
         # Map local status to GitLab state_event
-        # Assuming 'Done' is the terminal state
         state_event = 'close' if story.status == 'Done' else 'reopen'
         
         payload = {
@@ -188,4 +205,4 @@ class GitLabClient:
             "weight": round(story.weight) if hasattr(story, 'weight') else 0,
             "state_event": state_event
         }
-        return self._request(f"projects/{self.project_id}/issues/{gitlab_iid}", payload, method='PUT')
+        return self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')
