@@ -3,7 +3,7 @@ from tkinter import ttk
 from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, 
     UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent,
-    AppThemeChangedEvent
+    AppThemeChangedEvent, UICloneItemRequestedEvent
 )
 from src.utils.theme_manager import ThemeManager
 
@@ -46,7 +46,20 @@ class TreePane:
         self.tree_context_menu.add_command(label="Add Epic", command=self._on_add_epic_clicked)
         self.tree_context_menu.add_command(label="Add Feature", command=self._on_add_feature_clicked)
         self.tree_context_menu.add_command(label="Add Story", command=self._on_add_story_clicked)
+        self.tree_context_menu.add_separator()
+        self.tree_context_menu.add_command(label="Clone", command=self._on_clone_clicked)
+        self.tree_context_menu.add_separator()
         self.tree_context_menu.add_command(label="Delete", command=self._on_delete_clicked)
+
+    def _on_clone_clicked(self):
+        selected_id = self.tree.focus()
+        if selected_id:
+            # Extract raw item id if it's prefixed
+            raw_id = selected_id
+            if ":" in selected_id:
+                parts = selected_id.split(":", 1)
+                raw_id = parts[1]
+            self.dispatcher.dispatch(UICloneItemRequestedEvent(item_id=raw_id))
 
     def _bind_events(self):
         """Binds UI events and model subscriptions."""
@@ -90,12 +103,14 @@ class TreePane:
             self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED) # Cannot add Epic under another item in tree
             self.tree_context_menu.entryconfig("Add Feature", state=tk.NORMAL if item_type == "Epic" else tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Story", state=tk.NORMAL if item_type == "Feature" else tk.DISABLED)
+            self.tree_context_menu.entryconfig("Clone", state=tk.NORMAL if item_type in ["Epic", "Feature", "Story"] else tk.DISABLED)
             self.tree_context_menu.entryconfig("Delete", state=tk.NORMAL)
         else:
             # Clicked empty space
             self.tree_context_menu.entryconfig("Add Epic", state=tk.NORMAL)
             self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Clone", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Delete", state=tk.DISABLED)
             
         self.tree_context_menu.tk_popup(event.x_root, event.y_root)

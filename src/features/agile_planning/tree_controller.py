@@ -3,7 +3,8 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
-    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
+    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent,
+    UICloneItemRequestedEvent
 )
 from src.domain.workspace import Workspace
 from src.domain.entities import Epic, Feature, Story, Team
@@ -19,6 +20,7 @@ class TreeController:
         self.context = context
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
         self.workspace: Workspace = context.resolve('workspace')
+        self.current_selected_id = None
         
         self.epic_count = 0
         self.feature_count = 0
@@ -33,6 +35,7 @@ class TreeController:
         self.dispatcher.subscribe(UIAddFeatureRequestedEvent, self.handle_add_feature)
         self.dispatcher.subscribe(UIAddStoryRequestedEvent, self.handle_add_story)
         self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
+        self.dispatcher.subscribe(UICloneItemRequestedEvent, self.handle_clone_item)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
 
     def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
@@ -48,6 +51,13 @@ class TreeController:
 
     def handle_item_selected(self, event: UIItemSelectedEvent):
         """Fetches item data and notifies the view (EditorPane)."""
+        self.current_selected_id = event.item_id
+        
+        # Enable Clone in Menu Bar
+        menu_bar = self.context.resolve('app_menu')
+        if menu_bar:
+            menu_bar.set_clone_state(True)
+
         # Track Active Product Selection
         if ":" in event.full_iid:
             parts = event.full_iid.split(":", 1)
@@ -107,3 +117,49 @@ class TreeController:
 
     def handle_delete_item(self, event: UIDeleteItemRequestedEvent):
         self.workspace.delete_item(event.item_id)
+        if self.current_selected_id == event.item_id:
+            self.current_selected_id = None
+            menu_bar = self.context.resolve('app_menu')
+            if menu_bar:
+                menu_bar.set_clone_state(False)
+
+    def handle_clone_item(self, event: UICloneItemRequestedEvent):
+        target_id = event.item_id if event.item_id else self.current_selected_id
+        if not target_id:
+            return
+
+        item = self.workspace._find_item_by_id(target_id)
+        if not item:
+            return
+
+        # Find parent
+        parent = self._find_parent(target_id)
+        new_item = item.clone()
+
+        if parent:
+            if isinstance(parent, Epic):
+                parent.features.append(new_item)
+            elif isinstance(parent, Feature):
+                parent.stories.append(new_item)
+        else:
+            # Root epic
+            self.workspace.add_epic(new_item)
+            return # Workspace.add_epic already dispatches
+
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self.workspace.get_epics(),
+            products=self.workspace.products,
+            select_id=new_item.id,
+            expand_id=target_id
+        ))
+
+    def _find_parent(self, item_id: str):
+        """Helper to find the parent of an item."""
+        for epic in self.workspace.get_epics():
+            for feature in epic.features:
+                if feature.id == item_id:
+                    return epic
+                for story in feature.stories:
+                    if story.id == item_id:
+                        return feature
+        return None

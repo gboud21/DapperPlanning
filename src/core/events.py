@@ -28,6 +28,11 @@ class UIItemSaveRequestedEvent(Event):
     status: str = 'Backlog'
 
 @dataclass
+class UICloneItemRequestedEvent(Event):
+    """Emitted by the View when the user requests to clone an item."""
+    item_id: Optional[str] = None
+
+@dataclass
 class UISyncRequestedEvent(Event):
     pass
 
@@ -220,6 +225,7 @@ class Actions:
     """Namespace for all UI-driven Requests and Actions."""
     ITEM_SELECTED = UIItemSelectedEvent
     ITEM_SAVE = UIItemSaveRequestedEvent
+    CLONE_ITEM = UICloneItemRequestedEvent
     SYNC = UISyncRequestedEvent
     GITLAB_PULL = UIGitLabPullRequestedEvent
     GITLAB_PUSH = UIGitLabPushRequestedEvent
@@ -310,7 +316,7 @@ class EventDispatcher:
 __all__ = [
     'Event', 'EventDispatcher', 'Actions', 'Notifications', 'System',
     # Keeping individual events for backward compatibility
-    'UIItemSelectedEvent', 'UIItemSaveRequestedEvent', 'UISyncRequestedEvent',
+    'UIItemSelectedEvent', 'UIItemSaveRequestedEvent', 'UICloneItemRequestedEvent', 'UISyncRequestedEvent',
     'UIGitLabPullRequestedEvent', 'UIGitLabPushRequestedEvent', 'UIConflictResolvedEvent',
     'UIOpenWorkspaceRequestedEvent', 'UINewWorkspaceRequestedEvent', 'UISaveWorkspaceRequestedEvent',
     'UISaveAsWorkspaceRequestedEvent', 'UIAppCloseRequestedEvent', 'UIExportCsvRequestedEvent',

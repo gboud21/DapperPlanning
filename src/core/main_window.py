@@ -39,6 +39,7 @@ class MainWindow:
         # Instantiate and attach the menu bar
         self.app_menu = ApplicationMenuBar(self.root, self.dispatcher)
         self.root.config(menu=self.app_menu)
+        self.context.register('app_menu', self.app_menu)
 
         # 1. Bottom Frame: Action Bar (Pack first to prevent being cut off)
         self.bottom_frame = ttk.Frame(self.root)

@@ -6,7 +6,8 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
-    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, UINewWorkspaceRequestedEvent
+    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, UINewWorkspaceRequestedEvent,
+    UICloneItemRequestedEvent
 )
 
 class ApplicationMenuBar(tk.Menu):
@@ -49,12 +50,16 @@ class ApplicationMenuBar(tk.Menu):
         self.add_cascade(label="File", menu=file_menu)
         
         # Edit menu
-        edit_menu = tk.Menu(self, tearoff=0)
-        edit_menu.add_command(label="Copy", command=lambda: None)
-        edit_menu.add_command(label="Cut", command=lambda: None)
-        edit_menu.add_command(label="Paste", command=lambda: None)
-        self.add_cascade(label="Edit", menu=edit_menu)
-        
+        self.edit_menu = tk.Menu(self, tearoff=0)
+        self.edit_menu.add_command(label="Clone", 
+                                  command=lambda: self.dispatcher.dispatch(UICloneItemRequestedEvent(item_id=None)),
+                                  state="disabled")
+        self.edit_menu.add_separator()
+        self.edit_menu.add_command(label="Copy", command=lambda: None)
+        self.edit_menu.add_command(label="Cut", command=lambda: None)
+        self.edit_menu.add_command(label="Paste", command=lambda: None)
+        self.add_cascade(label="Edit", menu=self.edit_menu)
+
         # View menu
         self.view_menu = tk.Menu(self, tearoff=0)
         self.view_menu.add_command(label="Minimize", command=self._minimize_window)
@@ -82,6 +87,11 @@ class ApplicationMenuBar(tk.Menu):
         help_menu = tk.Menu(self, tearoff=0)
         help_menu.add_command(label="About", command=self._show_about_dialog)
         self.add_cascade(label="Help", menu=help_menu)
+
+    def set_clone_state(self, enabled: bool):
+        """Toggles the 'Clone' menu item state."""
+        state = "normal" if enabled else "disabled"
+        self.edit_menu.entryconfig("Clone", state=state)
 
     def _bind_events(self):
         """Binds UI events and global keyboard shortcuts."""

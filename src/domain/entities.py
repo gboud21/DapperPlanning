@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
+import uuid
+from src.utils.string_utils import generate_clone_title
 
 @dataclass
 class Product:
@@ -60,6 +62,23 @@ class Story:
     gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
 
+    def clone(self) -> 'Story':
+        return Story(
+            id=str(uuid.uuid4()),
+            title=generate_clone_title(self.title),
+            description=self.description,
+            team=self.team,
+            metadata=self.metadata,
+            interface_boundary=self.interface_boundary,
+            products=self.products.copy(),
+            capabilities=self.capabilities.copy(),
+            weight=self.weight,
+            status='Backlog',
+            gitlab_id=None,
+            gitlab_iid=None,
+            last_synced_at=None
+        )
+
 @dataclass
 class Feature:
     """
@@ -77,6 +96,21 @@ class Feature:
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
+
+    def clone(self) -> 'Feature':
+        return Feature(
+            id=str(uuid.uuid4()),
+            title=generate_clone_title(self.title),
+            description=self.description,
+            team=self.team,
+            stories=[s.clone() for s in self.stories],
+            metadata=self.metadata,
+            products=self.products.copy(),
+            capabilities=self.capabilities.copy(),
+            gitlab_id=None,
+            gitlab_iid=None,
+            last_synced_at=None
+        )
 
     @property
     def weight(self) -> float:
@@ -111,6 +145,20 @@ class Epic:
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
+
+    def clone(self) -> 'Epic':
+        return Epic(
+            id=str(uuid.uuid4()),
+            title=generate_clone_title(self.title),
+            description=self.description,
+            features=[f.clone() for f in self.features],
+            metadata=self.metadata,
+            products=self.products.copy(),
+            capabilities=self.capabilities.copy(),
+            gitlab_id=None,
+            gitlab_iid=None,
+            last_synced_at=None
+        )
 
     @property
     def weight(self) -> float:
