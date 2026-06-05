@@ -1,15 +1,5 @@
-# Feature Domain: External Integrations
-
-## Responsibility
-Manages authentication credentials and project mapping configurations for external services (e.g., GitLab).
-
-## Key Components
-- **IntegrationsDialog**: UI for managing Host URL, PAT, and Product/Capability mappings.
-- **IntegrationsController**: Persists integration-specific secrets and settings via `ThemeManager`.
-
-## Data Mapping
-The `integrations` slice is responsible for maintaining the master lists of `Products` and `Capabilities` that populate the listboxes in the `Agile Planning` editor.
-
-## Security
-- PATs (Personal Access Tokens) must be handled as sensitive.
-- Never log or display plain-text tokens in the UI after initial entry.
+# LOCAL CONTEXT: GITLAB SYNC ENGINE
+- **API Boundaries:** Epics are strictly Group-level (`/groups/{id}/epics`). Stories are strictly Project-level (`/projects/{id}/issues`).
+- **Update Identity:** `PUT` requests MUST use `gitlab_iid` (Internal ID), NEVER the global `id`.
+- **Status Mapping:** Do not pass `state`. Pass `state_event: 'close'` or `'reopen'`.
+- **Error Handling:** Do NOT fallback or downgrade types (e.g., Epic to Issue) on 403/404 errors. Raise `GitLabAPIError` immediately and let the SyncWorker fail gracefully.
