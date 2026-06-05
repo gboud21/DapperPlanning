@@ -59,7 +59,8 @@ class IntegrationsDialog(tk.Toplevel):
 
         ttk.Label(self.auth_tab, text="Host URL:").pack(anchor=tk.W, padx=10, pady=(10, 0))
         self.entry_url = tk.Entry(self.auth_tab)
-        self.entry_url.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.entry_url.pack(fill=tk.X, padx=10, pady=(0, 2))
+        ttk.Label(self.auth_tab, text="Example: https://gitlab.com", font=("TkDefaultFont", 8, "italic")).pack(anchor=tk.W, padx=10, pady=(0, 10))
 
         ttk.Label(self.auth_tab, text="PAT (Personal Access Token):").pack(anchor=tk.W, padx=10, pady=(10, 0))
         self.entry_pat = tk.Entry(self.auth_tab, show="*")

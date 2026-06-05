@@ -1,1 +1,14 @@
-[]
+{
+    "active_product_name": "DapperPlanning",
+    "products": [
+        {
+            "name": "DapperPlanning",
+            "gitlab_project_id": 82775555
+        },
+        {
+            "name": "Test",
+            "gitlab_project_id": null
+        }
+    ],
+    "epics": []
+}

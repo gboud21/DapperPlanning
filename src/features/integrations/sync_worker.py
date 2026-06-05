@@ -102,6 +102,8 @@ class SyncWorker(threading.Thread):
         for epic in epics:
             if not epic.gitlab_id:
                 resp = self.gitlab_client.create_epic(epic)
+                # For Tasks/Issues, we usually want to store 'id' or 'iid'. 
+                # Let's use 'id' for the global unique ID.
                 epic.gitlab_id = resp.get('id')
             else:
                 self.gitlab_client.update_epic(epic.gitlab_id, epic)
@@ -109,7 +111,6 @@ class SyncWorker(threading.Thread):
             epic.last_synced_at = datetime.now().isoformat()
             
             for feature in epic.features:
-                # Features are mapped to GitLab Epics in this methodology
                 if not feature.gitlab_id:
                     resp = self.gitlab_client.create_epic(feature, is_feature=True, parent_id=epic.gitlab_id)
                     feature.gitlab_id = resp.get('id')
@@ -119,6 +120,7 @@ class SyncWorker(threading.Thread):
 
                 for story in feature.stories:
                     if not story.gitlab_id:
+                        # In Free Tier, we use the feature's iid or id to link
                         resp = self.gitlab_client.create_story(story, feature.gitlab_id)
                         story.gitlab_id = resp.get('id')
                     else:
