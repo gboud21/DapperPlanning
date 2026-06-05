@@ -73,10 +73,11 @@ class Workspace:
                 # Update existing item details
                 l_item.title = r_item.title
                 l_item.description = r_item.description
+                l_item.gitlab_iid = r_item.gitlab_iid
                 l_item.last_synced_at = now_iso
                 
                 # Update specific fields
-                if hasattr(l_item, 'weight') and hasattr(r_item, 'weight'):
+                if isinstance(l_item, Story) and hasattr(r_item, 'weight'):
                     l_item.weight = r_item.weight
                 
                 # Ensure the product tag is present

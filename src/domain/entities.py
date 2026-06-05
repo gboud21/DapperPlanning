@@ -57,6 +57,7 @@ class Story:
     status: str = 'Backlog'
     # Sync Metadata
     gitlab_id: Optional[int] = None
+    gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
 
 @dataclass
@@ -74,6 +75,7 @@ class Feature:
     capabilities: List[str] = field(default_factory=list)
     # Sync Metadata
     gitlab_id: Optional[int] = None
+    gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
 
     @property
@@ -107,6 +109,7 @@ class Epic:
     capabilities: List[str] = field(default_factory=list)
     # Sync Metadata
     gitlab_id: Optional[int] = None
+    gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
 
     @property

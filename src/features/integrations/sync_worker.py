@@ -121,40 +121,77 @@ class SyncWorker(threading.Thread):
         self._safe_dispatch(ModelSyncProgressEvent(message="Sync Complete!", percent=100))
 
     def _execute_push(self):
-        self._safe_dispatch(ModelSyncProgressEvent(message="Checking for remote conflicts...", percent=5))
-        # 1. Dry Pull (Check for conflicts)
-        self._execute_pull(dry_run=True)
+        self._safe_dispatch(ModelSyncProgressEvent(message="Pushing local changes...", percent=10))
         
-        # 2. Push Local changes
-        self._safe_dispatch(ModelSyncProgressEvent(message="Pushing local changes...", percent=50))
         epics = self.workspace.get_epics()
+        total_items = self._count_items(epics)
+        processed = 0
+
         for epic in epics:
             if not epic.gitlab_id:
+                print(f"[Push] Creating new Epic: {epic.title}")
                 resp = self.gitlab_client.create_epic(epic)
-                # For Tasks/Issues, we usually want to store 'id' or 'iid'. 
-                # Let's use 'id' for the global unique ID.
                 epic.gitlab_id = resp.get('id')
-            else:
-                self.gitlab_client.update_epic(epic.gitlab_id, epic)
+                epic.gitlab_iid = resp.get('iid')
+                epic.last_synced_at = datetime.now().isoformat()
+            elif self._has_local_changes(epic):
+                print(f"[Push] Updating existing Epic IID {epic.gitlab_iid}...")
+                self.gitlab_client.update_epic(epic.gitlab_iid, epic)
+                epic.last_synced_at = datetime.now().isoformat()
             
-            epic.last_synced_at = datetime.now().isoformat()
+            processed += 1
+            self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=10 + (processed/total_items * 90)))
             
             for feature in epic.features:
                 if not feature.gitlab_id:
+                    print(f"[Push] Creating new Feature: {feature.title}")
                     resp = self.gitlab_client.create_epic(feature, is_feature=True, parent_id=epic.gitlab_id)
                     feature.gitlab_id = resp.get('id')
-                else:
-                    self.gitlab_client.update_epic(feature.gitlab_id, feature)
-                feature.last_synced_at = datetime.now().isoformat()
+                    feature.gitlab_iid = resp.get('iid')
+                    feature.last_synced_at = datetime.now().isoformat()
+                elif self._has_local_changes(feature):
+                    print(f"[Push] Updating existing Feature IID {feature.gitlab_iid}...")
+                    self.gitlab_client.update_epic(feature.gitlab_iid, feature)
+                    feature.last_synced_at = datetime.now().isoformat()
+                
+                processed += 1
+                self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Feature: {feature.title}", percent=10 + (processed/total_items * 90)))
 
                 for story in feature.stories:
                     if not story.gitlab_id:
-                        # In Free Tier, we use the feature's iid or id to link
-                        resp = self.gitlab_client.create_story(story, feature.gitlab_id)
+                        print(f"[Push] Creating new Story: {story.title}")
+                        resp = self.gitlab_client.create_story(story, feature.gitlab_iid)
                         story.gitlab_id = resp.get('id')
-                    else:
-                        self.gitlab_client.update_story(story.gitlab_id, story)
-                    story.last_synced_at = datetime.now().isoformat()
+                        story.gitlab_iid = resp.get('iid')
+                        story.last_synced_at = datetime.now().isoformat()
+                    elif self._has_local_changes(story):
+                        print(f"[Push] Updating existing Story IID {story.gitlab_iid}...")
+                        self.gitlab_client.update_story(story.gitlab_iid, story)
+                        story.last_synced_at = datetime.now().isoformat()
+                    
+                    processed += 1
+                    self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Story: {story.title}", percent=10 + (processed/total_items * 90)))
+
+    def _count_items(self, epics):
+        count = len(epics)
+        for e in epics:
+            count += len(e.features)
+            for f in e.features:
+                count += len(f.stories)
+        return count
+
+    def _has_local_changes(self, item):
+        """
+        Heuristic to check if item was modified after last sync.
+        This is a simple check; ideally we'd track a 'dirty' flag on the entity.
+        """
+        # If never synced, it's 'new', not 'updated'
+        if not item.last_synced_at:
+            return False
+            
+        # For now, we assume if we are pushing, the user wants to sync current state.
+        # A more robust check would involve comparing a local hash/snapshot.
+        return True
 
     def _process_item(self, remote_data, item_type, dry_run):
         gitlab_id = remote_data.get('id')

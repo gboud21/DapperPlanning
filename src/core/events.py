@@ -276,6 +276,12 @@ class EventDispatcher:
             self._listeners[event_type] = []
         self._listeners[event_type].append(listener)
 
+    def unsubscribe(self, event_type: Type[Event], listener: Callable[[Event], None]) -> None:
+        """Removes a listener from an event type."""
+        if event_type in self._listeners:
+            if listener in self._listeners[event_type]:
+                self._listeners[event_type].remove(listener)
+
     def dispatch(self, event: Event) -> None:
         """
         Dispatches an event to all registered listeners.

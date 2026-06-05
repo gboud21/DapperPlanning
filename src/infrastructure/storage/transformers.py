@@ -94,16 +94,35 @@ class HierarchyBuilder:
             capabilities = d.get("capabilities", [])
             weight = float(d.get("weight", 0.0))
             status = d.get("status", "Backlog")
+            
+            # Extract Sync Metadata
+            gitlab_id = d.get("gitlab_id")
+            gitlab_iid = d.get("gitlab_iid")
+            last_synced_at = d.get("last_synced_at")
+
             if item_type == "Epic":
                 features = [dict_to_obj(f, "Feature") for f in d.get("features", [])]
-                return Epic(id=d["id"], title=d["title"], description=d["description"], features=features, products=products, capabilities=capabilities)
+                return Epic(
+                    id=d["id"], title=d["title"], description=d["description"], 
+                    features=features, products=products, capabilities=capabilities,
+                    gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                )
             elif item_type == "Feature":
                 stories = [dict_to_obj(s, "Story") for s in d.get("stories", [])]
                 team = Team(**d["team"]) if d.get("team") else None
-                return Feature(id=d["id"], title=d["title"], description=d["description"], team=team, stories=stories, products=products, capabilities=capabilities)
+                return Feature(
+                    id=d["id"], title=d["title"], description=d["description"], 
+                    team=team, stories=stories, products=products, capabilities=capabilities,
+                    gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                )
             elif item_type == "Story":
                 team = Team(**d["team"]) if d.get("team") else None
-                return Story(id=d["id"], title=d["title"], description=d["description"], team=team, products=products, capabilities=capabilities, weight=weight, status=status)
+                return Story(
+                    id=d["id"], title=d["title"], description=d["description"], 
+                    team=team, products=products, capabilities=capabilities, 
+                    weight=weight, status=status,
+                    gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                )
             return None
 
         return [dict_to_obj(e_dict, "Epic") for e_dict in data]
@@ -130,7 +149,8 @@ class GitLabTransformer:
                     id=f"gl-{r_epic['id']}",
                     title=r_epic.get('title', ''),
                     description=r_epic.get('description', ''),
-                    gitlab_id=r_epic['id']
+                    gitlab_id=r_epic['id'],
+                    gitlab_iid=r_epic.get('iid')
                 )
                 epics_by_gitlab_id[r_epic['id']] = epic
                 root_epics.append(epic)
@@ -144,7 +164,8 @@ class GitLabTransformer:
                     title=r_feat.get('title', ''),
                     description=r_feat.get('description', ''),
                     team=Team(name=""), # Placeholder
-                    gitlab_id=r_feat['id']
+                    gitlab_id=r_feat['id'],
+                    gitlab_iid=r_feat.get('iid')
                 )
                 features_by_iid[r_feat['iid']] = feature
                 
@@ -160,7 +181,8 @@ class GitLabTransformer:
                 description=r_issue.get('description', ''),
                 team=Team(name=""), # Placeholder
                 weight=float(r_issue.get('weight') or 0.0),
-                gitlab_id=r_issue['id']
+                gitlab_id=r_issue['id'],
+                gitlab_iid=r_issue.get('iid')
             )
             
             # Link to Feature via epic_iid (in GitLab Issues response)

@@ -43,6 +43,9 @@ class GitLabClient:
         clean_endpoint = endpoint.lstrip('/')
         url = f"{self.base_url}/api/v4/{clean_endpoint}"
         
+        # Network Telemetry
+        print(f"[GitLab API] {method.upper()} {url}")
+        
         data = json.dumps(payload).encode('utf-8') if payload else None
         req = urllib.request.Request(url, data=data, headers=self.headers, method=method)
         try:
@@ -55,6 +58,9 @@ class GitLabClient:
                 error_body = e.read().decode()
             except:
                 pass
+            
+            # Network Telemetry for Errors
+            print(f"[GitLab API Error] {e.code}: {error_body}")
             
             if e.code in (401, 403):
                 solution = "Verify your Personal Access Token in Integrations Settings and ensure it has API scope."
@@ -93,6 +99,9 @@ class GitLabClient:
             paged_endpoint = f"{endpoint}{connector}page={page}&per_page={per_page}"
             clean_endpoint = paged_endpoint.lstrip('/')
             url = f"{self.base_url}/api/v4/{clean_endpoint}"
+            
+            # Network Telemetry
+            print(f"[GitLab API] GET {url}")
             
             req = urllib.request.Request(url, headers=self.headers, method='GET')
             try:
@@ -150,10 +159,10 @@ class GitLabClient:
         }
         return self._request(f"projects/{self.project_id}/issues", payload, method='POST')
 
-    def update_epic(self, gitlab_id: int, epic: Epic) -> dict:
-        """Updates the project-level Task."""
+    def update_epic(self, gitlab_iid: int, epic: Epic) -> dict:
+        """Updates the Group-level Epic."""
         payload = {"title": epic.title, "description": epic.description}
-        return self._request(f"projects/{self.project_id}/issues/{gitlab_id}", payload, method='PUT')
+        return self._request(f"groups/{self.group_id}/epics/{gitlab_iid}", payload, method='PUT')
 
     def create_story(self, story: Story, epic_iid: int) -> dict:
         """Creates a standard Issue for the Story."""
@@ -167,11 +176,16 @@ class GitLabClient:
         }
         return self._request(f"projects/{self.project_id}/issues", payload, method='POST')
 
-    def update_story(self, gitlab_id: int, story: Story) -> dict:
-        """Updates the project-level Issue."""
+    def update_story(self, gitlab_iid: int, story: Story) -> dict:
+        """Updates the project-level Issue with title, description, weight, and state."""
+        # Map local status to GitLab state_event
+        # Assuming 'Done' is the terminal state
+        state_event = 'close' if story.status == 'Done' else 'reopen'
+        
         payload = {
             "title": story.title,
             "description": story.description,
-            "weight": round(story.weight)
+            "weight": round(story.weight) if hasattr(story, 'weight') else 0,
+            "state_event": state_event
         }
-        return self._request(f"projects/{self.project_id}/issues/{gitlab_id}", payload, method='PUT')
+        return self._request(f"projects/{self.project_id}/issues/{gitlab_iid}", payload, method='PUT')

@@ -486,7 +486,8 @@ class EditorPane:
                 self.combo_status.config(state='readonly')
 
             self.text_desc.delete("1.0", tk.END)
-            self.text_desc.insert("1.0", getattr(event.item_data, 'description', ''))
+            desc = getattr(event.item_data, 'description', '')
+            self.text_desc.insert("1.0", desc if desc is not None else "")
 
             # Fetch Global Settings for Tags
             settings = self.settings._settings

@@ -17,11 +17,24 @@ class SyncProgressModal(tk.Toplevel):
         self._setup_ui()
         self.dispatcher.subscribe(ModelSyncProgressEvent, self._on_progress)
         
+        # Cleanup on close
+        self.protocol("WM_DELETE_WINDOW", self._cleanup)
+
         # Center the window
         self.update_idletasks()
         x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
         y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
         self.geometry(f"+{x}+{y}")
+
+    def _cleanup(self):
+        """Unsubscribes from events and destroys the window."""
+        self.dispatcher.unsubscribe(ModelSyncProgressEvent, self._on_progress)
+        self.destroy()
+
+    def destroy(self):
+        """Override destroy to ensure unsubscription."""
+        self.dispatcher.unsubscribe(ModelSyncProgressEvent, self._on_progress)
+        super().destroy()
 
     def _setup_ui(self):
         main_frame = ttk.Frame(self, padding=20)
@@ -34,6 +47,9 @@ class SyncProgressModal(tk.Toplevel):
         self.progress.pack(pady=10)
 
     def _on_progress(self, event: ModelSyncProgressEvent):
+        if not self.winfo_exists():
+            return
+            
         self.lbl_status.config(text=event.message)
         self.progress['value'] = event.percent
         if event.percent >= 100:
