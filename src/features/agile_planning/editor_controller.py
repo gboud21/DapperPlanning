@@ -1,9 +1,11 @@
 import uuid
 from src.core.app_context import AppContext
 from src.core.events import (
-    EventDispatcher, UIItemSaveRequestedEvent, UICreateItemRequestedEvent,
-    ModelHierarchyUpdatedEvent
+    EventDispatcher, UICreateItemRequestedEvent,
+    ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
 )
+from src.core.command_bus import CommandBus
+from src.core.commands import SaveItemCommand
 from src.domain.workspace import Workspace
 from src.domain.entities import Epic, Feature, Story, Team
 
@@ -17,29 +19,40 @@ class EditorController:
         """
         self.context = context
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.command_bus: CommandBus = context.resolve('command_bus')
         self.workspace: Workspace = context.resolve('workspace')
         
         self._subscribe_events()
+        self._register_commands()
 
     def _subscribe_events(self):
-        """Subscribes to editor-related UI events."""
-        self.dispatcher.subscribe(UIItemSaveRequestedEvent, self.handle_item_save)
+        """Subscribes to editor-related notifications."""
         self.dispatcher.subscribe(UICreateItemRequestedEvent, self.handle_create_item)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
 
-    def handle_item_save(self, event: UIItemSaveRequestedEvent):
-        """Updates an existing item's details."""
-        item = self.workspace._find_item_by_id(event.item_id)
+    def _register_commands(self):
+        """Registers handlers for editor-related commands."""
+        self.command_bus.register(SaveItemCommand, self.handle_save_item)
+
+    def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Refreshes the workspace reference."""
+        self.workspace = self.context.resolve('workspace')
+
+    def handle_save_item(self, command: SaveItemCommand):
+        """Updates an existing item's details via command execution."""
+        item = self.workspace._find_item_by_id(command.item_id)
         if isinstance(item, Story):
-             item.weight = event.weight
-             item.status = event.status
+             item.weight = command.weight
+             item.status = command.status
 
         self.workspace.update_item_details(
-            event.item_id, 
-            event.new_title, 
-            event.new_description, 
-            products=event.new_products, 
-            capabilities=event.new_capabilities
+            command.item_id, 
+            command.new_title, 
+            command.new_description, 
+            products=command.new_products, 
+            capabilities=command.new_capabilities
         )
+        # State mutation is done, ModelHierarchyUpdatedEvent is dispatched by workspace.update_item_details
 
     def handle_create_item(self, event: UICreateItemRequestedEvent):
         """Creates a new item and attaches it to the parent in the model."""

@@ -5,7 +5,7 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UISettingsDialogOpenRequestedEvent, UISettingsSaveRequestedEvent,
     AppThemeChangedEvent, UITemplateConfigExportRequestedEvent, UIErrorNotificationEvent,
-    ModelHierarchyUpdatedEvent
+    ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.features.settings.settings_dialog import SettingsDialog
@@ -31,6 +31,11 @@ class SettingsController:
         self.dispatcher.subscribe(UISettingsDialogOpenRequestedEvent, self.handle_open_dialog)
         self.dispatcher.subscribe(UISettingsSaveRequestedEvent, self.handle_save_settings)
         self.dispatcher.subscribe(UITemplateConfigExportRequestedEvent, self.handle_template_export)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Refreshes the workspace reference."""
+        self.workspace = self.context.resolve('workspace')
 
     def handle_open_dialog(self, event: UISettingsDialogOpenRequestedEvent):
         current_settings = ThemeManager.load_all_settings()

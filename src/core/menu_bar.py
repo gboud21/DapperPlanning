@@ -1,27 +1,31 @@
 import tkinter as tk
 import os
 from tkinter import ttk, filedialog, messagebox
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIExportCsvRequestedEvent, UIExportJsonRequestedEvent, 
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
-    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, UINewWorkspaceRequestedEvent,
-    UICloneItemRequestedEvent
+    UINewWorkspaceRequestedEvent
 )
+from src.core.command_bus import CommandBus
+from src.core.commands import SyncWithGitLabCommand, CloneItemCommand
 
 class ApplicationMenuBar(tk.Menu):
-    def __init__(self, parent: tk.Tk, dispatcher: EventDispatcher):
+    def __init__(self, parent: tk.Tk, context: AppContext):
         """
         Initializes the ApplicationMenuBar.
 
         Args:
             parent (tk.Tk): The root Tkinter window.
-            dispatcher (EventDispatcher): The event dispatcher for communication.
+            context (AppContext): The application context for dependency injection.
         """
         super().__init__(parent)
         self.root = parent
-        self.dispatcher = dispatcher
+        self.context = context
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.command_bus: CommandBus = context.resolve('command_bus')
         self._setup_menu()
         self._bind_events()
 
@@ -52,7 +56,7 @@ class ApplicationMenuBar(tk.Menu):
         # Edit menu
         self.edit_menu = tk.Menu(self, tearoff=0)
         self.edit_menu.add_command(label="Clone", 
-                                  command=lambda: self.dispatcher.dispatch(UICloneItemRequestedEvent(item_id=None)),
+                                  command=lambda: self.command_bus.execute(CloneItemCommand(item_id=None)),
                                   state="disabled")
         self.edit_menu.add_separator()
         self.edit_menu.add_command(label="Copy", command=lambda: None)
@@ -77,8 +81,8 @@ class ApplicationMenuBar(tk.Menu):
 
         # Integrations menu
         integrations_menu = tk.Menu(self, tearoff=0)
-        integrations_menu.add_command(label="Pull from GitLab", command=lambda: self.dispatcher.dispatch(UIGitLabPullRequestedEvent()))
-        integrations_menu.add_command(label="Push to GitLab", command=lambda: self.dispatcher.dispatch(UIGitLabPushRequestedEvent()))
+        integrations_menu.add_command(label="Pull from GitLab", command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='pull')))
+        integrations_menu.add_command(label="Push to GitLab", command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='push')))
         integrations_menu.add_separator()
         integrations_menu.add_command(label="Manage Connections...", command=lambda: self.dispatcher.dispatch(UIIntegrationsDialogOpenRequestedEvent()))
         self.add_cascade(label="Integrations", menu=integrations_menu)

@@ -39,8 +39,22 @@ def main():
     dispatcher = EventDispatcher(root)
     workspace = Workspace(dispatcher)
     
+    # Initialize Command Bus
+    from src.core.command_bus import CommandBus
+    command_bus = CommandBus()
+    
+    # Initialize Repository
+    from src.infrastructure.storage.json_workspace_repository import JsonWorkspaceRepository
+    from src.utils.theme_manager import ThemeManager
+    from src.utils.paths import get_output_dir
+    
+    last_workspace_path = ThemeManager.get_last_workspace() or str(get_output_dir() / 'workspace.json')
+    repository = JsonWorkspaceRepository(last_workspace_path, dispatcher)
+    
     context.register('event_dispatcher', dispatcher)
+    context.register('command_bus', command_bus)
     context.register('workspace', workspace)
+    context.register('workspace_repository', repository)
     context.register('root_window', root)
 
     # 5. Initialize View and Controller with AppContext

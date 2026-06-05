@@ -10,12 +10,12 @@ from src.core.events import (
     UISaveWorkspaceRequestedEvent
 )
 from src.domain.workspace import Workspace
+from src.domain.repositories import WorkspaceRepository
 from src.features.agile_planning.tree_controller import TreeController
 from src.features.agile_planning.editor_controller import EditorController
 from src.core.menu_controller import MenuController
 from src.features.integrations.integrations_controller import IntegrationsController
 from src.features.settings.settings_controller import SettingsController
-from src.infrastructure.storage.adapters import DataAdapterFactory
 from src.utils.theme_manager import ThemeManager
 
 class MainController:
@@ -29,6 +29,7 @@ class MainController:
         self.context = context
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
         self.workspace: Workspace = context.resolve('workspace')
+        self.repository: WorkspaceRepository = context.resolve('workspace_repository')
         self.root: tk.Tk = context.resolve('root_window')
         
         # Instantiate sub-controllers passing the context
@@ -51,7 +52,7 @@ class MainController:
         # Load last workspace if it exists
         last_workspace = ThemeManager.get_last_workspace()
         if last_workspace and os.path.exists(last_workspace):
-            self._load_initial_workspace(last_workspace)
+            self._load_initial_workspace()
 
     def _apply_maximized_state(self):
         """Applies the maximized state to the root window."""
@@ -63,22 +64,17 @@ class MainController:
             except tk.TclError:
                 pass
 
-    def _load_initial_workspace(self, file_path: str):
-        """Loads the workspace data from the provided file path at startup."""
+    def _load_initial_workspace(self):
+        """Loads the workspace data using the repository at startup."""
         try:
-            ext = os.path.splitext(file_path)[1].lower()
-            adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics, active_product, products = adapter.import_data(file_path)
-            
-            self.workspace._epics = root_epics
-            self.workspace.products = products
-            self.workspace.active_product_name = active_product
-            self.workspace.current_filepath = file_path
+            self.workspace = self.repository.load()
+            # Update context to ensure other controllers can resolve the loaded workspace if needed
+            self.context.register('workspace', self.workspace)
             
             # Notify views to update
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
-            self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
-            self.workspace.mark_as_clean()
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))
+            if self.workspace.current_filepath:
+                self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=self.workspace.current_filepath))
         except Exception as e:
             # Silently fail initial load if file is corrupt, or notify via event
             print(f"Failed to load initial workspace: {e}")

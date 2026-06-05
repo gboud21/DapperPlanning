@@ -37,7 +37,7 @@ class MainWindow:
         self.root.title("DapperPlanning")
         
         # Instantiate and attach the menu bar
-        self.app_menu = ApplicationMenuBar(self.root, self.dispatcher)
+        self.app_menu = ApplicationMenuBar(self.root, self.context)
         self.root.config(menu=self.app_menu)
         self.context.register('app_menu', self.app_menu)
 
@@ -58,7 +58,7 @@ class MainWindow:
         # 3. Left Pane (Hierarchy)
         self.left_frame = ttk.Frame(self.paned_window)
         self.paned_window.add(self.left_frame, weight=1)
-        self.tree_pane = TreePane(self.left_frame, self.dispatcher)
+        self.tree_pane = TreePane(self.left_frame, self.context)
 
         # 4. Right Pane (Editor)
         self.right_frame = ttk.Frame(self.paned_window, padding=10)
@@ -118,4 +118,6 @@ class MainWindow:
         msgbox.showerror(title=event.title, message=event.message)
 
     def _on_sync_clicked(self):
-        self.dispatcher.dispatch(UISyncRequestedEvent())
+        from src.core.commands import SyncWithGitLabCommand
+        command_bus = self.context.resolve('command_bus')
+        command_bus.execute(SyncWithGitLabCommand(sync_type='pull'))

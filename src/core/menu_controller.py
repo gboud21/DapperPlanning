@@ -9,6 +9,7 @@ from src.core.events import (
     ModelWorkspaceLoadedEvent, UINewWorkspaceRequestedEvent
 )
 from src.domain.workspace import Workspace
+from src.domain.repositories import WorkspaceRepository
 from src.infrastructure.storage.adapters import DataAdapterFactory
 from src.utils.theme_manager import ThemeManager
 
@@ -23,6 +24,7 @@ class MenuController:
         self.context = context
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
         self.workspace: Workspace = context.resolve('workspace')
+        self.repository: WorkspaceRepository = context.resolve('workspace_repository')
         self._subscribe_events()
 
     def _subscribe_events(self):
@@ -83,19 +85,25 @@ class MenuController:
 
         try:
             ext = os.path.splitext(file_path)[1].lower()
-            adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics, active_product, products = adapter.import_data(file_path)
+            if ext == '.json' and hasattr(self.repository, 'file_path'):
+                self.repository.file_path = file_path
+                self.workspace = self.repository.load()
+                # Update context so other components get the new workspace instance
+                self.context.register('workspace', self.workspace)
+            else:
+                adapter = DataAdapterFactory.get_adapter(ext)
+                root_epics, active_product, products = adapter.import_data(file_path)
+                
+                # Update Workspace
+                self.workspace._epics = root_epics
+                self.workspace.products = products
+                self.workspace.active_product_name = active_product
+                self.workspace.current_filepath = file_path
+                self.workspace.mark_as_clean()
             
-            # Update Workspace
-            self.workspace._epics = root_epics
-            self.workspace.products = products
-            self.workspace.active_product_name = active_product
-            self.workspace.current_filepath = file_path
             ThemeManager.set_last_workspace(file_path)
-            
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
+            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))
             self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
-            self.workspace.mark_as_clean()
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Open Error", message=str(e)))
 
@@ -107,14 +115,18 @@ class MenuController:
 
         try:
             ext = os.path.splitext(self.workspace.current_filepath)[1].lower()
-            adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(
-                self.workspace.current_filepath, 
-                self.workspace.get_epics(),
-                active_product_name=self.workspace.active_product_name,
-                products=self.workspace.products
-            )
-            self.workspace.mark_as_clean()
+            if ext == '.json' and hasattr(self.repository, 'file_path'):
+                self.repository.file_path = self.workspace.current_filepath
+                self.repository.save(self.workspace)
+            else:
+                adapter = DataAdapterFactory.get_adapter(ext)
+                adapter.export_data(
+                    self.workspace.current_filepath, 
+                    self.workspace.get_epics(),
+                    active_product_name=self.workspace.active_product_name,
+                    products=self.workspace.products
+                )
+                self.workspace.mark_as_clean()
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Save Error", message=str(e)))
 
@@ -129,18 +141,22 @@ class MenuController:
 
         try:
             ext = os.path.splitext(file_path)[1].lower()
-            adapter = DataAdapterFactory.get_adapter(ext)
-            adapter.export_data(
-                file_path, 
-                self.workspace.get_epics(),
-                active_product_name=self.workspace.active_product_name,
-                products=self.workspace.products
-            )
+            if ext == '.json' and hasattr(self.repository, 'file_path'):
+                self.repository.file_path = file_path
+                self.repository.save(self.workspace)
+            else:
+                adapter = DataAdapterFactory.get_adapter(ext)
+                adapter.export_data(
+                    file_path, 
+                    self.workspace.get_epics(),
+                    active_product_name=self.workspace.active_product_name,
+                    products=self.workspace.products
+                )
+                self.workspace.current_filepath = file_path
+                self.workspace.mark_as_clean()
             
-            self.workspace.current_filepath = file_path
             ThemeManager.set_last_workspace(file_path)
             self.dispatcher.dispatch(ModelWorkspaceLoadedEvent(filepath=file_path))
-            self.workspace.mark_as_clean()
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Save As Error", message=str(e)))
 

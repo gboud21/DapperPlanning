@@ -1,23 +1,28 @@
 import tkinter as tk
 from tkinter import ttk
+from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, 
     UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent,
-    AppThemeChangedEvent, UICloneItemRequestedEvent
+    AppThemeChangedEvent
 )
+from src.core.command_bus import CommandBus
+from src.core.commands import CloneItemCommand
 from src.utils.theme_manager import ThemeManager
 
 class TreePane:
-    def __init__(self, parent_frame: ttk.Frame, dispatcher: EventDispatcher):
+    def __init__(self, parent_frame: ttk.Frame, context: AppContext):
         """
         Initializes the TreePane with a treeview and its controls.
 
         Args:
             parent_frame (ttk.Frame): The frame where the treeview will be placed.
-            dispatcher (EventDispatcher): The application's event dispatcher.
+            context (AppContext): The application context for dependency injection.
         """
         self.parent = parent_frame
-        self.dispatcher = dispatcher
+        self.context = context
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.command_bus: CommandBus = context.resolve('command_bus')
         
         self._setup_ui()
         self._bind_events()
@@ -59,7 +64,7 @@ class TreePane:
             if ":" in selected_id:
                 parts = selected_id.split(":", 1)
                 raw_id = parts[1]
-            self.dispatcher.dispatch(UICloneItemRequestedEvent(item_id=raw_id))
+            self.command_bus.execute(CloneItemCommand(item_id=raw_id))
 
     def _bind_events(self):
         """Binds UI events and model subscriptions."""

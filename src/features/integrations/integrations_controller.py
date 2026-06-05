@@ -4,9 +4,10 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
     UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
-    UIGitLabPullRequestedEvent, UIGitLabPushRequestedEvent, ModelConflictDetectedEvent,
-    ModelSyncErrorEvent, ModelHierarchyUpdatedEvent
+    ModelConflictDetectedEvent, ModelSyncErrorEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
 )
+from src.core.command_bus import CommandBus
+from src.core.commands import SyncWithGitLabCommand
 from src.utils.theme_manager import ThemeManager
 from src.features.integrations.integrations_dialog import IntegrationsDialog
 from src.features.integrations.sync_progress_modal import SyncProgressModal
@@ -27,21 +28,30 @@ class IntegrationsController:
         self.context = context
         self.root: tk.Tk = context.resolve('root_window')
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.command_bus: CommandBus = context.resolve('command_bus')
         self.workspace = context.resolve('workspace')
         self.settings: SettingsManager = context.resolve('settings_manager')
         
         self.progress_modal = None
         self._subscribe_events()
+        self._register_commands()
 
     def _subscribe_events(self):
         self.dispatcher.subscribe(UIIntegrationsDialogOpenRequestedEvent, self.handle_open_dialog)
         self.dispatcher.subscribe(UIIntegrationsSaveRequestedEvent, self.handle_save_settings)
         self.dispatcher.subscribe(UIGlobalTagAddRequestedEvent, self.handle_global_tag_add)
         self.dispatcher.subscribe(UIGlobalTagDeleteRequestedEvent, self.handle_global_tag_delete)
-        self.dispatcher.subscribe(UIGitLabPullRequestedEvent, self.handle_pull_request)
-        self.dispatcher.subscribe(UIGitLabPushRequestedEvent, self.handle_push_request)
         self.dispatcher.subscribe(ModelConflictDetectedEvent, self.handle_conflict_detected)
         self.dispatcher.subscribe(ModelSyncErrorEvent, self.handle_sync_error)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def _register_commands(self):
+        """Registers handlers for integration-related commands."""
+        self.command_bus.register(SyncWithGitLabCommand, self.handle_sync_with_gitlab)
+
+    def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Refreshes the workspace reference."""
+        self.workspace = self.context.resolve('workspace')
 
     def _is_gitlab_configured(self) -> bool:
         """Returns True if essential GitLab credentials are set."""
@@ -58,7 +68,8 @@ class IntegrationsController:
         dialog = IntegrationsDialog(self.root, self.dispatcher, current_settings)
         return dialog
 
-    def handle_pull_request(self, event: UIGitLabPullRequestedEvent):
+    def handle_sync_with_gitlab(self, command: SyncWithGitLabCommand):
+        """Unified sync handler via Command Bus."""
         if not self._is_gitlab_configured():
             if messagebox.askyesno('Configuration Required', 'GitLab integration is not configured. Would you like to configure it now?'):
                 dialog = self.handle_open_dialog()
@@ -71,23 +82,7 @@ class IntegrationsController:
 
         if self._initialize_gitlab_client():
             self.progress_modal = SyncProgressModal(self.root, self.dispatcher)
-            worker = SyncWorker(self.context, sync_type='pull')
-            worker.start()
-
-    def handle_push_request(self, event: UIGitLabPushRequestedEvent):
-        if not self._is_gitlab_configured():
-            if messagebox.askyesno('Configuration Required', 'GitLab integration is not configured. Would you like to configure it now?'):
-                dialog = self.handle_open_dialog()
-                self.root.wait_window(dialog) # Pause execution until dialog closes
-                
-                if not self._is_gitlab_configured():
-                    return # Still not configured after dialog closed
-            else:
-                return # User opted out
-
-        if self._initialize_gitlab_client():
-            self.progress_modal = SyncProgressModal(self.root, self.dispatcher)
-            worker = SyncWorker(self.context, sync_type='push')
+            worker = SyncWorker(self.context, sync_type=command.sync_type)
             worker.start()
 
     def handle_sync_error(self, event: ModelSyncErrorEvent):

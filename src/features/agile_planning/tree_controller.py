@@ -3,9 +3,10 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
-    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent,
-    UICloneItemRequestedEvent
+    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
 )
+from src.core.command_bus import CommandBus
+from src.core.commands import CloneItemCommand
 from src.domain.workspace import Workspace
 from src.domain.entities import Epic, Feature, Story, Team
 
@@ -19,6 +20,7 @@ class TreeController:
         """
         self.context = context
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.command_bus: CommandBus = context.resolve('command_bus')
         self.workspace: Workspace = context.resolve('workspace')
         self.current_selected_id = None
         
@@ -27,19 +29,24 @@ class TreeController:
         self.story_count = 0
         
         self._subscribe_events()
+        self._register_commands()
 
     def _subscribe_events(self):
-        """Subscribes to tree-related UI events."""
+        """Subscribes to tree-related notification events."""
         self.dispatcher.subscribe(UIItemSelectedEvent, self.handle_item_selected)
         self.dispatcher.subscribe(UIAddEpicRequestedEvent, self.handle_add_epic)
         self.dispatcher.subscribe(UIAddFeatureRequestedEvent, self.handle_add_feature)
         self.dispatcher.subscribe(UIAddStoryRequestedEvent, self.handle_add_story)
         self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
-        self.dispatcher.subscribe(UICloneItemRequestedEvent, self.handle_clone_item)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def _register_commands(self):
+        """Registers handlers for tree-related commands."""
+        self.command_bus.register(CloneItemCommand, self.handle_clone_item)
 
     def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
         """Restores active product selection after workspace load."""
+        self.workspace = self.context.resolve('workspace')
         if self.workspace.active_product_name:
             # Re-dispatch hierarchy update with select_id for the product
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
@@ -123,8 +130,8 @@ class TreeController:
             if menu_bar:
                 menu_bar.set_clone_state(False)
 
-    def handle_clone_item(self, event: UICloneItemRequestedEvent):
-        target_id = event.item_id if event.item_id else self.current_selected_id
+    def handle_clone_item(self, command: CloneItemCommand):
+        target_id = command.item_id if command.item_id else self.current_selected_id
         if not target_id:
             return
 

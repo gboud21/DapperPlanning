@@ -3,9 +3,11 @@ from tkinter import ttk, messagebox
 import re
 from src.core.app_context import AppContext
 from src.core.events import (
-    EventDispatcher, UICreateItemRequestedEvent, UIItemSaveRequestedEvent, ModelActiveItemChangedEvent,
+    EventDispatcher, UICreateItemRequestedEvent, ModelActiveItemChangedEvent,
     AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
 )
+from src.core.command_bus import CommandBus
+from src.core.commands import SaveItemCommand
 from src.utils.template_generator import TemplateGenerator
 from src.utils.ui_utils import enable_scroll_bubbling
 from src.utils.debouncer import Debouncer
@@ -23,6 +25,7 @@ class EditorPane:
         self.parent = parent_frame
         self.context = context
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        self.command_bus: CommandBus = context.resolve('command_bus')
         self.workspace = context.resolve('workspace')
         self.settings: SettingsManager = context.resolve('settings_manager')
         
@@ -422,7 +425,7 @@ class EditorPane:
         
         status = self.combo_status.get() or 'Backlog'
         
-        self.dispatcher.dispatch(UIItemSaveRequestedEvent(
+        self.command_bus.execute(SaveItemCommand(
             item_id=self.current_selected_id,
             new_title=title,
             new_description=desc,
