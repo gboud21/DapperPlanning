@@ -125,7 +125,7 @@ class GitLabTransformer:
         # Step A: Process Epics
         for r_epic in raw_epics:
             labels = r_epic.get('labels', [])
-            if 'Epics' in labels:
+            if any('Epic' in l for l in labels):
                 epic = Epic(
                     id=f"gl-{r_epic['id']}",
                     title=r_epic.get('title', ''),
@@ -138,7 +138,7 @@ class GitLabTransformer:
         # Step B: Process Features (Sub-epics)
         for r_feat in raw_epics:
             labels = r_feat.get('labels', [])
-            if 'Feature' in labels:
+            if any('Feature' in l for l in labels):
                 feature = Feature(
                     id=f"gl-f-{r_feat['id']}",
                     title=r_feat.get('title', ''),

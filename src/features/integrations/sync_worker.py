@@ -113,55 +113,12 @@ class SyncWorker(threading.Thread):
         transformer = GitLabTransformer()
         remote_epics_domain = transformer.transform_pull_data(remote_epics, remote_issues)
 
-        # Process the hierarchy
-        self._safe_dispatch(ModelSyncProgressEvent(message="Comparing with local state...", percent=90))
+        # Merge into local Workspace
+        self._safe_dispatch(ModelSyncProgressEvent(message="Merging remote data into Workspace...", percent=95))
+        self.workspace.merge_remote_epics(active_product_name, remote_epics_domain)
         
-        # Simple implementation: we flatten the remote tree and process each item
-        from src.infrastructure.storage.transformers import HierarchyFlattener
-        # Note: we need a way to map remote domain objects back to raw dicts if _process_item expects dicts
-        # Or we update _process_item to handle Domain objects. 
-        # For now, let's keep the existing logic by converting domain back to simple comparison stubs or updating _process_item.
-        
-        for r_epic in remote_epics_domain:
-            self._process_domain_item(r_epic, dry_run)
-            for r_feat in r_epic.features:
-                self._process_domain_item(r_feat, dry_run)
-                for r_story in r_feat.stories:
-                    self._process_domain_item(r_story, dry_run)
-
-    def _process_domain_item(self, remote_item, dry_run):
-        """Helper to process domain objects instead of raw dicts."""
-        local_item = self._find_local_by_gitlab_id(remote_item.gitlab_id)
-        
-        if not local_item:
-            if not dry_run:
-                # Logic to add new item could go here
-                pass
-            return
-
-        # Compare
-        if self._has_diff_domain(local_item, remote_item):
-            self.active_conflict_id = local_item.id
-            self.conflict_event.clear()
-            
-            self._safe_dispatch(ModelConflictDetectedEvent(local_item=local_item, remote_item=remote_item))
-            
-            # Wait for user input
-            self.conflict_event.wait()
-            
-            if self.last_resolution == 'remote' and not dry_run:
-                local_item.title = remote_item.title
-                local_item.description = remote_item.description
-                if hasattr(local_item, 'weight') and hasattr(remote_item, 'weight'):
-                    local_item.weight = remote_item.weight
-                local_item.last_synced_at = datetime.now().isoformat()
-
-    def _has_diff_domain(self, local, remote):
-        if local.title != remote.title: return True
-        if local.description != remote.description: return True
-        if hasattr(local, 'weight') and hasattr(remote, 'weight'):
-            if local.weight != remote.weight: return True
-        return False
+        # UI is automatically updated by Workspace.merge_remote_epics dispatching ModelHierarchyUpdatedEvent
+        self._safe_dispatch(ModelSyncProgressEvent(message="Sync Complete!", percent=100))
 
     def _execute_push(self):
         self._safe_dispatch(ModelSyncProgressEvent(message="Checking for remote conflicts...", percent=5))

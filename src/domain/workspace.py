@@ -2,7 +2,7 @@ from typing import List, Optional, Any
 import json
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
-from src.domain.entities import Epic, Feature, Story
+from src.domain.entities import Epic, Feature, Story, Product
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):
@@ -36,6 +36,68 @@ class Workspace:
     def active_product_name(self, value: Optional[str]):
         if self._active_product_name != value:
             self._active_product_name = value
+
+    def merge_remote_epics(self, active_product_name: str, remote_epics: List[Epic]) -> None:
+        """
+        Recursively merges remote GitLab data into the local Workspace model.
+        
+        Matches items by gitlab_id. Updates existing items and appends new ones.
+        """
+        if not active_product_name:
+            return
+
+        # Find the product entity to ensure it exists
+        product = next((p for p in self._products if p.name == active_product_name), None)
+        if not product:
+            return
+
+        # Start recursive merge at the root (Epics)
+        self._merge_recursive(self._epics, remote_epics, active_product_name)
+        
+        # Dispatch update to UI
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self._epics,
+            products=self._products
+        ))
+
+    def _merge_recursive(self, local_list: List[Any], remote_list: List[Any], active_product_name: str) -> None:
+        """Helper to recursively merge items based on gitlab_id."""
+        from datetime import datetime
+        now_iso = datetime.now().isoformat()
+
+        for r_item in remote_list:
+            # Find matching local item by gitlab_id
+            l_item = next((l for l in local_list if l.gitlab_id == r_item.gitlab_id), None)
+            
+            if l_item:
+                # Update existing item details
+                l_item.title = r_item.title
+                l_item.description = r_item.description
+                l_item.last_synced_at = now_iso
+                
+                # Update specific fields
+                if hasattr(l_item, 'weight') and hasattr(r_item, 'weight'):
+                    l_item.weight = r_item.weight
+                
+                # Ensure the product tag is present
+                if hasattr(l_item, 'products'):
+                    if active_product_name not in l_item.products:
+                        l_item.products.append(active_product_name)
+
+                # Recursively merge children
+                if hasattr(l_item, 'features') and hasattr(r_item, 'features'):
+                    self._merge_recursive(l_item.features, r_item.features, active_product_name)
+                elif hasattr(l_item, 'stories') and hasattr(r_item, 'stories'):
+                    self._merge_recursive(l_item.stories, r_item.stories, active_product_name)
+            else:
+                # New item from GitLab
+                r_item.last_synced_at = now_iso
+                # Add product tag if applicable
+                if hasattr(r_item, 'products'):
+                    if active_product_name not in r_item.products:
+                        r_item.products.append(active_product_name)
+                
+                local_list.append(r_item)
 
     def _generate_snapshot(self) -> str:
         """Reliably serializes the current epic hierarchy and metadata into a JSON string."""
