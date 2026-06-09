@@ -38,6 +38,11 @@ class MenuController:
         self.dispatcher.subscribe(UISaveWorkspaceRequestedEvent, self.handle_save_workspace)
         self.dispatcher.subscribe(UISaveAsWorkspaceRequestedEvent, self.handle_save_as_workspace)
         self.dispatcher.subscribe(UINewWorkspaceRequestedEvent, self.handle_new_workspace)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Refreshes the workspace reference when a new one is loaded."""
+        self.workspace = self.context.resolve('workspace')
 
     def handle_theme_toggle(self, event: UIThemeToggleRequestedEvent):
         """Handles theme toggle requests from the UI."""
@@ -109,6 +114,9 @@ class MenuController:
 
     def handle_save_workspace(self, event: UISaveWorkspaceRequestedEvent):
         """Handles requests to save the current workspace."""
+        from src.infrastructure.telemetry.logger import logger
+        logger.info(f"MenuController saving workspace {id(self.workspace)} (epics: {len(self.workspace.get_epics())}) to {self.workspace.current_filepath}")
+        
         if not self.workspace.current_filepath:
             self.handle_save_as_workspace(UISaveAsWorkspaceRequestedEvent())
             return

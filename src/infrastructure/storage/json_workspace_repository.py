@@ -4,6 +4,7 @@ from src.domain.repositories import WorkspaceRepository
 from src.domain.workspace import Workspace
 from src.core.events import EventDispatcher
 from src.infrastructure.storage.adapters import JSONAdapter
+from src.infrastructure.telemetry.logger import logger
 
 class JsonWorkspaceRepository(WorkspaceRepository):
     def __init__(self, file_path: str, dispatcher: EventDispatcher):
@@ -46,9 +47,11 @@ class JsonWorkspaceRepository(WorkspaceRepository):
         """
         try:
             adapter = JSONAdapter()
+            epics = workspace.get_epics()
+            logger.info(f"JsonWorkspaceRepository.save: Preparing to save {len(epics)} root epics (instance {id(workspace)}) to {self.file_path}")
             adapter.export_data(
                 self.file_path,
-                workspace.get_epics(),
+                epics,
                 active_product_name=workspace.active_product_name,
                 products=workspace.products
             )

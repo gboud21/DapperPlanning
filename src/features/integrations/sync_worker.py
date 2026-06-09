@@ -5,7 +5,7 @@ from datetime import datetime
 from src.core.app_context import AppContext
 from src.core.events import (
     ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
-    UIConflictResolvedEvent, ModelHierarchyUpdatedEvent
+    UIConflictResolvedEvent, ModelHierarchyUpdatedEvent, UISaveWorkspaceRequestedEvent
 )
 from src.domain.entities import Epic, Feature, Story
 from src.infrastructure.storage.transformers import GitLabTransformer
@@ -127,6 +127,9 @@ class SyncWorker(threading.Thread):
         self._safe_dispatch(ModelSyncProgressEvent(message="Merging remote data into Workspace...", percent=95))
         self.workspace.merge_remote_epics(active_product_name, remote_epics_domain)
         
+        # Persist the newly pulled data to disk
+        self._safe_dispatch(UISaveWorkspaceRequestedEvent())
+        
         # UI is automatically updated by Workspace.merge_remote_epics dispatching ModelHierarchyUpdatedEvent
         self._safe_dispatch(ModelSyncProgressEvent(message="Sync Complete!", percent=100))
 
@@ -154,10 +157,6 @@ class SyncWorker(threading.Thread):
         processed = 0
 
         for epic in epics:
-            # Only push items that belong to the active product (or have no product assigned)
-            if epic.products and active_product_name not in epic.products:
-                continue
-
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
                 # create_epic now automatically detects tier based on gid
@@ -228,16 +227,13 @@ class SyncWorker(threading.Thread):
         return count
 
     def _has_local_changes(self, item):
-        """
-        Heuristic to check if item was modified after last sync.
-        This is a simple check; ideally we'd track a 'dirty' flag on the entity.
-        """
-        # If never synced, it's 'new', not 'updated'
+        # If it has a remote ID but no sync timestamp, it must be forced to update.
+        if getattr(item, 'gitlab_id', None) and not item.last_synced_at:
+            return True
+            
         if not item.last_synced_at:
             return False
             
-        # For now, we assume if we are pushing, the user wants to sync current state.
-        # A more robust check would involve comparing a local hash/snapshot.
         return True
 
     def _process_item(self, remote_data, item_type, dry_run):

@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import List, Any, Optional
 from src.domain.entities import Epic
 from src.infrastructure.storage.transformers import HierarchyFlattener, HierarchyBuilder
+from src.infrastructure.telemetry.logger import logger
 
 class DataAdapter(ABC):
     @abstractmethod
@@ -34,13 +35,33 @@ class CSVAdapter(DataAdapter):
 class JSONAdapter(DataAdapter):
     def export_data(self, filepath: str, data: List[Epic], active_product_name: str = None, products: List[Any] = None):
         from dataclasses import asdict
+        
+        def _serialize_recursive(item):
+            item_type = type(item).__name__
+            if item_type == "Epic":
+                logger.info(f"Serializing Epic: {item.title} (ID: {item.id}) - Features count: {len(item.features)}")
+                for feature in item.features:
+                    _serialize_recursive(feature)
+            elif item_type == "Feature":
+                logger.info(f"Serializing Feature: {item.title} (ID: {item.id}) - Stories count: {len(item.stories)}")
+                for story in item.stories:
+                    _serialize_recursive(story)
+            elif item_type == "Story":
+                logger.info(f"Serializing Story: {item.title} (ID: {item.id})")
+            return asdict(item)
+
+        logger.info(f"JSONAdapter.export_data: Starting traversal of {len(data)} root items.")
+        epics_json = [_serialize_recursive(p) for p in data]
+        
         json_data = {
             "active_product_name": active_product_name,
             "products": [asdict(p) for p in products] if products else [],
-            "epics": [asdict(p) for p in data]
+            "epics": epics_json
         }
+        logger.info(f"JSONAdapter.export_data: Data dictionary keys: {list(json_data.keys())} - Epics in dict: {len(json_data['epics'])}")
         with open(filepath, mode='w', encoding='utf-8') as jsonfile:
             json.dump(json_data, jsonfile, indent=4)
+        logger.info(f"Workspace successfully exported to {filepath}")
 
     def import_data(self, filepath: str) -> tuple[List[Epic], Optional[str], List[Any]]:
         from src.domain.entities import Product

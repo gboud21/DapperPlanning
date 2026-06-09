@@ -93,10 +93,20 @@ class Workspace:
             else:
                 # New item from GitLab
                 r_item.last_synced_at = now_iso
-                # Add product tag if applicable
-                if hasattr(r_item, 'products'):
-                    if active_product_name not in r_item.products:
-                        r_item.products.append(active_product_name)
+                
+                # Recursively set synced_at and product tags for children of new items
+                def _set_metadata_recursive(item):
+                    item.last_synced_at = now_iso
+                    if hasattr(item, 'products'):
+                        if active_product_name not in item.products:
+                            item.products.append(active_product_name)
+                    
+                    if hasattr(item, 'features'):
+                        for f in item.features: _set_metadata_recursive(f)
+                    if hasattr(item, 'stories'):
+                        for s in item.stories: _set_metadata_recursive(s)
+                
+                _set_metadata_recursive(r_item)
                 
                 local_list.append(r_item)
 

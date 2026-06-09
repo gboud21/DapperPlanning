@@ -3,6 +3,7 @@ import urllib.error
 import json
 from typing import List, Optional, Union, Any
 from src.domain.entities import Epic, Story
+from src.infrastructure.telemetry.logger import logger, audit_payload
 
 class GitLabBaseError(Exception):
     def __init__(self, error_message: str, suggested_solution: str):

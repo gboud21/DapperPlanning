@@ -17,7 +17,7 @@ from src.core.menu_controller import MenuController
 from src.features.integrations.integrations_controller import IntegrationsController
 from src.features.settings.settings_controller import SettingsController
 from src.utils.theme_manager import ThemeManager
-from src.infrastructure.telemetry.logger import AppLogger
+from src.infrastructure.telemetry.logger import AppLogger, logger
 
 class MainController:
     def __init__(self, context: AppContext):
@@ -87,6 +87,16 @@ class MainController:
         self.dispatcher.subscribe(UIAppCloseRequestedEvent, self.handle_app_close)
         self.dispatcher.subscribe(UILogLevelChangedEvent, self.handle_log_level_changed)
         self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self.handle_model_updated)
+        self.dispatcher.subscribe(UISaveWorkspaceRequestedEvent, self.handle_save_requested_log)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Refreshes the workspace reference when a new one is loaded."""
+        self.workspace = self.context.resolve('workspace')
+
+    def handle_save_requested_log(self, event: UISaveWorkspaceRequestedEvent):
+        """Logs telemetry when a save is triggered."""
+        logger.info(f"Save requested. Workspace {id(self.workspace)} currently holds {len(self.workspace.get_epics())} root epics.")
 
     def handle_model_updated(self, event: ModelHierarchyUpdatedEvent):
         """Triggers auto-save if enabled when the model changes."""
