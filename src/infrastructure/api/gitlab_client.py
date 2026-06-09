@@ -45,13 +45,30 @@ class GitLabClient:
         url = f"{self.base_url}/api/v4/{clean_endpoint}"
         
         # Network Telemetry
-        print(f"[GitLab API] {method.upper()} {url}")
+        logger.info(f"GitLab API Request: {method.upper()} {url}")
+        if payload:
+            logger.debug(f"Payload: {json.dumps(payload)}")
         
         data = json.dumps(payload).encode('utf-8') if payload else None
         req = urllib.request.Request(url, data=data, headers=self.headers, method=method)
         try:
             with urllib.request.urlopen(req) as response:
-                return json.loads(response.read().decode())
+                status_code = response.getcode()
+                response_data = json.loads(response.read().decode())
+                logger.info(f"GitLab API Response: {status_code} OK")
+                
+                # Auditing successful PUSH/PULL
+                if method.upper() in ('POST', 'PUT'):
+                    audit_payload(f"push_{method.upper()}_{clean_endpoint.replace('/', '_')}", {
+                        "request": payload,
+                        "response": response_data
+                    })
+                elif method.upper() == 'GET' and ('epics' in clean_endpoint or 'issues' in clean_endpoint):
+                     # We audit GET only if it's a fetch of multiple items, usually handled in _request_all
+                     # But _request is used for single items too.
+                     pass
+                     
+                return response_data
         except urllib.error.HTTPError as e:
             # Try to get more detail from the response body
             error_body = ""
@@ -61,7 +78,7 @@ class GitLabClient:
                 pass
             
             # Network Telemetry for Errors
-            print(f"[GitLab API Error] {e.code}: {error_body}")
+            logger.error(f"GitLab API Error: {e.code} - {error_body}")
             
             if e.code in (401, 403):
                 solution = "Verify your Personal Access Token in Integrations Settings and ensure it has API scope."

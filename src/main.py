@@ -11,11 +11,21 @@ from src.domain.workspace import Workspace
 from src.core.main_window import MainWindow
 from src.core.main_controller import MainController
 from src.infrastructure.storage.settings_manager import SettingsManager
+from src.infrastructure.telemetry.logger import AppLogger
+from src.utils.theme_manager import ThemeManager
+from src.core.command_bus import CommandBus
+from src.infrastructure.storage.json_workspace_repository import JsonWorkspaceRepository
+from src.utils.paths import get_output_dir
 
 def main():
     """
     Main function to initialize and run the Dapper Planning application.
     """
+    # 0. Initialize Logger
+    initial_settings = ThemeManager.load_all_settings()
+    log_level = initial_settings.get('log_level', 'INFO')
+    AppLogger.setup_logger(log_level)
+    
     # 1. Initialize AppContext (DI Container)
     context = AppContext()
 
@@ -40,14 +50,9 @@ def main():
     workspace = Workspace(dispatcher)
     
     # Initialize Command Bus
-    from src.core.command_bus import CommandBus
     command_bus = CommandBus()
     
     # Initialize Repository
-    from src.infrastructure.storage.json_workspace_repository import JsonWorkspaceRepository
-    from src.utils.theme_manager import ThemeManager
-    from src.utils.paths import get_output_dir
-    
     last_workspace_path = ThemeManager.get_last_workspace() or str(get_output_dir() / 'workspace.json')
     repository = JsonWorkspaceRepository(last_workspace_path, dispatcher)
     

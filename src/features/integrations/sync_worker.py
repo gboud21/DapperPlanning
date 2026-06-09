@@ -10,6 +10,7 @@ from src.core.events import (
 from src.domain.entities import Epic, Feature, Story
 from src.infrastructure.storage.transformers import GitLabTransformer
 from src.utils.paths import GITLAB_SYNC_OUTPUT_FILE
+from src.infrastructure.telemetry.logger import logger
 
 class SyncWorker(threading.Thread):
     def __init__(self, context: AppContext, sync_type: str = 'pull'):
@@ -38,6 +39,7 @@ class SyncWorker(threading.Thread):
     def run(self):
         from src.infrastructure.api.gitlab_client import GitLabBaseError
         
+        logger.info(f"SyncWorker started: {self.sync_type}")
         # Prepare basic debug info
         debug_info = {
             "Base URL": self.gitlab_client.base_url,
@@ -54,7 +56,9 @@ class SyncWorker(threading.Thread):
             elif self.sync_type == 'push':
                 self._execute_push()
             self._safe_dispatch(ModelSyncProgressEvent(message="Done.", percent=100))
+            logger.info(f"SyncWorker finished successfully: {self.sync_type}")
         except GitLabBaseError as e:
+            logger.error(f"SyncWorker GitLab Error ({self.sync_type}): {e.error_message}")
             self._safe_dispatch(ModelSyncErrorEvent(
                 title="GitLab Sync Error",
                 error_message=e.error_message,
@@ -62,6 +66,7 @@ class SyncWorker(threading.Thread):
                 debug_info=debug_info
             ))
         except Exception as e:
+            logger.exception(f"SyncWorker Unexpected Error ({self.sync_type}): {e}")
             self._safe_dispatch(ModelSyncErrorEvent(
                 title="Unexpected Sync Error",
                 error_message=str(e),
@@ -76,6 +81,7 @@ class SyncWorker(threading.Thread):
         self.dispatcher.dispatch(event)
 
     def _execute_pull(self, dry_run=False):
+        logger.info("Executing Pull Sync...")
         self._safe_dispatch(ModelSyncProgressEvent(message="Fetching remote data...", percent=10))
         
         # Determine current product IDs
@@ -84,12 +90,14 @@ class SyncWorker(threading.Thread):
         
         if not product_entity or not product_entity.gitlab_project_id or not product_entity.gitlab_group_id:
             from src.infrastructure.api.gitlab_client import GitLabBaseError
+            logger.error(f"Pull Sync failed: Incomplete Product Configuration for '{active_product_name}'")
             raise GitLabBaseError(
                 "Incomplete Product Configuration",
                 f"Product '{active_product_name}' requires both a GitLab Project ID and Group ID for this sync operation."
             )
 
         # Fetch from both endpoints
+        logger.info(f"Fetching data for product '{active_product_name}' (Project: {product_entity.gitlab_project_id}, Group: {product_entity.gitlab_group_id})")
         remote_epics = self.gitlab_client.fetch_group_epics(product_entity.gitlab_group_id)
         remote_issues = self.gitlab_client.fetch_project_issues(product_entity.gitlab_project_id)
         
@@ -107,13 +115,15 @@ class SyncWorker(threading.Thread):
             with open(GITLAB_SYNC_OUTPUT_FILE, 'w', encoding='utf-8') as f:
                 json.dump(dump_data, f, indent=4)
         except IOError as e:
-            print(f"Warning: Failed to write GitLab sync audit log: {e}")
+            logger.warning(f"Failed to write GitLab sync audit log: {e}")
 
         # Transform to Domain Objects
+        logger.debug("Transforming GitLab data to domain objects...")
         transformer = GitLabTransformer()
         remote_epics_domain = transformer.transform_pull_data(remote_epics, remote_issues)
 
         # Merge into local Workspace
+        logger.info(f"Merging {len(remote_epics_domain)} epics into local workspace...")
         self._safe_dispatch(ModelSyncProgressEvent(message="Merging remote data into Workspace...", percent=95))
         self.workspace.merge_remote_epics(active_product_name, remote_epics_domain)
         
@@ -121,6 +131,7 @@ class SyncWorker(threading.Thread):
         self._safe_dispatch(ModelSyncProgressEvent(message="Sync Complete!", percent=100))
 
     def _execute_push(self):
+        logger.info("Executing Push Sync...")
         self._safe_dispatch(ModelSyncProgressEvent(message="Pushing local changes...", percent=10))
         
         # Determine active product IDs for context
@@ -129,6 +140,7 @@ class SyncWorker(threading.Thread):
         
         if not product_entity or not product_entity.gitlab_project_id:
             from src.infrastructure.api.gitlab_client import GitLabBaseError
+            logger.error(f"Push Sync failed: Missing Project ID for product '{active_product_name}'")
             raise GitLabBaseError(
                 "Missing Project ID", 
                 f"Product '{active_product_name}' must have a GitLab Project ID configured."
@@ -147,20 +159,20 @@ class SyncWorker(threading.Thread):
                 continue
 
             if not epic.gitlab_id:
-                print(f"[Push] Creating new Epic: {epic.title}")
+                logger.info(f"Pushing new Epic: {epic.title}")
                 # create_epic now automatically detects tier based on gid
                 resp = self.gitlab_client.create_group_epic(gid, epic) if gid else self.gitlab_client.create_project_task(pid, epic)
                 epic.gitlab_id = resp.get('id')
                 epic.gitlab_iid = resp.get('iid')
                 epic.last_synced_at = datetime.now().isoformat()
             elif self._has_local_changes(epic):
-                print(f"[Push] Updating existing Epic IID {epic.gitlab_iid}...")
+                logger.info(f"Updating existing Epic IID {epic.gitlab_iid} ({epic.title})...")
                 if gid:
                     try:
                         self.gitlab_client.update_group_epic(gid, epic.gitlab_iid, epic)
                     except Exception as e:
                         # Fallback to project task if group epic update fails (might be a legacy task)
-                        print(f"Warning: Group Epic update failed for IID {epic.gitlab_iid}, trying Project Task: {e}")
+                        logger.warning(f"Group Epic update failed for IID {epic.gitlab_iid}, trying Project Task: {e}")
                         self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic)
                 else:
                     self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic)
@@ -171,19 +183,19 @@ class SyncWorker(threading.Thread):
             
             for feature in epic.features:
                 if not feature.gitlab_id:
-                    print(f"[Push] Creating new Feature: {feature.title}")
+                    logger.info(f"Pushing new Feature: {feature.title}")
                     resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id) if gid else \
                            self.gitlab_client.create_project_task(pid, feature, is_feature=True, parent_id=str(epic.gitlab_id))
                     feature.gitlab_id = resp.get('id')
                     feature.gitlab_iid = resp.get('iid')
                     feature.last_synced_at = datetime.now().isoformat()
                 elif self._has_local_changes(feature):
-                    print(f"[Push] Updating existing Feature IID {feature.gitlab_iid}...")
+                    logger.info(f"Updating existing Feature IID {feature.gitlab_iid} ({feature.title})...")
                     if gid:
                         try:
                             self.gitlab_client.update_group_epic(gid, feature.gitlab_iid, feature)
                         except Exception as e:
-                            print(f"Warning: Group Epic update failed for Feature IID {feature.gitlab_iid}, trying Project Task: {e}")
+                            logger.warning(f"Group Epic update failed for Feature IID {feature.gitlab_iid}, trying Project Task: {e}")
                             self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature)
                     else:
                         self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature)
@@ -194,13 +206,13 @@ class SyncWorker(threading.Thread):
 
                 for story in feature.stories:
                     if not story.gitlab_id:
-                        print(f"[Push] Creating new Story: {story.title}")
+                        logger.info(f"Pushing new Story: {story.title}")
                         resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid)
                         story.gitlab_id = resp.get('id')
                         story.gitlab_iid = resp.get('iid')
                         story.last_synced_at = datetime.now().isoformat()
                     elif self._has_local_changes(story):
-                        print(f"[Push] Updating existing Story IID {story.gitlab_iid}...")
+                        logger.info(f"Updating existing Story IID {story.gitlab_iid} ({story.title})...")
                         self.gitlab_client.update_story(pid, story.gitlab_iid, story)
                         story.last_synced_at = datetime.now().isoformat()
                     
@@ -240,6 +252,7 @@ class SyncWorker(threading.Thread):
 
         # Compare
         if self._has_diff(local_item, remote_data):
+            logger.warning(f"Conflict detected for item {local_item.id} ({local_item.title})")
             self.active_conflict_id = local_item.id
             self.conflict_event.clear()
             
@@ -250,8 +263,10 @@ class SyncWorker(threading.Thread):
             self._safe_dispatch(ModelConflictDetectedEvent(local_item=local_item, remote_item=remote_item_stub))
             
             # Wait for user input
+            logger.info(f"Waiting for user resolution for conflict {local_item.id}...")
             self.conflict_event.wait()
             
+            logger.info(f"Conflict resolved: {self.last_resolution} for item {local_item.id}")
             if self.last_resolution == 'remote' and not dry_run:
                 local_item.title = remote_data.get('title')
                 local_item.description = remote_data.get('description')

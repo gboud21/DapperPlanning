@@ -55,5 +55,19 @@ def get_output_dir() -> Path:
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
 
+def get_logs_dir() -> Path:
+    """Returns the absolute path to the logs directory at the project root."""
+    root = Path(__file__).parent.parent.parent
+    logs_dir = root / 'logs'
+    os.makedirs(logs_dir, exist_ok=True)
+    return logs_dir
+
+def get_audit_dir() -> Path:
+    """Returns the absolute path to the audit directory at the project root."""
+    root = Path(__file__).parent.parent.parent
+    audit_dir = root / 'audit'
+    os.makedirs(audit_dir, exist_ok=True)
+    return audit_dir
+
 # Global path constants
 GITLAB_SYNC_OUTPUT_FILE = get_output_dir() / 'gitlab_integration.json'

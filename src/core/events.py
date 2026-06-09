@@ -121,6 +121,11 @@ class UISettingsSaveRequestedEvent(Event):
     selected_templates: dict
 
 @dataclass
+class UILogLevelChangedEvent(Event):
+    """Emitted when the user changes the logging level in settings."""
+    log_level: str
+
+@dataclass
 class UITemplateConfigExportRequestedEvent(Event):
     payload: dict
 
@@ -243,6 +248,7 @@ class Actions:
     INTEGRATIONS_SAVE = UIIntegrationsSaveRequestedEvent
     SETTINGS_OPEN = UISettingsDialogOpenRequestedEvent
     SETTINGS_SAVE = UISettingsSaveRequestedEvent
+    LOG_LEVEL_CHANGED = UILogLevelChangedEvent
     TEMPLATE_EXPORT = UITemplateConfigExportRequestedEvent
     ADD_EPIC = UIAddEpicRequestedEvent
     ADD_FEATURE = UIAddFeatureRequestedEvent
@@ -322,7 +328,7 @@ __all__ = [
     'UISaveAsWorkspaceRequestedEvent', 'UIAppCloseRequestedEvent', 'UIExportCsvRequestedEvent',
     'UIExportJsonRequestedEvent', 'UIImportCsvRequestedEvent', 'UIImportJsonRequestedEvent',
     'UIIntegrationsDialogOpenRequestedEvent', 'UIIntegrationsSaveRequestedEvent',
-    'UISettingsDialogOpenRequestedEvent', 'UISettingsSaveRequestedEvent',
+    'UISettingsDialogOpenRequestedEvent', 'UISettingsSaveRequestedEvent', 'UILogLevelChangedEvent',
     'UITemplateConfigExportRequestedEvent', 'UIAddEpicRequestedEvent',
     'UIAddFeatureRequestedEvent', 'UIAddStoryRequestedEvent', 'UIDeleteItemRequestedEvent',
     'UICreateItemRequestedEvent', 'UIThemeToggleRequestedEvent', 'UIWindowStateChangedEvent',

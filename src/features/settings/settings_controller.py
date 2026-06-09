@@ -5,7 +5,7 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UISettingsDialogOpenRequestedEvent, UISettingsSaveRequestedEvent,
     AppThemeChangedEvent, UITemplateConfigExportRequestedEvent, UIErrorNotificationEvent,
-    ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
+    ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent, UILogLevelChangedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.features.settings.settings_dialog import SettingsDialog
@@ -45,6 +45,7 @@ class SettingsController:
         # Check if theme changed for live update
         current_settings = ThemeManager.get_general_settings()
         old_theme = current_settings.get('theme', 'dark')
+        old_log_level = current_settings.get('log_level', 'INFO')
         
         ThemeManager.save_general_settings(
             theme=event.theme,
@@ -62,10 +63,21 @@ class SettingsController:
             selected_templates=event.selected_templates
         )
 
+        # Update SettingsManager if it exists in context to keep it in sync
+        try:
+            settings_manager = self.context.resolve('settings_manager')
+            if settings_manager:
+                settings_manager.load() # Reload from disk to get latest changes
+        except:
+            pass
+
         if old_theme != event.theme:
             is_dark = (event.theme.lower() == 'dark')
             self.dispatcher.dispatch(AppThemeChangedEvent(is_dark=is_dark))
             ThemeManager.apply_ttk_theme(is_dark)
+            
+        if old_log_level != event.log_level:
+            self.dispatcher.dispatch(UILogLevelChangedEvent(log_level=event.log_level))
             
         # Redraw tree to reflect show_status_in_tree change
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))

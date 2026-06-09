@@ -7,7 +7,7 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
-    UISaveWorkspaceRequestedEvent
+    UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent
 )
 from src.domain.workspace import Workspace
 from src.domain.repositories import WorkspaceRepository
@@ -17,6 +17,7 @@ from src.core.menu_controller import MenuController
 from src.features.integrations.integrations_controller import IntegrationsController
 from src.features.settings.settings_controller import SettingsController
 from src.utils.theme_manager import ThemeManager
+from src.infrastructure.telemetry.logger import AppLogger
 
 class MainController:
     def __init__(self, context: AppContext):
@@ -84,6 +85,24 @@ class MainController:
         self.dispatcher.subscribe(UISyncRequestedEvent, self.handle_sync)
         self.dispatcher.subscribe(UIWindowStateChangedEvent, self.handle_window_state_changed)
         self.dispatcher.subscribe(UIAppCloseRequestedEvent, self.handle_app_close)
+        self.dispatcher.subscribe(UILogLevelChangedEvent, self.handle_log_level_changed)
+        self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self.handle_model_updated)
+
+    def handle_model_updated(self, event: ModelHierarchyUpdatedEvent):
+        """Triggers auto-save if enabled when the model changes."""
+        try:
+            settings_manager = self.context.resolve('settings_manager')
+            if settings_manager.get('auto_save', False):
+                if self.workspace.has_unsaved_changes():
+                    # Dispatch save request to be handled by MenuController
+                    self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
+        except:
+            # Fallback if settings_manager is not available
+            pass
+
+    def handle_log_level_changed(self, event: UILogLevelChangedEvent):
+        """Updates the application logging level dynamically."""
+        AppLogger.update_log_level(event.log_level)
 
     def handle_app_close(self, event: UIAppCloseRequestedEvent):
         """Intercepts application close to check for unsaved changes."""

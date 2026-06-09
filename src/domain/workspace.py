@@ -102,11 +102,25 @@ class Workspace:
 
     def _generate_snapshot(self) -> str:
         """Reliably serializes the current epic hierarchy and metadata into a JSON string."""
-        from src.domain.entities import Product
+        def _serialize_item(item):
+            d = asdict(item)
+            # Include dynamic properties that asdict misses
+            if hasattr(item, 'weight'):
+                d['weight'] = item.weight
+            if hasattr(item, 'status'):
+                d['status'] = item.status
+            
+            # Recursively handle children
+            if hasattr(item, 'features'):
+                d['features'] = [_serialize_item(f) for f in item.features]
+            elif hasattr(item, 'stories'):
+                d['stories'] = [_serialize_item(s) for s in item.stories]
+            return d
+
         data = {
             "active_product_name": self._active_product_name,
             "products": [asdict(p) for p in self._products],
-            "epics": [asdict(epic) for epic in self._epics]
+            "epics": [_serialize_item(epic) for epic in self._epics]
         }
         return json.dumps(data, sort_keys=True)
 
