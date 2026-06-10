@@ -64,10 +64,12 @@ class GitLabClient:
                         "request": payload,
                         "response": response_data
                     })
-                elif method.upper() == 'GET' and ('epics' in clean_endpoint or 'issues' in clean_endpoint):
-                     # We audit GET only if it's a fetch of multiple items, usually handled in _request_all
-                     # But _request is used for single items too.
-                     pass
+                elif method.upper() == 'GET':
+                    # Create a filesystem-safe string from the endpoint
+                    safe_endpoint = endpoint.replace('/', '_').replace('?', '_').replace('&', '_').replace('=', '_')
+                    # Truncate if the endpoint string is too long for a filename
+                    safe_endpoint = safe_endpoint[:50] 
+                    audit_payload(f"pull_{safe_endpoint}", response_data)
                      
                 return response_data
         except urllib.error.HTTPError as e:
@@ -128,6 +130,12 @@ class GitLabClient:
                     data = json.loads(response.read().decode())
                     if not data:
                         break
+                    
+                    # Audit paginated GET response
+                    safe_endpoint = paged_endpoint.replace('/', '_').replace('?', '_').replace('&', '_').replace('=', '_')
+                    safe_endpoint = safe_endpoint[:50]
+                    audit_payload(f"pull_paged_{safe_endpoint}", data)
+                    
                     results.extend(data)
                     
                     # Check X-Next-Page header if available
