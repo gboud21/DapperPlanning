@@ -50,6 +50,10 @@ class UIConflictResolvedEvent(Event):
     item_id: str
 
 @dataclass
+class UISyncMembersRequestedEvent(Event):
+    pass
+
+@dataclass
 class UIOpenWorkspaceRequestedEvent(Event):
     pass
 
@@ -155,6 +159,7 @@ class UICreateItemRequestedEvent(Event):
     capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
     status: str = 'Backlog'
+    assignee_id: Optional[int] = None
 
 @dataclass
 class UIThemeToggleRequestedEvent(Event):
@@ -248,6 +253,7 @@ class Actions:
     INTEGRATIONS_SAVE = UIIntegrationsSaveRequestedEvent
     SETTINGS_OPEN = UISettingsDialogOpenRequestedEvent
     SETTINGS_SAVE = UISettingsSaveRequestedEvent
+    SYNC_MEMBERS = UISyncMembersRequestedEvent
     LOG_LEVEL_CHANGED = UILogLevelChangedEvent
     TEMPLATE_EXPORT = UITemplateConfigExportRequestedEvent
     ADD_EPIC = UIAddEpicRequestedEvent

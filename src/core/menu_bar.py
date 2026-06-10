@@ -7,7 +7,7 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
-    UINewWorkspaceRequestedEvent
+    UINewWorkspaceRequestedEvent, UISyncMembersRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SyncWithGitLabCommand, CloneItemCommand
@@ -84,8 +84,11 @@ class ApplicationMenuBar(tk.Menu):
         integrations_menu.add_command(label="Pull from GitLab", command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='pull')))
         integrations_menu.add_command(label="Push to GitLab", command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='push')))
         integrations_menu.add_separator()
-        integrations_menu.add_command(label="Manage Connections...", command=lambda: self.dispatcher.dispatch(UIIntegrationsDialogOpenRequestedEvent()))
+        integrations_menu.add_command(label="Integrations Settings...", command=lambda: self.dispatcher.dispatch(UIIntegrationsDialogOpenRequestedEvent()))
+        integrations_menu.add_separator()
+        integrations_menu.add_command(label="Sync GitLab Members", command=lambda: self.dispatcher.dispatch(UISyncMembersRequestedEvent()))
         self.add_cascade(label="Integrations", menu=integrations_menu)
+
         
         # Help menu
         help_menu = tk.Menu(self, tearoff=0)

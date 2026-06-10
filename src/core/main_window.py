@@ -64,6 +64,7 @@ class MainWindow:
         self.right_frame = ttk.Frame(self.paned_window, padding=10)
         self.paned_window.add(self.right_frame, weight=3)
         self.editor_pane = EditorPane(self.right_frame, self.context)
+        self.context.register('editor_pane', self.editor_pane)
 
     def _bind_events(self):
         """Binds overarching UI events."""

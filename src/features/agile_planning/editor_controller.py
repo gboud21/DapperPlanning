@@ -2,7 +2,7 @@ import uuid
 from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UICreateItemRequestedEvent,
-    ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
+    ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent, ModelActiveItemChangedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SaveItemCommand
@@ -29,6 +29,7 @@ class EditorController:
         """Subscribes to editor-related notifications."""
         self.dispatcher.subscribe(UICreateItemRequestedEvent, self.handle_create_item)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+        self.dispatcher.subscribe(ModelActiveItemChangedEvent, self.handle_active_item_changed)
 
     def _register_commands(self):
         """Registers handlers for editor-related commands."""
@@ -44,6 +45,7 @@ class EditorController:
         if isinstance(item, Story):
              item.weight = command.weight
              item.status = command.status
+             item.assignee_id = command.assignee_id
 
         self.workspace.update_item_details(
             command.item_id, 
@@ -53,6 +55,38 @@ class EditorController:
             capabilities=command.new_capabilities
         )
         # State mutation is done, ModelHierarchyUpdatedEvent is dispatched by workspace.update_item_details
+
+    def handle_active_item_changed(self, event: ModelActiveItemChangedEvent):
+        """Manages contextual UI visibility and population (e.g. Assignee for Stories)."""
+        try:
+            editor_pane = self.context.resolve('editor_pane')
+        except KeyError:
+            return
+
+        if event.item_type == 'Story':
+            # Unhide Assignee UI
+            editor_pane.assignee_lbl.grid()
+            editor_pane.assignee_combo.grid()
+            
+            # Populate members
+            members = self.workspace.get_members()
+            member_names = ["Unassigned"] + [m.name for m in members]
+            editor_pane.assignee_combo.config(values=member_names)
+            
+            # Set current assignee
+            assignee_id = getattr(event.item_data, 'assignee_id', None)
+            if assignee_id:
+                member = self.workspace.members.get(assignee_id)
+                if member:
+                    editor_pane.assignee_combo.set(member.name)
+                else:
+                    editor_pane.assignee_combo.set("Unassigned")
+            else:
+                editor_pane.assignee_combo.set("Unassigned")
+        else:
+            # Hide Assignee UI for Epics/Features
+            editor_pane.assignee_lbl.grid_remove()
+            editor_pane.assignee_combo.grid_remove()
 
     def handle_create_item(self, event: UICreateItemRequestedEvent):
         """Creates a new item and attaches it to the parent in the model."""
@@ -93,7 +127,8 @@ class EditorController:
                 products=event.products,
                 capabilities=event.capabilities,
                 weight=event.weight,
-                status=event.status
+                status=event.status,
+                assignee_id=event.assignee_id
             )
             parent.stories.append(item)
 

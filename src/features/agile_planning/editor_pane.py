@@ -4,7 +4,8 @@ import re
 from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UICreateItemRequestedEvent, ModelActiveItemChangedEvent,
-    AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent
+    AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
+    ModelWorkspaceLoadedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SaveItemCommand
@@ -123,6 +124,19 @@ class EditorPane:
         self.entry_title.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
         self.entry_title.bind("<FocusOut>", self._trigger_auto_save)
         self.entry_title.bind("<Return>", self._trigger_auto_save)
+
+        # Assignee (Hidden by default)
+        self.assignee_frame = ttk.Frame(self.scrollable_frame)
+        self.assignee_frame.pack(fill=tk.X, pady=(0, 10))
+        self.assignee_lbl = ttk.Label(self.assignee_frame, text="Assignee:")
+        self.assignee_lbl.grid(row=0, column=0, sticky=tk.W)
+        self.assignee_combo = ttk.Combobox(self.assignee_frame, state="readonly", style="Preferences.TCombobox")
+        self.assignee_combo.grid(row=0, column=1, sticky=tk.EW, padx=5)
+        self.assignee_frame.columnconfigure(1, weight=1)
+        self.assignee_combo.bind("<<ComboboxSelected>>", self._trigger_auto_save)
+        
+        self.assignee_lbl.grid_remove()
+        self.assignee_combo.grid_remove()
 
         # Weight Entry
         ttk.Label(self.scrollable_frame, text="Weight:").pack(anchor=tk.W)
@@ -370,6 +384,11 @@ class EditorPane:
         """Subscribes to model updates."""
         self.dispatcher.subscribe(ModelActiveItemChangedEvent, self.populate_editor)
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+        self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
+        """Refreshes the workspace reference."""
+        self.workspace = self.context.resolve('workspace')
 
     def handle_theme_change(self, event: AppThemeChangedEvent):
         """Reacts to application-wide theme changes."""
@@ -425,6 +444,14 @@ class EditorPane:
         
         status = self.combo_status.get() or 'Backlog'
         
+        # Determine assignee_id from name
+        assignee_name = self.assignee_combo.get()
+        assignee_id = None
+        if assignee_name and assignee_name != "Unassigned":
+            member = next((m for m in self.workspace.get_members() if m.name == assignee_name), None)
+            if member:
+                assignee_id = member.id
+
         self.command_bus.execute(SaveItemCommand(
             item_id=self.current_selected_id,
             new_title=title,
@@ -432,7 +459,8 @@ class EditorPane:
             new_products=products,
             new_capabilities=capabilities,
             weight=weight,
-            status=status
+            status=status,
+            assignee_id=assignee_id
         ))
 
     def _on_save_clicked(self):
@@ -448,6 +476,14 @@ class EditorPane:
         
         status = self.combo_status.get() or 'Backlog'
         
+        # Determine assignee_id from name
+        assignee_name = self.assignee_combo.get()
+        assignee_id = None
+        if assignee_name and assignee_name != "Unassigned":
+            member = next((m for m in self.workspace.get_members() if m.name == assignee_name), None)
+            if member:
+                assignee_id = member.id
+
         self.dispatcher.dispatch(UICreateItemRequestedEvent(
             parent_id=self.current_selected_id,
             item_type=item_type,
@@ -456,7 +492,8 @@ class EditorPane:
             products=products,
             capabilities=capabilities,
             weight=weight,
-            status=status
+            status=status,
+            assignee_id=assignee_id
         ))
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):

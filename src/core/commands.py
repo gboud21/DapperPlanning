@@ -16,6 +16,7 @@ class SaveItemCommand(Command):
     new_capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
     status: str = 'Backlog'
+    assignee_id: Optional[int] = None
 
 @dataclass
 class SyncWithGitLabCommand(Command):

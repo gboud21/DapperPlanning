@@ -43,6 +43,17 @@ class GitLabMetadata:
     template: str = ""
 
 @dataclass
+class Member:
+    """
+    Represents a project or group member from GitLab.
+    """
+    id: int  # GitLab User ID
+    name: str
+    username: str
+    group_ids: List[int] = field(default_factory=list)
+    project_ids: List[int] = field(default_factory=list)
+
+@dataclass
 class Story:
     """
     Represents a user story or a small, deliverable piece of work.
@@ -57,6 +68,7 @@ class Story:
     capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
     status: str = 'Backlog'
+    assignee_id: Optional[int] = None
     # Sync Metadata
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
@@ -74,6 +86,7 @@ class Story:
             capabilities=self.capabilities.copy(),
             weight=self.weight,
             status='Backlog',
+            assignee_id=self.assignee_id,
             gitlab_id=None,
             gitlab_iid=None,
             last_synced_at=None

@@ -1,8 +1,8 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 import json
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
-from src.domain.entities import Epic, Feature, Story, Product
+from src.domain.entities import Epic, Feature, Story, Product, Member
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):
@@ -16,9 +16,36 @@ class Workspace:
         self.dispatcher = dispatcher
         self._epics: List[Epic] = []
         self._products: List[Product] = []
+        self._members: Dict[int, Member] = {}
         self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
+
+    @property
+    def members(self) -> Dict[int, Member]:
+        return self._members
+
+    @members.setter
+    def members(self, value: Dict[int, Member]):
+        self._members = value
+
+    def add_or_update_member(self, member: Member):
+        """Intelligently merges group and project IDs for a member."""
+        if member.id in self._members:
+            existing = self._members[member.id]
+            # Merge group IDs
+            for gid in member.group_ids:
+                if gid not in existing.group_ids:
+                    existing.group_ids.append(gid)
+            # Merge project IDs
+            for pid in member.project_ids:
+                if pid not in existing.project_ids:
+                    existing.project_ids.append(pid)
+        else:
+            self._members[member.id] = member
+
+    def get_members(self) -> List[Member]:
+        return list(self._members.values())
 
     @property
     def products(self) -> List[Product]:

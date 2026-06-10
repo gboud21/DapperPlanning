@@ -22,7 +22,8 @@ class HierarchyFlattener:
                     'Products': ",".join(getattr(item, 'products', [])),
                     'Capabilities': ",".join(getattr(item, 'capabilities', [])),
                     'Weight': getattr(item, 'weight', 0.0),
-                    'Status': getattr(item, 'status', 'Backlog')
+                    'Status': getattr(item, 'status', 'Backlog'),
+                    'Assignee ID': getattr(item, 'assignee_id', "") if item_type == "Story" else ""
                 })
                 
                 # Recursive traversal
@@ -61,7 +62,12 @@ class HierarchyBuilder:
             elif item_type == "Feature":
                 obj = Feature(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities)
             elif item_type == "Story":
-                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, weight=weight, status=status)
+                assignee_id = row.get('Assignee ID')
+                if assignee_id and assignee_id != "":
+                    assignee_id = int(assignee_id)
+                else:
+                    assignee_id = None
+                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, weight=weight, status=status, assignee_id=assignee_id)
             else:
                 continue
                 
@@ -120,7 +126,7 @@ class HierarchyBuilder:
                 return Story(
                     id=d["id"], title=d["title"], description=d["description"], 
                     team=team, products=products, capabilities=capabilities, 
-                    weight=weight, status=status,
+                    weight=weight, status=status, assignee_id=d.get("assignee_id"),
                     gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
                 )
             return None

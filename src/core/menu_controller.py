@@ -97,11 +97,12 @@ class MenuController:
                 self.context.register('workspace', self.workspace)
             else:
                 adapter = DataAdapterFactory.get_adapter(ext)
-                root_epics, active_product, products = adapter.import_data(file_path)
+                root_epics, active_product, products, members = adapter.import_data(file_path)
                 
                 # Update Workspace
                 self.workspace._epics = root_epics
                 self.workspace.products = products
+                self.workspace.members = {m.id: m for m in members}
                 self.workspace.active_product_name = active_product
                 self.workspace.current_filepath = file_path
                 self.workspace.mark_as_clean()
@@ -191,7 +192,7 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics, active_product, products = adapter.import_data(event.file_path)
+            root_epics, active_product, products, members = adapter.import_data(event.file_path)
             
             # Update Workspace
             self.workspace._epics = root_epics
@@ -199,6 +200,8 @@ class MenuController:
                 self.workspace.active_product_name = active_product
             if products:
                 self.workspace.products = products
+            if members:
+                self.workspace.members = {m.id: m for m in members}
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Import Error", message=str(e)))
@@ -208,7 +211,7 @@ class MenuController:
         try:
             ext = os.path.splitext(event.file_path)[1].lower()
             adapter = DataAdapterFactory.get_adapter(ext)
-            root_epics, active_product, products = adapter.import_data(event.file_path)
+            root_epics, active_product, products, members = adapter.import_data(event.file_path)
             
             # Update Workspace
             self.workspace._epics = root_epics
@@ -216,6 +219,8 @@ class MenuController:
                 self.workspace.active_product_name = active_product
             if products:
                 self.workspace.products = products
+            if members:
+                self.workspace.members = {m.id: m for m in members}
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=root_epics))
         except Exception as e:
             self.dispatcher.dispatch(UIErrorNotificationEvent(title="Import Error", message=str(e)))

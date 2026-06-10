@@ -162,6 +162,14 @@ class GitLabClient:
         """Fetches all issues/tasks for a given project ID."""
         return self._request_all(f"projects/{project_id}/issues?issue_type={issue_type}")
 
+    def fetch_group_members(self, group_id: Union[int, str]) -> list[dict]:
+        """Fetches all members for a given group ID."""
+        return self._request_all(f"groups/{group_id}/members/all")
+
+    def fetch_project_members(self, project_id: Union[int, str]) -> list[dict]:
+        """Fetches all members for a given project ID."""
+        return self._request_all(f"projects/{project_id}/members/all")
+
     def create_group_epic(self, group_id: Union[int, str], epic: Epic, parent_id: Optional[int] = None, labels: str = None) -> dict:
         """Premium Tier: Creates an Epic in the Group."""
         payload = {

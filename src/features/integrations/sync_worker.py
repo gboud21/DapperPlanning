@@ -7,7 +7,7 @@ from src.core.events import (
     ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
     UIConflictResolvedEvent, ModelHierarchyUpdatedEvent, UISaveWorkspaceRequestedEvent
 )
-from src.domain.entities import Epic, Feature, Story, Team
+from src.domain.entities import Epic, Feature, Story, Team, Member
 from src.infrastructure.storage.transformers import GitLabTransformer
 from src.utils.paths import GITLAB_SYNC_OUTPUT_FILE
 from src.infrastructure.telemetry.logger import logger
@@ -55,6 +55,8 @@ class SyncWorker(threading.Thread):
                 self._execute_pull()
             elif self.sync_type == 'push':
                 self._execute_push()
+            elif self.sync_type == 'members':
+                self._execute_member_sync()
             self._safe_dispatch(ModelSyncProgressEvent(message="Done.", percent=100))
             logger.info(f"SyncWorker finished successfully: {self.sync_type}")
         except GitLabBaseError as e:
@@ -340,3 +342,53 @@ class SyncWorker(threading.Thread):
         if local.title != remote.get('title'): return True
         if local.description != remote.get('description'): return True
         return False
+
+    def _execute_member_sync(self):
+        logger.info("Executing Member Sync...")
+        self._safe_dispatch(ModelSyncProgressEvent(message="Fetching group members...", percent=10))
+        
+        # Determine current product IDs
+        active_product_name = self.workspace.active_product_name
+        product_entity = next((p for p in self.workspace.products if p.name == active_product_name), None)
+        
+        if not product_entity or not product_entity.gitlab_project_id or not product_entity.gitlab_group_id:
+            from src.infrastructure.api.gitlab_client import GitLabBaseError
+            logger.error(f"Member Sync failed: Incomplete Product Configuration for '{active_product_name}'")
+            raise GitLabBaseError(
+                "Incomplete Product Configuration",
+                f"Product '{active_product_name}' requires both a GitLab Project ID and Group ID for member sync."
+            )
+
+        group_id = product_entity.gitlab_group_id
+        project_id = product_entity.gitlab_project_id
+
+        # Fetch group members
+        raw_group_members = self.gitlab_client.fetch_group_members(group_id)
+        self._safe_dispatch(ModelSyncProgressEvent(message=f"Processing {len(raw_group_members)} group members...", percent=40))
+        
+        for m in raw_group_members:
+            member = Member(
+                id=m['id'],
+                name=m['name'],
+                username=m['username'],
+                group_ids=[int(group_id)]
+            )
+            self.workspace.add_or_update_member(member)
+
+        # Fetch project members
+        self._safe_dispatch(ModelSyncProgressEvent(message="Fetching project members...", percent=60))
+        raw_project_members = self.gitlab_client.fetch_project_members(project_id)
+        self._safe_dispatch(ModelSyncProgressEvent(message=f"Processing {len(raw_project_members)} project members...", percent=80))
+
+        for m in raw_project_members:
+            member = Member(
+                id=m['id'],
+                name=m['name'],
+                username=m['username'],
+                project_ids=[int(project_id)]
+            )
+            self.workspace.add_or_update_member(member)
+
+        # Persist the newly pulled data
+        self._safe_dispatch(UISaveWorkspaceRequestedEvent())
+        self._safe_dispatch(ModelSyncProgressEvent(message="Member Sync Complete!", percent=100))

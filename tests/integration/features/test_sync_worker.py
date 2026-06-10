@@ -99,3 +99,47 @@ def test_sync_worker_pull_handles_orphans_with_triage(mocker):
     triage_feat = next((f for f in triage_epic.features if f.title == "[Triage] Unparented Stories"), None)
     assert triage_feat is not None
     assert any(s.title == "Orphaned Story" for s in triage_feat.stories)
+
+def test_sync_worker_member_sync(mocker):
+    """Verifies that the SyncWorker correctly fetches and merges GitLab members."""
+    context = AppContext()
+    dispatcher = MagicMock()
+    workspace = Workspace(dispatcher)
+    
+    product = Product(name="DapperPlanning")
+    product.gitlab_project_id = 888
+    product.gitlab_group_id = 999
+    workspace.products = [product]
+    workspace.active_product_name = "DapperPlanning"
+    
+    mock_client = MagicMock(spec=GitLabClient)
+    
+    # Mock raw member data
+    mock_client.fetch_group_members.return_value = [
+        {"id": 1, "name": "Group User", "username": "guser"}
+    ]
+    mock_client.fetch_project_members.return_value = [
+        {"id": 2, "name": "Project User", "username": "puser"},
+        {"id": 1, "name": "Group User", "username": "guser"} # Overlap
+    ]
+
+    context.register('event_dispatcher', dispatcher)
+    context.register('workspace', workspace)
+    context.register('gitlab_client', mock_client)
+
+    worker = SyncWorker(context, sync_type="members")
+    worker._execute_member_sync()
+
+    # Verify members in workspace
+    members = workspace.get_members()
+    assert len(members) == 2
+    
+    m1 = workspace.members[1]
+    assert m1.name == "Group User"
+    assert 999 in m1.group_ids
+    assert 888 in m1.project_ids # Should have both if fetched from both
+    
+    m2 = workspace.members[2]
+    assert m2.name == "Project User"
+    assert 888 in m2.project_ids
+    assert 999 not in m2.group_ids
