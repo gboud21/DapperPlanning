@@ -104,8 +104,11 @@ class Workspace:
                 l_item.last_synced_at = now_iso
                 
                 # Update specific fields
-                if isinstance(l_item, Story) and hasattr(r_item, 'weight'):
-                    l_item.weight = r_item.weight
+                if isinstance(l_item, Story):
+                    if hasattr(r_item, 'weight'):
+                        l_item.weight = r_item.weight
+                    if hasattr(r_item, 'assignee_id'):
+                        l_item.assignee_id = r_item.assignee_id
                 
                 # Ensure the product tag is present
                 if hasattr(l_item, 'products'):

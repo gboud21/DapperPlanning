@@ -195,6 +195,10 @@ class GitLabTransformer:
 
         # Step C: Process Stories (Issues)
         for r_issue in raw_issues:
+            # Extract first assignee ID if present
+            assignees = r_issue.get('assignees', [])
+            first_assignee_id = assignees[0].get('id') if assignees else None
+            
             story = Story(
                 id=f"gl-s-{r_issue['id']}",
                 title=r_issue.get('title', ''),
@@ -202,7 +206,8 @@ class GitLabTransformer:
                 team=Team(name=""), # Placeholder
                 weight=float(r_issue.get('weight') or 0.0),
                 gitlab_id=r_issue['id'],
-                gitlab_iid=r_issue.get('iid')
+                gitlab_iid=r_issue.get('iid'),
+                assignee_id=first_assignee_id
             )
             
             # Link to Feature via epic_iid (in GitLab Issues response)

@@ -206,6 +206,10 @@ class GitLabClient:
             "labels": task_labels,
             "issue_type": "task"
         }
+        
+        if getattr(epic, 'assignee_id', None):
+            payload['assignee_ids'] = [epic.assignee_id]
+            
         return self._request(f"projects/{project_id}/issues", payload, method='POST')
 
     def update_project_task(self, project_id: Union[int, str], gitlab_iid: int, epic: Epic, parent_id: Optional[str] = None, labels: str = None) -> dict:
@@ -220,6 +224,10 @@ class GitLabClient:
             # but for now we follow the instruction to include it in the payload logic.
             # Usually parent_id for Tasks/Issues is handled via metadata or links in Free Tier.
             pass
+            
+        if getattr(epic, 'assignee_id', None):
+            payload['assignee_ids'] = [epic.assignee_id]
+            
         return self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')
 
     def create_story(self, project_id: Union[int, str], story: Story, epic_iid: Optional[int] = None, labels: str = None) -> dict:
@@ -234,6 +242,9 @@ class GitLabClient:
         }
         if epic_iid:
             payload["epic_iid"] = epic_iid
+            
+        if getattr(story, 'assignee_id', None):
+            payload['assignee_ids'] = [story.assignee_id]
             
         return self._request(f"projects/{project_id}/issues", payload, method='POST')
 
@@ -251,5 +262,8 @@ class GitLabClient:
         }
         if epic_iid:
             payload["epic_iid"] = epic_iid
+            
+        if getattr(story, 'assignee_id', None):
+            payload['assignee_ids'] = [story.assignee_id]
             
         return self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')

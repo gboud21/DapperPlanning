@@ -341,6 +341,12 @@ class SyncWorker(threading.Thread):
     def _has_diff(self, local, remote):
         if local.title != remote.get('title'): return True
         if local.description != remote.get('description'): return True
+        
+        # Check assignee
+        remote_assignees = remote.get('assignees', [])
+        remote_assignee_id = remote_assignees[0].get('id') if remote_assignees else None
+        if getattr(local, 'assignee_id', None) != remote_assignee_id: return True
+        
         return False
 
     def _execute_member_sync(self):
