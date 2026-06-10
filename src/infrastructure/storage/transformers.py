@@ -128,22 +128,18 @@ class HierarchyBuilder:
         return [dict_to_obj(e_dict, "Epic") for e_dict in data]
 
 class GitLabTransformer:
-    def transform_pull_data(self, raw_epics: List[Dict[str, Any]], raw_issues: List[Dict[str, Any]]) -> List[Epic]:
+    def transform_pull_data(self, raw_epics: List[Dict[str, Any]], raw_issues: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Transforms flat GitLab API data into nested Domain entities.
-        
-        Mapping Rules:
-        - raw_epics with 'Epic' label OR no parent_id -> Epic
-        - raw_epics with 'Feature' label OR having a parent_id -> Feature (children of Epics)
-        - raw_issues -> Story (children of Features)
+        Returns a dict with 'root_epics', 'orphaned_features', and 'orphaned_stories'.
         """
         epics_by_gitlab_id = {}
         features_by_iid = {}
         root_epics = []
+        orphaned_features = []
+        orphaned_stories = []
 
         # Step A: Process Epics (Root level)
-        # We consider something a root Epic if it has no parent_id OR if it's explicitly labeled 'Epic'
-        # but doesn't have a parent that we've already identified as an Epic.
         for r_epic in raw_epics:
             labels = r_epic.get('labels', [])
             parent_id = r_epic.get('parent_id')
@@ -188,13 +184,8 @@ class GitLabTransformer:
                 if parent_id in epics_by_gitlab_id:
                     epics_by_gitlab_id[parent_id].features.append(feature)
                 else:
-                    # If parent is not a root Epic (e.g. deep nesting), 
-                    # we might want to attach it to the first available root epic 
-                    # or just keep it as an orphan. For now, let's try to find its grandparent
-                    # but the app model is strictly 2-level epics.
-                    # As a fallback, if it's a Feature but its parent isn't a root, 
-                    # it might become a root itself if it has no better place.
-                    pass
+                    # If parent is not a root Epic or missing, it's an orphan
+                    orphaned_features.append(feature)
 
         # Step C: Process Stories (Issues)
         for r_issue in raw_issues:
@@ -213,13 +204,9 @@ class GitLabTransformer:
             if epic_iid in features_by_iid:
                 features_by_iid[epic_iid].stories.append(story)
             elif epic_iid:
-                # What if it's linked directly to a root Epic?
-                # Find the epic by iid
+                # Linked directly to a root Epic
                 parent_epic = next((e for e in root_epics if e.gitlab_iid == epic_iid), None)
                 if parent_epic:
-                    # In our model, Stories must be under Features.
-                    # We can create a "Default Feature" or just ignore.
-                    # Let's create a "General Stories" feature if needed.
                     if not any(f.title == "General Stories" for f in parent_epic.features):
                         gen_feat = Feature(
                             id=f"gen-{parent_epic.id}",
@@ -232,5 +219,15 @@ class GitLabTransformer:
                     
                     gen_feat = features_by_iid[epic_iid]
                     gen_feat.stories.append(story)
+                else:
+                    # Linked to an unknown Epic IID
+                    orphaned_stories.append(story)
+            else:
+                # No parent link at all
+                orphaned_stories.append(story)
 
-        return root_epics
+        return {
+            'root_epics': root_epics,
+            'orphaned_features': orphaned_features,
+            'orphaned_stories': orphaned_stories
+        }

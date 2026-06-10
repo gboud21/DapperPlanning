@@ -7,7 +7,7 @@ from src.core.events import (
     ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
     UIConflictResolvedEvent, ModelHierarchyUpdatedEvent, UISaveWorkspaceRequestedEvent
 )
-from src.domain.entities import Epic, Feature, Story
+from src.domain.entities import Epic, Feature, Story, Team
 from src.infrastructure.storage.transformers import GitLabTransformer
 from src.utils.paths import GITLAB_SYNC_OUTPUT_FILE
 from src.infrastructure.telemetry.logger import logger
@@ -120,7 +120,63 @@ class SyncWorker(threading.Thread):
         # Transform to Domain Objects
         logger.debug("Transforming GitLab data to domain objects...")
         transformer = GitLabTransformer()
-        remote_epics_domain = transformer.transform_pull_data(remote_epics, remote_issues)
+        transformation_result = transformer.transform_pull_data(remote_epics, remote_issues)
+        
+        remote_epics_domain = transformation_result['root_epics']
+        orphaned_features = transformation_result['orphaned_features']
+        orphaned_stories = transformation_result['orphaned_stories']
+
+        # Triage Logic: Safely catch unparented items
+        if orphaned_features or orphaned_stories:
+            # 1. Search for existing Triage Epic in the newly pulled remote items or local workspace
+            triage_title = "[Triage] Unassigned Items"
+            triage_epic = next((e for e in remote_epics_domain if e.title == triage_title), None)
+            
+            if not triage_epic:
+                triage_epic = next((e for e in self.workspace.get_epics() if e.title == triage_title), None)
+                if triage_epic:
+                    # If found locally, ensure it's in the list to be merged
+                    remote_epics_domain.append(triage_epic)
+            
+            # 2. Instantiate if still missing
+            if not triage_epic:
+                import uuid
+                triage_epic = Epic(
+                    id=str(uuid.uuid4()), 
+                    title=triage_title,
+                    description="Automatically created to house items without valid parent links in GitLab."
+                )
+                remote_epics_domain.append(triage_epic)
+            
+            # 3. Process Orphaned Features
+            for feat in orphaned_features:
+                if not any(f.gitlab_id == feat.gitlab_id for f in triage_epic.features):
+                    # Set dynamic parent reference for internal tracking
+                    feat.parent_epic_id = triage_epic.id
+                    triage_epic.features.append(feat)
+            
+            # 4. Process Orphaned Stories
+            if orphaned_stories:
+                triage_feat_title = "[Triage] Unparented Stories"
+                triage_feat = next((f for f in triage_epic.features if f.title == triage_feat_title), None)
+                
+                if not triage_feat:
+                    import uuid
+                    triage_feat = Feature(
+                        id=str(uuid.uuid4()), 
+                        title=triage_feat_title,
+                        description="Stories linked to unknown or missing parent Features in GitLab.",
+                        team=Team(name="Unassigned")
+                    )
+                    triage_feat.parent_epic_id = triage_epic.id
+                    triage_epic.features.append(triage_feat)
+                
+                for story in orphaned_stories:
+                    if not any(s.gitlab_id == story.gitlab_id for s in triage_feat.stories):
+                        story.parent_feature_id = triage_feat.id
+                        triage_feat.stories.append(story)
+            
+            logger.warning(f"Successfully triaged {len(orphaned_features)} features and {len(orphaned_stories)} stories into '{triage_title}'.")
 
         # Merge into local Workspace
         logger.info(f"Merging {len(remote_epics_domain)} epics into local workspace...")
@@ -160,7 +216,7 @@ class SyncWorker(threading.Thread):
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
                 # create_epic now automatically detects tier based on gid
-                resp = self.gitlab_client.create_group_epic(gid, epic) if gid else self.gitlab_client.create_project_task(pid, epic)
+                resp = self.gitlab_client.create_group_epic(gid, epic, labels='Epic') if gid else self.gitlab_client.create_project_task(pid, epic, labels='Epic')
                 epic.gitlab_id = resp.get('id')
                 epic.gitlab_iid = resp.get('iid')
                 epic.last_synced_at = datetime.now().isoformat()
@@ -168,13 +224,13 @@ class SyncWorker(threading.Thread):
                 logger.info(f"Updating existing Epic IID {epic.gitlab_iid} ({epic.title})...")
                 if gid:
                     try:
-                        self.gitlab_client.update_group_epic(gid, epic.gitlab_iid, epic)
+                        self.gitlab_client.update_group_epic(gid, epic.gitlab_iid, epic, labels='Epic')
                     except Exception as e:
                         # Fallback to project task if group epic update fails (might be a legacy task)
                         logger.warning(f"Group Epic update failed for IID {epic.gitlab_iid}, trying Project Task: {e}")
-                        self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic)
+                        self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic, labels='Epic')
                 else:
-                    self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic)
+                    self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic, labels='Epic')
                 epic.last_synced_at = datetime.now().isoformat()
             
             processed += 1
@@ -183,8 +239,8 @@ class SyncWorker(threading.Thread):
             for feature in epic.features:
                 if not feature.gitlab_id:
                     logger.info(f"Pushing new Feature: {feature.title}")
-                    resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id) if gid else \
-                           self.gitlab_client.create_project_task(pid, feature, is_feature=True, parent_id=str(epic.gitlab_id))
+                    resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id, labels='Feature') if gid else \
+                           self.gitlab_client.create_project_task(pid, feature, is_feature=True, parent_id=str(epic.gitlab_id), labels='Feature')
                     feature.gitlab_id = resp.get('id')
                     feature.gitlab_iid = resp.get('iid')
                     feature.last_synced_at = datetime.now().isoformat()
@@ -192,12 +248,12 @@ class SyncWorker(threading.Thread):
                     logger.info(f"Updating existing Feature IID {feature.gitlab_iid} ({feature.title})...")
                     if gid:
                         try:
-                            self.gitlab_client.update_group_epic(gid, feature.gitlab_iid, feature)
+                            self.gitlab_client.update_group_epic(gid, feature.gitlab_iid, feature, parent_id=epic.gitlab_id, labels='Feature')
                         except Exception as e:
                             logger.warning(f"Group Epic update failed for Feature IID {feature.gitlab_iid}, trying Project Task: {e}")
-                            self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature)
+                            self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature, parent_id=str(epic.gitlab_id), labels='Feature')
                     else:
-                        self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature)
+                        self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature, parent_id=str(epic.gitlab_id), labels='Feature')
                     feature.last_synced_at = datetime.now().isoformat()
                 
                 processed += 1
@@ -206,17 +262,20 @@ class SyncWorker(threading.Thread):
                 for story in feature.stories:
                     if not story.gitlab_id:
                         logger.info(f"Pushing new Story: {story.title}")
-                        resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid)
+                        resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid, labels='Story')
                         story.gitlab_id = resp.get('id')
                         story.gitlab_iid = resp.get('iid')
                         story.last_synced_at = datetime.now().isoformat()
                     elif self._has_local_changes(story):
                         logger.info(f"Updating existing Story IID {story.gitlab_iid} ({story.title})...")
-                        self.gitlab_client.update_story(pid, story.gitlab_iid, story)
+                        self.gitlab_client.update_story(pid, story.gitlab_iid, story, epic_iid=feature.gitlab_iid, labels='Story')
                         story.last_synced_at = datetime.now().isoformat()
                     
                     processed += 1
                     self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Story: {story.title}", percent=10 + (processed/total_items * 90)))
+
+        # After push cascade completes, ensure newly assigned IDs are saved locally
+        self._safe_dispatch(UISaveWorkspaceRequestedEvent())
 
     def _count_items(self, epics):
         count = len(epics)

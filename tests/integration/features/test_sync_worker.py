@@ -51,3 +51,51 @@ def test_sync_worker_pull_merges_data(mocker):
     assert len(epics) == 1
     assert epics[0].title == "Pulled Epic"
     assert epics[0].gitlab_id == 101
+
+def test_sync_worker_pull_handles_orphans_with_triage(mocker):
+    """Verifies that orphaned items are moved to a [Triage] bucket."""
+    context = AppContext()
+    dispatcher = MagicMock()
+    workspace = Workspace(dispatcher) # Use real workspace to test find-by-title logic
+    
+    product = Product(name="DapperPlanning")
+    product.gitlab_project_id = "888"
+    product.gitlab_group_id = "999"
+    workspace.products = [product]
+    workspace.active_product_name = "DapperPlanning"
+    
+    mock_client = MagicMock(spec=GitLabClient)
+    mock_client.base_url = "https://fake.gitlab.com"
+    mock_client.group_id = "999"
+    mock_client.project_id = "888"
+    mock_client.headers = {"PRIVATE-TOKEN": "fake_token"}
+
+    # Mock raw data with orphans
+    # 1. A Feature with an unknown parent_id
+    # 2. A Story with no epic_iid
+    mock_client.fetch_group_epics.return_value = [
+        {"id": 202, "iid": 2, "title": "Orphaned Feature", "description": "", "labels": ["Feature"], "parent_id": 9999}
+    ]
+    mock_client.fetch_project_issues.return_value = [
+        {"id": 303, "iid": 3, "title": "Orphaned Story", "description": "", "weight": 5, "epic_iid": None}
+    ]
+
+    context.register('event_dispatcher', dispatcher)
+    context.register('workspace', workspace)
+    context.register('gitlab_client', mock_client)
+
+    worker = SyncWorker(context, sync_type="pull")
+    worker._execute_pull(dry_run=False)
+
+    # Verify Triage Epic exists in workspace
+    epics = workspace.get_epics()
+    triage_epic = next((e for e in epics if e.title == "[Triage] Unassigned Items"), None)
+    assert triage_epic is not None
+    
+    # Verify Orphaned Feature is inside
+    assert any(f.title == "Orphaned Feature" for f in triage_epic.features)
+    
+    # Verify Orphaned Story is inside Triage Feature
+    triage_feat = next((f for f in triage_epic.features if f.title == "[Triage] Unparented Stories"), None)
+    assert triage_feat is not None
+    assert any(s.title == "Orphaned Story" for s in triage_feat.stories)
