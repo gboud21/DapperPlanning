@@ -27,6 +27,8 @@ class TreeController:
         self.workspace: Workspace = context.resolve('workspace')
         self.current_selected_id = None
         
+        self.context.register('tree_controller', self)
+        
         self.epic_count = 0
         self.feature_count = 0
         self.story_count = 0
@@ -129,6 +131,7 @@ class TreeController:
         menu_bar = self.context.resolve('app_menu')
         if menu_bar:
             menu_bar.set_clone_state(True)
+            menu_bar.set_split_state(event.item_type == "Story")
 
         # Track Active Product Selection
         if ":" in event.full_iid:

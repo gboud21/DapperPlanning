@@ -169,6 +169,11 @@ class UIItemReparentRequestedEvent(Event):
     item_type: str
 
 @dataclass
+class UIStorySplitRequestedEvent(Event):
+    """Emitted when the user requests to split a story."""
+    story_id: str
+
+@dataclass
 class UIThemeToggleRequestedEvent(Event):
     is_dark: bool
 
@@ -273,6 +278,7 @@ class Actions:
     TAG_ADD = UIGlobalTagAddRequestedEvent
     TAG_DELETE = UIGlobalTagDeleteRequestedEvent
     ITEM_REPARENT = UIItemReparentRequestedEvent
+    ITEM_SPLIT = UIStorySplitRequestedEvent
 
 class Notifications:
     """Namespace for all State Update and Sync Notifications."""

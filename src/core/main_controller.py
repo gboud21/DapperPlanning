@@ -7,9 +7,11 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
-    UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent, UIItemReparentRequestedEvent
+    UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent, UIItemReparentRequestedEvent,
+    UIStorySplitRequestedEvent
 )
 from src.domain.workspace import Workspace
+from src.domain.entities import Story
 from src.domain.repositories import WorkspaceRepository
 from src.features.agile_planning.tree_controller import TreeController
 from src.features.agile_planning.editor_controller import EditorController
@@ -90,6 +92,31 @@ class MainController:
         self.dispatcher.subscribe(UISaveWorkspaceRequestedEvent, self.handle_save_requested_log)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
         self.dispatcher.subscribe(UIItemReparentRequestedEvent, self.handle_reparent_requested)
+        self.dispatcher.subscribe(UIStorySplitRequestedEvent, self.handle_split_requested)
+
+    def handle_split_requested(self, event: UIStorySplitRequestedEvent):
+        """Handles the request to split a story."""
+        story = self.workspace._find_item_by_id(event.story_id)
+        if not story or not isinstance(story, Story):
+            return
+
+        if story.weight <= 1.0:
+            messagebox.showerror("Split Error", "Story weight is too low to split.")
+            return
+
+        from src.features.agile_planning.split_story_dialog import SplitStoryDialog
+        dialog = SplitStoryDialog(self.root, story.title, story.weight)
+        self.root.wait_window(dialog)
+        
+        if dialog.result:
+            self.workspace.split_story(
+                story_id=event.story_id,
+                orig_new_weight=dialog.result["orig_weight"],
+                clone_new_weight=dialog.result["clone_weight"],
+                split_desc=dialog.result["reason"]
+            )
+            # Trigger save
+            self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
 
     def handle_reparent_requested(self, event: UIItemReparentRequestedEvent):
         """Orchestrates the workspace mutation and persistence for reparenting."""

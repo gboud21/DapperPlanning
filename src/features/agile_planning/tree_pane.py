@@ -4,7 +4,7 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, 
     UIAddStoryRequestedEvent, UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent,
-    AppThemeChangedEvent
+    AppThemeChangedEvent, UIStorySplitRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import CloneItemCommand
@@ -52,6 +52,7 @@ class TreePane:
         self.tree_context_menu.add_command(label="Add Feature", command=self._on_add_feature_clicked)
         self.tree_context_menu.add_command(label="Add Story", command=self._on_add_story_clicked)
         self.tree_context_menu.add_separator()
+        self.tree_context_menu.add_command(label="Split Story", command=self._on_split_clicked)
         self.tree_context_menu.add_command(label="Clone", command=self._on_clone_clicked)
         self.tree_context_menu.add_separator()
         self.tree_context_menu.add_command(label="Delete", command=self._on_delete_clicked)
@@ -65,6 +66,15 @@ class TreePane:
                 parts = selected_id.split(":", 1)
                 raw_id = parts[1]
             self.command_bus.execute(CloneItemCommand(item_id=raw_id))
+
+    def _on_split_clicked(self):
+        selected_id = self.tree.focus()
+        if selected_id:
+            raw_id = selected_id
+            if ":" in selected_id:
+                parts = selected_id.split(":", 1)
+                raw_id = parts[1]
+            self.dispatcher.dispatch(UIStorySplitRequestedEvent(story_id=raw_id))
 
     def _bind_events(self):
         """Binds UI events and model subscriptions."""
@@ -108,6 +118,7 @@ class TreePane:
             self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED) # Cannot add Epic under another item in tree
             self.tree_context_menu.entryconfig("Add Feature", state=tk.NORMAL if item_type == "Epic" else tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Story", state=tk.NORMAL if item_type == "Feature" else tk.DISABLED)
+            self.tree_context_menu.entryconfig("Split Story", state=tk.NORMAL if item_type == "Story" else tk.DISABLED)
             self.tree_context_menu.entryconfig("Clone", state=tk.NORMAL if item_type in ["Epic", "Feature", "Story"] else tk.DISABLED)
             self.tree_context_menu.entryconfig("Delete", state=tk.NORMAL)
         else:
@@ -115,6 +126,7 @@ class TreePane:
             self.tree_context_menu.entryconfig("Add Epic", state=tk.NORMAL)
             self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
+            self.tree_context_menu.entryconfig("Split Story", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Clone", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Delete", state=tk.DISABLED)
             

@@ -7,7 +7,7 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
-    UINewWorkspaceRequestedEvent, UISyncMembersRequestedEvent
+    UINewWorkspaceRequestedEvent, UISyncMembersRequestedEvent, UIStorySplitRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SyncWithGitLabCommand, CloneItemCommand
@@ -58,6 +58,9 @@ class ApplicationMenuBar(tk.Menu):
         self.edit_menu.add_command(label="Clone", 
                                   command=lambda: self.command_bus.execute(CloneItemCommand(item_id=None)),
                                   state="disabled")
+        self.edit_menu.add_command(label="Split", 
+                                  command=self._on_split_clicked,
+                                  state="disabled")
         self.edit_menu.add_separator()
         self.edit_menu.add_command(label="Copy", command=lambda: None)
         self.edit_menu.add_command(label="Cut", command=lambda: None)
@@ -99,6 +102,18 @@ class ApplicationMenuBar(tk.Menu):
         """Toggles the 'Clone' menu item state."""
         state = "normal" if enabled else "disabled"
         self.edit_menu.entryconfig("Clone", state=state)
+
+    def set_split_state(self, enabled: bool):
+        """Toggles the 'Split' menu item state."""
+        state = "normal" if enabled else "disabled"
+        self.edit_menu.entryconfig("Split", state=state)
+
+    def _on_split_clicked(self):
+        """Dispatches the split request for the currently selected item."""
+        # Note: tree_controller tracks the current_selected_id
+        tree_controller = self.context.resolve('tree_controller')
+        if tree_controller and tree_controller.current_selected_id:
+            self.dispatcher.dispatch(UIStorySplitRequestedEvent(story_id=tree_controller.current_selected_id))
 
     def _bind_events(self):
         """Binds UI events and global keyboard shortcuts."""

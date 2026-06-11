@@ -1,5 +1,9 @@
 from typing import List, Optional, Any, Dict
 import json
+import re
+import copy
+import uuid
+from datetime import datetime
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
 from src.domain.entities import Epic, Feature, Story, Product, Member
@@ -304,6 +308,56 @@ class Workspace:
         new_feature.stories.append(story)
         story.last_synced_at = None
         
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self._epics,
+            products=self._products
+        ))
+
+    def split_story(self, story_id: str, orig_new_weight: float, clone_new_weight: float, split_desc: str) -> None:
+        """
+        Splits a story into two, redistributes weights, and updates titles.
+        """
+        story = self._find_item_by_id(story_id)
+        if not story or not isinstance(story, Story):
+            return
+
+        parent_feature = self._find_parent(story_id)
+        if not parent_feature or not isinstance(parent_feature, Feature):
+            return
+
+        # 1. Clone the story
+        clone = copy.deepcopy(story)
+        clone.id = str(uuid.uuid4())
+        clone.weight = clone_new_weight
+        clone.gitlab_id = None
+        clone.gitlab_iid = None
+        clone.last_synced_at = None
+        
+        # Update original story
+        story.weight = orig_new_weight
+        story.last_synced_at = None
+        
+        # Update descriptions
+        today_str = datetime.now().strftime("%m/%d/%Y")
+        split_note = f"\n\n[{today_str}] Split Reason: {split_desc}"
+        story.description += split_note
+        clone.description += split_note
+        
+        # 2. Insert clone after original
+        idx = parent_feature.stories.index(story)
+        parent_feature.stories.insert(idx + 1, clone)
+        
+        # 3. Handle naming conventions
+        # Regex to strip " (Part \d+ of \d+)"
+        base_title = re.sub(r" \(Part \d+ of \d+\)$", "", story.title)
+        
+        # Find all stories in this feature that match the base title
+        matching_stories = [s for s in parent_feature.stories if re.sub(r" \(Part \d+ of \d+\)$", "", s.title) == base_title]
+        total = len(matching_stories)
+        
+        for i, s in enumerate(matching_stories):
+            s.title = f"{base_title} (Part {i+1} of {total})"
+            
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self._epics,
             products=self._products
