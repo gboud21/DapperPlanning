@@ -1,9 +1,12 @@
 import uuid
+import tkinter as tk
+from tkinter import messagebox
 from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
-    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent
+    UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent,
+    UIItemReparentRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import CloneItemCommand
@@ -27,9 +30,71 @@ class TreeController:
         self.epic_count = 0
         self.feature_count = 0
         self.story_count = 0
+
+        # Drag and Drop state
+        self._dragged_item_iid = None
         
         self._subscribe_events()
         self._register_commands()
+        self._bind_tree_events()
+
+    def _bind_tree_events(self):
+        """Binds mouse events for drag and drop to the treeview."""
+        # Note: tree_pane registration in MainWindow ensures it's available
+        tree_pane = self.context.resolve('tree_pane')
+        self.tree = tree_pane.tree
+        self.tree.bind("<ButtonPress-1>", self._on_drag_start, add="+")
+        self.tree.bind("<ButtonRelease-1>", self._on_drag_release, add="+")
+
+    def _on_drag_start(self, event):
+        """Records the IID of the item being dragged."""
+        item_id = self.tree.identify_row(event.y)
+        if item_id:
+            self._dragged_item_iid = item_id
+        else:
+            self._dragged_item_iid = None
+
+    def _on_drag_release(self, event):
+        """Executes the drop logic and validates reparenting rules."""
+        if not self._dragged_item_iid:
+            return
+
+        target_iid = self.tree.identify_row(event.y)
+        if not target_iid or target_iid == self._dragged_item_iid:
+            self._dragged_item_iid = None
+            return
+
+        # Extract metadata
+        dragged_iid = self._dragged_item_iid
+        dragged_tags = self.tree.item(dragged_iid, "tags")
+        dragged_type = dragged_tags[0] if dragged_tags else None
+        
+        target_tags = self.tree.item(target_iid, "tags")
+        target_type = target_tags[0] if target_tags else None
+
+        # Rule Enforcement: Stories -> Features, Features -> Epics
+        is_valid = False
+        if dragged_type == "Story" and target_type == "Feature":
+            is_valid = True
+        elif dragged_type == "Feature" and target_type == "Epic":
+            is_valid = True
+
+        if is_valid:
+            dragged_text = self.tree.item(dragged_iid, "text")
+            target_text = self.tree.item(target_iid, "text")
+            
+            if messagebox.askyesno("Confirm Move", f"Are you sure you want to move '{dragged_text}' to '{target_text}'?"):
+                # Extract raw IDs (removing product prefixes)
+                dragged_id = dragged_iid.split(":", 1)[1] if ":" in dragged_iid else dragged_iid
+                target_id = target_iid.split(":", 1)[1] if ":" in target_iid else target_iid
+                
+                self.dispatcher.dispatch(UIItemReparentRequestedEvent(
+                    item_id=dragged_id,
+                    new_parent_id=target_id,
+                    item_type=dragged_type
+                ))
+        
+        self._dragged_item_iid = None
 
     def _subscribe_events(self):
         """Subscribes to tree-related notification events."""

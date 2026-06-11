@@ -7,7 +7,7 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, ModelHierarchyUpdatedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
-    UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent
+    UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent, UIItemReparentRequestedEvent
 )
 from src.domain.workspace import Workspace
 from src.domain.repositories import WorkspaceRepository
@@ -89,6 +89,22 @@ class MainController:
         self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self.handle_model_updated)
         self.dispatcher.subscribe(UISaveWorkspaceRequestedEvent, self.handle_save_requested_log)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+        self.dispatcher.subscribe(UIItemReparentRequestedEvent, self.handle_reparent_requested)
+
+    def handle_reparent_requested(self, event: UIItemReparentRequestedEvent):
+        """Orchestrates the workspace mutation and persistence for reparenting."""
+        if event.item_type == "Feature":
+            self.workspace.move_feature(event.item_id, event.new_parent_id)
+        elif event.item_type == "Story":
+            self.workspace.move_story(event.item_id, event.new_parent_id)
+            
+        # Re-dispatch hierarchy update to ensure UI reflects new order/parenting
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self.workspace.get_epics(),
+            products=self.workspace.products
+        ))
+        # Trigger save to persist the move
+        self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
 
     def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
         """Refreshes the workspace reference when a new one is loaded."""

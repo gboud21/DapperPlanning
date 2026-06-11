@@ -162,6 +162,13 @@ class UICreateItemRequestedEvent(Event):
     assignee_id: Optional[int] = None
 
 @dataclass
+class UIItemReparentRequestedEvent(Event):
+    """Emitted when the user drags and drops an item to a new parent."""
+    item_id: str
+    new_parent_id: str
+    item_type: str
+
+@dataclass
 class UIThemeToggleRequestedEvent(Event):
     is_dark: bool
 
@@ -265,6 +272,7 @@ class Actions:
     WINDOW_STATE = UIWindowStateChangedEvent
     TAG_ADD = UIGlobalTagAddRequestedEvent
     TAG_DELETE = UIGlobalTagDeleteRequestedEvent
+    ITEM_REPARENT = UIItemReparentRequestedEvent
 
 class Notifications:
     """Namespace for all State Update and Sync Notifications."""

@@ -253,6 +253,73 @@ class Workspace:
                         ))
                         return
 
+    def move_feature(self, feature_id: str, new_epic_id: str) -> None:
+        """
+        Moves a feature to a new parent epic and marks it as dirty.
+        """
+        feature = self._find_item_by_id(feature_id)
+        if not feature or not isinstance(feature, Feature):
+            return
+
+        old_epic = self._find_parent(feature_id)
+        if not old_epic or not isinstance(old_epic, Epic):
+            return
+
+        new_epic = self._find_item_by_id(new_epic_id)
+        if not new_epic or not isinstance(new_epic, Epic):
+            return
+
+        if old_epic.id == new_epic_id:
+            return
+
+        old_epic.features.remove(feature)
+        new_epic.features.append(feature)
+        feature.last_synced_at = None
+        
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self._epics,
+            products=self._products
+        ))
+
+    def move_story(self, story_id: str, new_feature_id: str) -> None:
+        """
+        Moves a story to a new parent feature and marks it as dirty.
+        """
+        story = self._find_item_by_id(story_id)
+        if not story or not isinstance(story, Story):
+            return
+
+        old_feature = self._find_parent(story_id)
+        if not old_feature or not isinstance(old_feature, Feature):
+            return
+
+        new_feature = self._find_item_by_id(new_feature_id)
+        if not new_feature or not isinstance(new_feature, Feature):
+            return
+
+        if old_feature.id == new_feature_id:
+            return
+
+        old_feature.stories.remove(story)
+        new_feature.stories.append(story)
+        story.last_synced_at = None
+        
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self._epics,
+            products=self._products
+        ))
+
+    def _find_parent(self, item_id: str) -> Optional[Any]:
+        """Helper to find the parent of an item."""
+        for epic in self._epics:
+            for feature in epic.features:
+                if feature.id == item_id:
+                    return epic
+                for story in feature.stories:
+                    if story.id == item_id:
+                        return feature
+        return None
+
     def _find_item_by_id(self, item_id: str) -> Optional[Any]:
         """
         Recursively searches for an item by its ID across all epics,

@@ -59,6 +59,7 @@ class MainWindow:
         self.left_frame = ttk.Frame(self.paned_window)
         self.paned_window.add(self.left_frame, weight=1)
         self.tree_pane = TreePane(self.left_frame, self.context)
+        self.context.register('tree_pane', self.tree_pane)
 
         # 4. Right Pane (Editor)
         self.right_frame = ttk.Frame(self.paned_window, padding=10)
