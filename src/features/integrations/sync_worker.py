@@ -217,7 +217,6 @@ class SyncWorker(threading.Thread):
         for epic in epics:
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
-                # create_epic now automatically detects tier based on gid
                 resp = self.gitlab_client.create_group_epic(gid, epic, labels='Epic') if gid else self.gitlab_client.create_project_task(pid, epic, labels='Epic')
                 epic.gitlab_id = resp.get('id')
                 epic.gitlab_iid = resp.get('iid')
@@ -228,7 +227,6 @@ class SyncWorker(threading.Thread):
                     try:
                         self.gitlab_client.update_group_epic(gid, epic.gitlab_iid, epic, labels='Epic')
                     except Exception as e:
-                        # Fallback to project task if group epic update fails (might be a legacy task)
                         logger.warning(f"Group Epic update failed for IID {epic.gitlab_iid}, trying Project Task: {e}")
                         self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic, labels='Epic')
                 else:
@@ -236,7 +234,7 @@ class SyncWorker(threading.Thread):
                 epic.last_synced_at = datetime.now().isoformat()
             
             processed += 1
-            self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=10 + (processed/total_items * 90)))
+            self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=10 + (processed/total_items * 80)))
             
             for feature in epic.features:
                 if not feature.gitlab_id:
@@ -259,7 +257,7 @@ class SyncWorker(threading.Thread):
                     feature.last_synced_at = datetime.now().isoformat()
                 
                 processed += 1
-                self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Feature: {feature.title}", percent=10 + (processed/total_items * 90)))
+                self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Feature: {feature.title}", percent=10 + (processed/total_items * 80)))
 
                 for story in feature.stories:
                     if not story.gitlab_id:
@@ -274,7 +272,35 @@ class SyncWorker(threading.Thread):
                         story.last_synced_at = datetime.now().isoformat()
                     
                     processed += 1
-                    self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Story: {story.title}", percent=10 + (processed/total_items * 90)))
+                    self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Story: {story.title}", percent=10 + (processed/total_items * 80)))
+
+        # Process remote deletions
+        if self.workspace.deleted_remote_items:
+            logger.info(f"Processing {len(self.workspace.deleted_remote_items)} remote deletions...")
+            self._safe_dispatch(ModelSyncProgressEvent(message="Cleaning up removed items...", percent=95))
+            
+            for item in self.workspace.deleted_remote_items:
+                try:
+                    item_type = item['type']
+                    item_id = item['id']
+                    item_iid = item['iid']
+                    item_pid = item['project_id']
+                    item_gid = item['group_id']
+
+                    if item_type == 'story':
+                        self.gitlab_client.delete_project_task(item_pid, item_iid)
+                    else: # feature or epic
+                        if item_gid:
+                            try:
+                                self.gitlab_client.delete_group_epic(item_gid, item_iid)
+                            except Exception:
+                                self.gitlab_client.delete_project_task(item_pid, item_iid)
+                        else:
+                            self.gitlab_client.delete_project_task(item_pid, item_iid)
+                except Exception as e:
+                    logger.warning(f"Failed to delete remote {item['type']} IID {item['iid']}: {e}")
+
+            self.workspace.deleted_remote_items.clear()
 
         # After push cascade completes, ensure newly assigned IDs are saved locally
         self._safe_dispatch(UISaveWorkspaceRequestedEvent())
@@ -288,14 +314,9 @@ class SyncWorker(threading.Thread):
         return count
 
     def _has_local_changes(self, item):
-        # If it has a remote ID but no sync timestamp, it must be forced to update.
-        if getattr(item, 'gitlab_id', None) and not item.last_synced_at:
-            return True
-            
-        if not item.last_synced_at:
-            return False
-            
-        return True
+        """Returns True if the item has local changes that need pushing."""
+        # If last_synced_at is None, it means the item is new or has been modified locally.
+        return getattr(item, 'last_synced_at', None) is None
 
     def _process_item(self, remote_data, item_type, dry_run):
         gitlab_id = remote_data.get('id')

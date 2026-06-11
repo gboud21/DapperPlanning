@@ -138,17 +138,20 @@ class TreePane:
     def _on_add_feature_clicked(self):
         selected_id = self.tree.focus()
         if selected_id:
-            self.dispatcher.dispatch(UIAddFeatureRequestedEvent(parent_epic_id=selected_id))
+            raw_id = selected_id.split(":", 1)[1] if ":" in selected_id else selected_id
+            self.dispatcher.dispatch(UIAddFeatureRequestedEvent(parent_epic_id=raw_id))
 
     def _on_add_story_clicked(self):
         selected_id = self.tree.focus()
         if selected_id:
-            self.dispatcher.dispatch(UIAddStoryRequestedEvent(parent_feature_id=selected_id))
+            raw_id = selected_id.split(":", 1)[1] if ":" in selected_id else selected_id
+            self.dispatcher.dispatch(UIAddStoryRequestedEvent(parent_feature_id=raw_id))
 
     def _on_delete_clicked(self):
         selected_id = self.tree.focus()
         if selected_id:
-            self.dispatcher.dispatch(UIDeleteItemRequestedEvent(item_id=selected_id))
+            raw_id = selected_id.split(":", 1)[1] if ":" in selected_id else selected_id
+            self.dispatcher.dispatch(UIDeleteItemRequestedEvent(item_id=raw_id))
 
     def _on_tree_select(self, event):
         selected_id = self.tree.focus()
@@ -179,8 +182,22 @@ class TreePane:
             return expanded
         
         all_expanded = get_all_expanded()
-        if event.expand_id and event.expand_id not in all_expanded:
-            all_expanded.append(event.expand_id)
+        
+        # Helper to find any iid matching a raw_id (prefixed or not)
+        def find_iids_for_raw(raw_id):
+            matches = []
+            # Check existing items before clearing (though they will be re-inserted)
+            # Actually, since we re-insert with the same strategy, we can predict iids
+            if event.products:
+                for prod in event.products:
+                    matches.append(f"{prod.name}:{raw_id}")
+                matches.append(f"Unassigned:{raw_id}")
+            else:
+                matches.append(raw_id)
+            return matches
+
+        if event.expand_id:
+            all_expanded.extend(find_iids_for_raw(event.expand_id))
 
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -205,14 +222,19 @@ class TreePane:
             if event.root_items:
                 self._populate_nodes("", event.root_items)
             
-        for item_id in all_expanded:
-            if self.tree.exists(item_id):
-                self.tree.item(item_id, open=True)
+        # Restore expansion
+        for iid in all_expanded:
+            if self.tree.exists(iid):
+                self.tree.item(iid, open=True)
 
-        if event.select_id and self.tree.exists(event.select_id):
-            self.tree.selection_set(event.select_id)
-            self.tree.see(event.select_id)
-            self.tree.focus(event.select_id)
+        # Restore selection (checking all potential prefixed iids)
+        if event.select_id:
+            for potential_iid in find_iids_for_raw(event.select_id):
+                if self.tree.exists(potential_iid):
+                    self.tree.selection_set(potential_iid)
+                    self.tree.see(potential_iid)
+                    self.tree.focus(potential_iid)
+                    break
 
     def _populate_nodes(self, parent_iid: str, items: list, prod_prefix: str = ""):
         """Recursively populates nodes from Agile objects."""

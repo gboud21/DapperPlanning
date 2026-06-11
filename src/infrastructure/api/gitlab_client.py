@@ -267,3 +267,11 @@ class GitLabClient:
             payload['assignee_ids'] = [story.assignee_id]
             
         return self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')
+
+    def delete_group_epic(self, group_id: Union[int, str], gitlab_iid: int) -> dict:
+        """Deletes an Epic from the Group."""
+        return self._request(f"groups/{group_id}/epics/{gitlab_iid}", method='DELETE')
+
+    def delete_project_task(self, project_id: Union[int, str], gitlab_iid: int) -> dict:
+        """Deletes a Task (Epic/Feature/Story) from the Project."""
+        return self._request(f"projects/{project_id}/issues/{gitlab_iid}", method='DELETE')

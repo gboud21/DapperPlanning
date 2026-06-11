@@ -45,6 +45,7 @@ class TreeController:
         # Note: tree_pane registration in MainWindow ensures it's available
         tree_pane = self.context.resolve('tree_pane')
         self.tree = tree_pane.tree
+        # Use add="+" to preserve selection behavior
         self.tree.bind("<ButtonPress-1>", self._on_drag_start, add="+")
         self.tree.bind("<ButtonRelease-1>", self._on_drag_release, add="+")
 
@@ -52,7 +53,12 @@ class TreeController:
         """Records the IID of the item being dragged."""
         item_id = self.tree.identify_row(event.y)
         if item_id:
-            self._dragged_item_iid = item_id
+            # Check if it's a draggable item (not a product grouping)
+            tags = self.tree.item(item_id, "tags")
+            if tags and tags[0] in ["Epic", "Feature", "Story"]:
+                self._dragged_item_iid = item_id
+            else:
+                self._dragged_item_iid = None
         else:
             self._dragged_item_iid = None
 
@@ -171,6 +177,7 @@ class TreeController:
             parent.features.append(new_feature)
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                 root_items=self.workspace.get_epics(),
+                products=self.workspace.products,
                 expand_id=event.parent_epic_id
             ))
 
@@ -187,6 +194,7 @@ class TreeController:
             parent.stories.append(new_story)
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                 root_items=self.workspace.get_epics(),
+                products=self.workspace.products,
                 expand_id=event.parent_feature_id
             ))
 

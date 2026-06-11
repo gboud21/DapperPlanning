@@ -24,6 +24,7 @@ class Workspace:
         self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
+        self.deleted_remote_items: List[dict] = []
 
     @property
     def members(self) -> Dict[int, Member]:
@@ -212,6 +213,7 @@ class Workspace:
         if item:
             item.title = title
             item.description = description
+            item.last_synced_at = None
             if hasattr(item, 'products') and products is not None:
                 item.products = products
             if hasattr(item, 'capabilities') and capabilities is not None:
@@ -224,13 +226,43 @@ class Workspace:
     def delete_item(self, item_id: str) -> None:
         """
         Removes an item from the workspace by its ID and notifies listeners.
+        Tracks deleted remote items for cleanup during sync.
 
         Args:
             item_id (str): The unique identifier of the item to delete.
         """
+        def _track_deletion(item, item_type):
+            if getattr(item, 'gitlab_id', None) or getattr(item, 'gitlab_iid', None):
+                # Try to find associated project/group IDs from product tagging
+                pid = None
+                gid = None
+                if hasattr(item, 'products') and item.products:
+                    # Safely get the first product if it exists
+                    prod_name = item.products[0] if item.products else None
+                    if prod_name:
+                        product = next((p for p in self._products if p.name == prod_name), None)
+                        if product:
+                            pid = product.gitlab_project_id
+                            gid = product.gitlab_group_id
+                
+                self.deleted_remote_items.append({
+                    'type': item_type,
+                    'id': item.gitlab_id,
+                    'iid': item.gitlab_iid,
+                    'project_id': pid,
+                    'group_id': gid
+                })
+
         # Check if it's a top-level epic
         for i, epic in enumerate(self._epics):
             if epic.id == item_id:
+                _track_deletion(epic, 'epic')
+                # Recursively track children as well if they are remote
+                for feature in epic.features:
+                    _track_deletion(feature, 'feature')
+                    for story in feature.stories:
+                        _track_deletion(story, 'story')
+                
                 self._epics.pop(i)
                 self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                     root_items=self._epics,
@@ -242,6 +274,10 @@ class Workspace:
         for epic in self._epics:
             for j, feature in enumerate(epic.features):
                 if feature.id == item_id:
+                    _track_deletion(feature, 'feature')
+                    for story in feature.stories:
+                        _track_deletion(story, 'story')
+                        
                     epic.features.pop(j)
                     self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                         root_items=self._epics,
@@ -250,6 +286,7 @@ class Workspace:
                     return
                 for k, story in enumerate(feature.stories):
                     if story.id == item_id:
+                        _track_deletion(story, 'story')
                         feature.stories.pop(k)
                         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                             root_items=self._epics,
@@ -351,6 +388,7 @@ class Workspace:
         
         for i, s in enumerate(matching_stories):
             s.title = f"{base_title} (Part {i+1} of {total})"
+            s.last_synced_at = None
 
         # 4. Update descriptions (after titles are finalized)
         today_str = datetime.now().strftime("%m/%d/%Y")

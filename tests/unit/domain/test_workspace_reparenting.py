@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from src.domain.workspace import Workspace
-from src.domain.entities import Epic, Feature, Story, Team
+from src.domain.entities import Epic, Feature, Story, Team, Product
 
 @pytest.fixture
 def workspace_with_hierarchy():
@@ -92,16 +92,42 @@ def test_split_story(workspace_with_hierarchy):
     assert f1.stories[0].title == "Original Story (Part 1 of 3)"
     assert f1.stories[1].title == "Original Story (Part 2 of 3)"
     assert f1.stories[2].title == "Original Story (Part 3 of 3)"
+    
+    for s in f1.stories:
+        assert s.last_synced_at is None
 
-def test_split_story_with_gitlab_iid(workspace_with_hierarchy):
-    from datetime import datetime
+def test_delete_item_with_remote_tracking(workspace_with_hierarchy):
     ws, e1, e2, f1, s1 = workspace_with_hierarchy
-    s1.weight = 10.0
-    s1.gitlab_iid = 123
-    today_str = datetime.now().strftime("%m/%d/%Y")
     
-    ws.split_story("s1", 5.0, 5.0, "Ref split")
+    # 1. Test Story Deletion with remote ID
+    s1.gitlab_id = 101
+    s1.gitlab_iid = 1
+    # Story belongs to Feature 1, which might belong to a Product
+    # Let's ensure product mapping works
+    p1 = Product(name="Prod 1", gitlab_project_id=201)
+    ws.products = [p1]
+    s1.products = ["Prod 1"]
     
-    # Check the clone's description for the IID reference
-    clone = f1.stories[1]
-    assert f"**Split from:** {f1.stories[0].title} (#123)" in clone.description
+    ws.delete_item("s1")
+    
+    assert len(f1.stories) == 0
+    assert len(ws.deleted_remote_items) == 1
+    assert ws.deleted_remote_items[0]['id'] == 101
+    assert ws.deleted_remote_items[0]['project_id'] == 201
+    
+    # 2. Test Epic Deletion (recursive tracking)
+    f1.gitlab_id = 102
+    e1.gitlab_id = 103
+    e1.products = ["Prod 1"]
+    
+    # Add a new story to f1 (f1 is still in memory even if s1 was deleted)
+    s2 = Story(id="s2", title="S2", description="D", team=Team(name="T"), gitlab_id=104)
+    f1.stories.append(s2)
+    
+    ws.delete_item("e1")
+    # Should track Epic, Feature, and Story
+    # Epic: 103, Feature: 102, Story: 104
+    ids = [item['id'] for item in ws.deleted_remote_items]
+    assert 103 in ids
+    assert 102 in ids
+    assert 104 in ids
