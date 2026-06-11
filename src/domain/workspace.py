@@ -337,12 +337,6 @@ class Workspace:
         story.weight = orig_new_weight
         story.last_synced_at = None
         
-        # Update descriptions
-        today_str = datetime.now().strftime("%m/%d/%Y")
-        split_note = f"\n\n[{today_str}] Split Reason: {split_desc}"
-        story.description += split_note
-        clone.description += split_note
-        
         # 2. Insert clone after original
         idx = parent_feature.stories.index(story)
         parent_feature.stories.insert(idx + 1, clone)
@@ -357,7 +351,21 @@ class Workspace:
         
         for i, s in enumerate(matching_stories):
             s.title = f"{base_title} (Part {i+1} of {total})"
-            
+
+        # 4. Update descriptions (after titles are finalized)
+        today_str = datetime.now().strftime("%m/%d/%Y")
+        
+        # Coalesce None descriptions to empty strings
+        orig_desc = story.description or ""
+        clone_desc = clone.description or ""
+        
+        # New Story Reference Logic (Reference original story title)
+        ref_str = f" (#{story.gitlab_iid})" if story.gitlab_iid else ""
+        clone.description = clone_desc + f"\n\n[{today_str}] **Split from:** {story.title}{ref_str}\n**Reason:** {split_desc}"
+        
+        # Original Story Reference Logic (Reference clone story title)
+        story.description = orig_desc + f"\n\n[{today_str}] **Split into:** {clone.title}\n**Reason:** {split_desc}"
+        
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self._epics,
             products=self._products

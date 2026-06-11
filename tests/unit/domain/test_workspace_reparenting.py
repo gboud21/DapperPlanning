@@ -77,12 +77,14 @@ def test_split_story(workspace_with_hierarchy):
     assert f1.stories[0].id == "s1"
     assert f1.stories[0].weight == 6.0
     assert f1.stories[0].title == "Original Story (Part 1 of 2)"
-    assert f"[{today_str}] Split Reason: Testing split" in f1.stories[0].description
+    assert f"[{today_str}] **Split into:** Original Story (Part 2 of 2)" in f1.stories[0].description
+    assert f"**Reason:** Testing split" in f1.stories[0].description
     
     assert f1.stories[1].weight == 4.0
     assert f1.stories[1].title == "Original Story (Part 2 of 2)"
     assert f1.stories[1].gitlab_id is None
-    assert f"[{today_str}] Split Reason: Testing split" in f1.stories[1].description
+    assert f"[{today_str}] **Split from:** Original Story (Part 1 of 2)" in f1.stories[1].description
+    assert f"**Reason:** Testing split" in f1.stories[1].description
     
     # Test second split
     ws.split_story("s1", 3.0, 3.0, "Split again")
@@ -90,3 +92,16 @@ def test_split_story(workspace_with_hierarchy):
     assert f1.stories[0].title == "Original Story (Part 1 of 3)"
     assert f1.stories[1].title == "Original Story (Part 2 of 3)"
     assert f1.stories[2].title == "Original Story (Part 3 of 3)"
+
+def test_split_story_with_gitlab_iid(workspace_with_hierarchy):
+    from datetime import datetime
+    ws, e1, e2, f1, s1 = workspace_with_hierarchy
+    s1.weight = 10.0
+    s1.gitlab_iid = 123
+    today_str = datetime.now().strftime("%m/%d/%Y")
+    
+    ws.split_story("s1", 5.0, 5.0, "Ref split")
+    
+    # Check the clone's description for the IID reference
+    clone = f1.stories[1]
+    assert f"**Split from:** {f1.stories[0].title} (#123)" in clone.description
