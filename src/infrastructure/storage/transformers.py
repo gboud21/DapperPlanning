@@ -21,6 +21,7 @@ class HierarchyFlattener:
                     'Team': team_name,
                     'Products': ",".join(getattr(item, 'products', [])),
                     'Capabilities': ",".join(getattr(item, 'capabilities', [])),
+                    'Labels': ",".join(getattr(item, 'labels', [])),
                     'Weight': getattr(item, 'weight', 0.0),
                     'Status': getattr(item, 'status', 'Backlog'),
                     'Assignee ID': getattr(item, 'assignee_id', "") if item_type == "Story" else ""
@@ -52,22 +53,23 @@ class HierarchyBuilder:
             team_name = row.get('Team', '')
             products = [p.strip() for p in row.get('Products', '').split(',') if p.strip()]
             capabilities = [c.strip() for c in row.get('Capabilities', '').split(',') if c.strip()]
+            labels = [l.strip() for l in row.get('Labels', '').split(',') if l.strip()]
             weight = float(row.get('Weight', 0.0))
             status = row.get('Status', 'Backlog')
             
             team = Team(name=team_name) if team_name else None
             
             if item_type == "Epic":
-                obj = Epic(id=item_id, title=title, description=description, products=products, capabilities=capabilities)
+                obj = Epic(id=item_id, title=title, description=description, products=products, capabilities=capabilities, labels=labels)
             elif item_type == "Feature":
-                obj = Feature(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities)
+                obj = Feature(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels)
             elif item_type == "Story":
                 assignee_id = row.get('Assignee ID')
                 if assignee_id and assignee_id != "":
                     assignee_id = int(assignee_id)
                 else:
                     assignee_id = None
-                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, weight=weight, status=status, assignee_id=assignee_id)
+                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels, weight=weight, status=status, assignee_id=assignee_id)
             else:
                 continue
                 
@@ -98,6 +100,7 @@ class HierarchyBuilder:
         def dict_to_obj(d, item_type):
             products = d.get("products", [])
             capabilities = d.get("capabilities", [])
+            labels = d.get("labels", [])
             weight = float(d.get("weight", 0.0))
             status = d.get("status", "Backlog")
             
@@ -111,7 +114,7 @@ class HierarchyBuilder:
                 return Epic(
                     id=d["id"], title=d["title"], description=d["description"], 
                     features=features, products=products, capabilities=capabilities,
-                    gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                    labels=labels, gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
                 )
             elif item_type == "Feature":
                 stories = [dict_to_obj(s, "Story") for s in d.get("stories", [])]
@@ -119,14 +122,14 @@ class HierarchyBuilder:
                 return Feature(
                     id=d["id"], title=d["title"], description=d["description"], 
                     team=team, stories=stories, products=products, capabilities=capabilities,
-                    gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                    labels=labels, gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
                 )
             elif item_type == "Story":
                 team = Team(**d["team"]) if d.get("team") else None
                 return Story(
                     id=d["id"], title=d["title"], description=d["description"], 
                     team=team, products=products, capabilities=capabilities, 
-                    weight=weight, status=status, assignee_id=d.get("assignee_id"),
+                    labels=labels, weight=weight, status=status, assignee_id=d.get("assignee_id"),
                     gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
                 )
             return None
@@ -158,6 +161,7 @@ class GitLabTransformer:
                     id=f"gl-{r_epic['id']}",
                     title=r_epic.get('title', ''),
                     description=r_epic.get('description', ''),
+                    labels=labels,
                     gitlab_id=r_epic['id'],
                     gitlab_iid=r_epic.get('iid')
                 )
@@ -181,6 +185,7 @@ class GitLabTransformer:
                     title=r_feat.get('title', ''),
                     description=r_feat.get('description', ''),
                     team=Team(name=""), # Placeholder
+                    labels=labels,
                     gitlab_id=r_feat['id'],
                     gitlab_iid=r_feat.get('iid')
                 )
@@ -198,12 +203,14 @@ class GitLabTransformer:
             # Extract first assignee ID if present
             assignees = r_issue.get('assignees', [])
             first_assignee_id = assignees[0].get('id') if assignees else None
+            labels = r_issue.get('labels', [])
             
             story = Story(
                 id=f"gl-s-{r_issue['id']}",
                 title=r_issue.get('title', ''),
                 description=r_issue.get('description', ''),
                 team=Team(name=""), # Placeholder
+                labels=labels,
                 weight=float(r_issue.get('weight') or 0.0),
                 gitlab_id=r_issue['id'],
                 gitlab_iid=r_issue.get('iid'),

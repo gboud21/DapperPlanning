@@ -7,7 +7,7 @@ from src.core.events import (
     ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
     UIConflictResolvedEvent, ModelHierarchyUpdatedEvent, UISaveWorkspaceRequestedEvent
 )
-from src.domain.entities import Epic, Feature, Story, Team, Member
+from src.domain.entities import Epic, Feature, Story, Team, Member, Label
 from src.infrastructure.storage.transformers import GitLabTransformer
 from src.utils.paths import GITLAB_SYNC_OUTPUT_FILE
 from src.infrastructure.telemetry.logger import logger
@@ -57,6 +57,8 @@ class SyncWorker(threading.Thread):
                 self._execute_push()
             elif self.sync_type == 'members':
                 self._execute_member_sync()
+            elif self.sync_type == 'labels':
+                self._execute_label_sync()
             self._safe_dispatch(ModelSyncProgressEvent(message="Done.", percent=100))
             logger.info(f"SyncWorker finished successfully: {self.sync_type}")
         except GitLabBaseError as e:
@@ -210,6 +212,30 @@ class SyncWorker(threading.Thread):
         pid = product_entity.gitlab_project_id
         gid = product_entity.gitlab_group_id # May be None for Free Tier
         
+        # 1. Sync Labels first
+        self._safe_dispatch(ModelSyncProgressEvent(message="Ensuring labels exist on GitLab...", percent=15))
+        for label in self.workspace.labels.values():
+            if not label.id:
+                logger.info(f"Pushing new Label: {label.name}")
+                label_data = {
+                    "name": label.name,
+                    "color": label.color,
+                    "description": label.description
+                }
+                try:
+                    if label.scope == 'project':
+                        resp = self.gitlab_client.create_project_label(pid, label_data)
+                    else:
+                        # Default to group if possible, or project if gid is missing
+                        target_gid = label.scope_name if label.scope == 'group' and label.scope_name else gid
+                        if target_gid:
+                            resp = self.gitlab_client.create_group_label(target_gid, label_data)
+                        else:
+                            resp = self.gitlab_client.create_project_label(pid, label_data)
+                    label.id = resp.get('id')
+                except Exception as e:
+                    logger.warning(f"Failed to create label {label.name}: {e}")
+
         epics = self.workspace.get_epics()
         total_items = self._count_items(epics)
         processed = 0
@@ -419,3 +445,45 @@ class SyncWorker(threading.Thread):
         # Persist the newly pulled data
         self._safe_dispatch(UISaveWorkspaceRequestedEvent())
         self._safe_dispatch(ModelSyncProgressEvent(message="Member Sync Complete!", percent=100))
+
+    def _execute_label_sync(self):
+        logger.info("Executing Label Sync...")
+        self._safe_dispatch(ModelSyncProgressEvent(message="Fetching GitLab labels...", percent=10))
+        
+        active_product_name = self.workspace.active_product_name
+        product_entity = next((p for p in self.workspace.products if p.name == active_product_name), None)
+        
+        if not product_entity or not product_entity.gitlab_project_id or not product_entity.gitlab_group_id:
+            from src.infrastructure.api.gitlab_client import GitLabBaseError
+            raise GitLabBaseError(
+                "Incomplete Product Configuration",
+                "Product requires both Project and Group IDs for label sync."
+            )
+
+        group_id = product_entity.gitlab_group_id
+        project_id = product_entity.gitlab_project_id
+
+        # Fetch group labels
+        reserved_labels = {'Epic', 'Feature', 'Story'}
+        raw_group_labels = self.gitlab_client.fetch_group_labels(group_id)
+        group_labels = [
+            Label(
+                id=l['id'], name=l['name'], color=l['color'], 
+                description=l.get('description', ''), scope='group', scope_name=str(group_id)
+            ) for l in raw_group_labels if l['name'] not in reserved_labels
+        ]
+        self.workspace.merge_labels(group_labels)
+
+        # Fetch project labels
+        self._safe_dispatch(ModelSyncProgressEvent(message="Fetching project labels...", percent=50))
+        raw_project_labels = self.gitlab_client.fetch_project_labels(project_id)
+        project_labels = [
+            Label(
+                id=l['id'], name=l['name'], color=l['color'], 
+                description=l.get('description', ''), scope='project', scope_name=str(project_id)
+            ) for l in raw_project_labels if l['name'] not in reserved_labels
+        ]
+        self.workspace.merge_labels(project_labels)
+
+        self._safe_dispatch(UISaveWorkspaceRequestedEvent())
+        self._safe_dispatch(ModelSyncProgressEvent(message="Label Sync Complete!", percent=100))

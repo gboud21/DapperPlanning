@@ -170,12 +170,28 @@ class GitLabClient:
         """Fetches all members for a given project ID."""
         return self._request_all(f"projects/{project_id}/members/all")
 
+    def fetch_group_labels(self, group_id: Union[int, str]) -> list[dict]:
+        """Fetches all labels for a given group ID."""
+        return self._request_all(f"groups/{group_id}/labels")
+
+    def fetch_project_labels(self, project_id: Union[int, str]) -> list[dict]:
+        """Fetches all labels for a given project ID."""
+        return self._request_all(f"projects/{project_id}/labels")
+
+    def create_group_label(self, group_id: Union[int, str], label_data: dict) -> dict:
+        """Creates a label in the Group."""
+        return self._request(f"groups/{group_id}/labels", label_data, method='POST')
+
+    def create_project_label(self, project_id: Union[int, str], label_data: dict) -> dict:
+        """Creates a label in the Project."""
+        return self._request(f"projects/{project_id}/labels", label_data, method='POST')
+
     def create_group_epic(self, group_id: Union[int, str], epic: Epic, parent_id: Optional[int] = None, labels: str = None) -> dict:
         """Premium Tier: Creates an Epic in the Group."""
         payload = {
             "title": epic.title,
             "description": epic.description,
-            "labels": labels if labels else ",".join(epic.metadata.labels)
+            "labels": labels if labels is not None else ",".join(epic.labels)
         }
         if parent_id:
             payload["parent_id"] = parent_id
@@ -187,7 +203,7 @@ class GitLabClient:
         payload = {
             "title": epic.title, 
             "description": epic.description,
-            "labels": labels if labels else ",".join(epic.metadata.labels)
+            "labels": labels if labels is not None else ",".join(epic.labels)
         }
         if parent_id:
             payload["parent_id"] = parent_id
@@ -195,7 +211,8 @@ class GitLabClient:
 
     def create_project_task(self, project_id: Union[int, str], epic: Epic, is_feature: bool = False, parent_id: Optional[str] = None, labels: str = None) -> dict:
         """Free Tier: Creates a Task to act as an Epic or Feature."""
-        task_labels = labels if labels else ",".join(epic.metadata.labels + (["Epic" if not is_feature else "Feature"]))
+        item_labels = epic.labels + (["Epic" if not is_feature else "Feature"])
+        task_labels = labels if labels is not None else ",".join(item_labels)
         
         # In Free Tier, we use labels and description links for hierarchy
         hierarchy_note = f"\n\n---\n**Parent ID:** {parent_id}" if parent_id else ""
@@ -217,7 +234,7 @@ class GitLabClient:
         payload = {
             "title": epic.title, 
             "description": epic.description,
-            "labels": labels if labels else ",".join(epic.metadata.labels)
+            "labels": labels if labels is not None else ",".join(epic.labels)
         }
         if parent_id:
             # Note: Changing parent in Free Tier (description link) might require careful string replacement,
@@ -232,7 +249,7 @@ class GitLabClient:
 
     def create_story(self, project_id: Union[int, str], story: Story, epic_iid: Optional[int] = None, labels: str = None) -> dict:
         """Creates a standard Issue for the Story."""
-        story_labels = labels if labels else ",".join(story.metadata.labels)
+        story_labels = labels if labels is not None else ",".join(story.labels)
         payload = {
             "title": story.title,
             "description": f"Parent Feature IID: {epic_iid}\n\n{story.description}" if epic_iid else story.description,
@@ -256,7 +273,7 @@ class GitLabClient:
         payload = {
             "title": story.title,
             "description": story.description,
-            "labels": labels if labels else ",".join(story.metadata.labels),
+            "labels": labels if labels is not None else ",".join(story.labels),
             "weight": round(story.weight) if hasattr(story, 'weight') else 0,
             "state_event": state_event
         }

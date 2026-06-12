@@ -54,6 +54,19 @@ class UISyncMembersRequestedEvent(Event):
     pass
 
 @dataclass
+class UISyncLabelsRequestedEvent(Event):
+    pass
+
+@dataclass
+class UILabelUpdateRequestedEvent(Event):
+    """Emitted when the user requests to add or remove a label."""
+    item_id: str
+    item_type: str
+    label_name: str
+    add: bool = True
+    recursive: bool = False
+
+@dataclass
 class UIOpenWorkspaceRequestedEvent(Event):
     pass
 
@@ -266,6 +279,8 @@ class Actions:
     SETTINGS_OPEN = UISettingsDialogOpenRequestedEvent
     SETTINGS_SAVE = UISettingsSaveRequestedEvent
     SYNC_MEMBERS = UISyncMembersRequestedEvent
+    SYNC_LABELS = UISyncLabelsRequestedEvent
+    LABEL_UPDATE = UILabelUpdateRequestedEvent
     LOG_LEVEL_CHANGED = UILogLevelChangedEvent
     TEMPLATE_EXPORT = UITemplateConfigExportRequestedEvent
     ADD_EPIC = UIAddEpicRequestedEvent
@@ -349,6 +364,7 @@ __all__ = [
     'UIExportJsonRequestedEvent', 'UIImportCsvRequestedEvent', 'UIImportJsonRequestedEvent',
     'UIIntegrationsDialogOpenRequestedEvent', 'UIIntegrationsSaveRequestedEvent',
     'UISettingsDialogOpenRequestedEvent', 'UISettingsSaveRequestedEvent', 'UILogLevelChangedEvent',
+    'UISyncMembersRequestedEvent', 'UISyncLabelsRequestedEvent', 'UILabelUpdateRequestedEvent',
     'UITemplateConfigExportRequestedEvent', 'UIAddEpicRequestedEvent',
     'UIAddFeatureRequestedEvent', 'UIAddStoryRequestedEvent', 'UIDeleteItemRequestedEvent',
     'UICreateItemRequestedEvent', 'UIThemeToggleRequestedEvent', 'UIWindowStateChangedEvent',

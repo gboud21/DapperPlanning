@@ -8,7 +8,7 @@ from src.core.events import (
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
     UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent, UIItemReparentRequestedEvent,
-    UIStorySplitRequestedEvent
+    UIStorySplitRequestedEvent, UILabelUpdateRequestedEvent
 )
 from src.domain.workspace import Workspace
 from src.domain.entities import Story
@@ -93,6 +93,7 @@ class MainController:
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
         self.dispatcher.subscribe(UIItemReparentRequestedEvent, self.handle_reparent_requested)
         self.dispatcher.subscribe(UIStorySplitRequestedEvent, self.handle_split_requested)
+        self.dispatcher.subscribe(UILabelUpdateRequestedEvent, self.handle_label_update)
 
     def handle_split_requested(self, event: UIStorySplitRequestedEvent):
         """Handles the request to split a story."""
@@ -131,6 +132,35 @@ class MainController:
             products=self.workspace.products
         ))
         # Trigger save to persist the move
+        self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
+
+    def handle_label_update(self, event: UILabelUpdateRequestedEvent):
+        """Processes label addition or removal, supporting recursive cascading."""
+        if event.recursive:
+            self.workspace.apply_label_recursively(
+                item_id=event.item_id,
+                item_type=event.item_type,
+                label_name=event.label_name,
+                add=event.add
+            )
+        else:
+            item = self.workspace._find_item_by_id(event.item_id)
+            if item and hasattr(item, 'labels'):
+                if event.add:
+                    if event.label_name not in item.labels:
+                        item.labels.append(event.label_name)
+                        item.last_synced_at = None
+                else:
+                    if event.label_name in item.labels:
+                        item.labels.remove(event.label_name)
+                        item.last_synced_at = None
+                
+                self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                    root_items=self.workspace.get_epics(),
+                    products=self.workspace.products
+                ))
+        
+        # Persist changes
         self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
 
     def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):

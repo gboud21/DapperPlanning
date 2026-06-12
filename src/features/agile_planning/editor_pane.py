@@ -5,10 +5,11 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UICreateItemRequestedEvent, ModelActiveItemChangedEvent,
     AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
-    ModelWorkspaceLoadedEvent
+    ModelWorkspaceLoadedEvent, UILabelUpdateRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SaveItemCommand
+from src.domain.entities import Label
 from src.utils.template_generator import TemplateGenerator
 from src.utils.ui_utils import enable_scroll_bubbling
 from src.utils.debouncer import Debouncer
@@ -160,6 +161,7 @@ class EditorPane:
         # Dual-Listbox Tag Management
         self.product_ui = self._create_dual_listbox(self.scrollable_frame, "Products", "product")
         self.capability_ui = self._create_dual_listbox(self.scrollable_frame, "Capabilities", "capability")
+        self.label_ui = self._create_labels_dual_listbox(self.scrollable_frame)
         
         # Button Frame for CRUD actions
         self.button_frame = ttk.Frame(self.scrollable_frame)
@@ -170,6 +172,150 @@ class EditorPane:
 
         # Enable mouse wheel scrolling recursively
         self._bind_mousewheel(self.canvas)
+
+    def _create_labels_dual_listbox(self, parent_frame):
+        """Helper to create a dual-listbox specifically for GitLab Labels."""
+        frame = ttk.LabelFrame(parent_frame, text="GitLab Labels")
+        frame.pack(fill=tk.X, pady=(0, 10), padx=5)
+        
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(2, weight=1)
+        
+        # Left side: Available Labels
+        left_container = ttk.Frame(frame)
+        left_container.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        ttk.Label(left_container, text="Available").pack(anchor=tk.W)
+        list_master = tk.Listbox(left_container, height=6, exportselection=False)
+        list_master.pack(fill=tk.BOTH, expand=True)
+        enable_scroll_bubbling(list_master, self.canvas)
+
+        # New Label Entry
+        entry_new = tk.Entry(left_container)
+        entry_new.pack(fill=tk.X, pady=(2, 0))
+
+        btn_add_master = ttk.Button(left_container, text="Create Local Label",
+                                    command=lambda: self._add_local_label(list_master, entry_new))
+        btn_add_master.pack(fill=tk.X)
+
+        # Middle: Transfer Buttons
+        mid_container = ttk.Frame(frame)
+        mid_container.grid(row=0, column=1, padx=5)
+        
+        btn_assign = ttk.Button(mid_container, text=">>", width=5,
+                                command=lambda: self._on_label_add(list_master, list_assigned))
+        btn_assign.pack(pady=5)
+        
+        # Right side: Assigned Labels
+        right_container = ttk.Frame(frame)
+        right_container.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+        
+        ttk.Label(right_container, text="Assigned").pack(anchor=tk.W)
+        list_assigned = tk.Listbox(right_container, height=6, exportselection=False)
+        list_assigned.pack(fill=tk.BOTH, expand=True)
+        enable_scroll_bubbling(list_assigned, self.canvas)
+
+        btn_delete_assigned = ttk.Button(right_container, text="Remove", 
+                                         command=lambda: self._on_label_remove(list_assigned))
+        btn_delete_assigned.pack(fill=tk.X)
+
+        return {
+            "master": list_master,
+            "assigned": list_assigned,
+            "entry": entry_new,
+            "frame": frame
+        }
+
+    def _add_local_label(self, list_master, entry_new):
+        """Creates a new label locally in the workspace."""
+        val = entry_new.get().strip()
+        if not val:
+            return
+
+        if val in self.workspace.labels:
+            messagebox.showinfo("Label Exists", f"Label '{val}' already exists.")
+            return
+
+        # Create local label (defaults to group scope for global availability as per instructions)
+        active_product_name = self.workspace.active_product_name
+        product = next((p for p in self.workspace.products if p.name == active_product_name), None)
+        gid = str(product.gitlab_group_id) if product and product.gitlab_group_id else ""
+
+        new_label = Label(
+            id=None,
+            name=val,
+            color="#666666", # Default gray
+            description="Locally created label",
+            scope='group',
+            scope_name=gid
+        )
+        self.workspace.labels[val] = new_label
+
+        # Refresh master list
+        reserved_labels = {'Epic', 'Feature', 'Story'}
+        master_labels_formatted = [
+            f"({l.scope.capitalize()}: {l.scope_name}) {l.name}" 
+            for l in self.workspace.labels.values()
+            if l.name not in reserved_labels
+        ]
+        list_master.delete(0, tk.END)
+        for l_str in sorted(master_labels_formatted):
+            list_master.insert(tk.END, l_str)
+
+        entry_new.delete(0, tk.END)
+        self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
+
+    def _on_label_add(self, source, target):
+        """Handles adding a label with recursion check and protection."""
+        selected_index = source.curselection()
+        if not selected_index:
+            return
+
+        full_label_str = source.get(selected_index)
+        # Extract label name: format is "(Scope: Name) LabelName"
+        # Everything after the first ") "
+        if ") " in full_label_str:
+            label_name = full_label_str.split(") ", 1)[1]
+        else:
+            label_name = full_label_str
+        # Protection Rule
+        item_type = self.combo_item_type.get()
+        if item_type == 'Feature' and label_name == 'Feature':
+            messagebox.showwarning("Reserved Label", "The 'Feature' label is reserved for hierarchy identification and cannot be manually added to Feature items.")
+            return
+
+        recursive = messagebox.askyesno("Recursive Update", "Apply this label update recursively to all child items?")
+        
+        self.dispatcher.dispatch(UILabelUpdateRequestedEvent(
+            item_id=self.current_selected_id,
+            item_type=item_type,
+            label_name=label_name,
+            add=True,
+            recursive=recursive
+        ))
+
+    def _on_label_remove(self, list_assigned):
+        """Handles removing a label with recursion check and protection."""
+        selected_index = list_assigned.curselection()
+        if not selected_index:
+            return
+            
+        label_name = list_assigned.get(selected_index)
+        
+        # Protection Rule
+        item_type = self.combo_item_type.get()
+        if item_type == 'Feature' and label_name == 'Feature':
+            messagebox.showwarning("Reserved Label", "The 'Feature' label is reserved for hierarchy identification and cannot be removed from Feature items.")
+            return
+
+        recursive = messagebox.askyesno("Recursive Update", "Remove this label recursively from all child items?")
+        
+        self.dispatcher.dispatch(UILabelUpdateRequestedEvent(
+            item_id=self.current_selected_id,
+            item_type=item_type,
+            label_name=label_name,
+            add=False,
+            recursive=recursive
+        ))
 
     def _create_dual_listbox(self, parent_frame, title, tag_type):
         """Helper to create a dual-listbox tag management component."""
@@ -405,7 +551,8 @@ class EditorPane:
             relief="flat"
         )
         
-        for entry in [self.entry_title, self.entry_weight, self.product_ui['entry'], self.capability_ui['entry']]:
+        for entry in [self.entry_title, self.entry_weight, self.product_ui['entry'], 
+                      self.capability_ui['entry'], self.label_ui['entry']]:
             entry.configure(
                 bg=palette['field_bg'],
                 fg=palette['fg'],
@@ -417,7 +564,8 @@ class EditorPane:
             )
 
         for lb in [self.product_ui['master'], self.product_ui['assigned'], 
-                   self.capability_ui['master'], self.capability_ui['assigned']]:
+                   self.capability_ui['master'], self.capability_ui['assigned'],
+                   self.label_ui['master'], self.label_ui['assigned']]:
             lb.configure(
                 bg=palette['field_bg'],
                 fg=palette['fg'],
@@ -540,6 +688,23 @@ class EditorPane:
             self._populate_dual_listbox(self.product_ui, master_products, assigned_products)
             self._populate_dual_listbox(self.capability_ui, master_capabilities, assigned_capabilities)
             
+            # Populate Labels
+            assigned_labels = getattr(event.item_data, 'labels', [])
+            reserved_labels = {'Epic', 'Feature', 'Story'}
+            master_labels_formatted = [
+                f"({l.scope.capitalize()}: {l.scope_name}) {l.name}" 
+                for l in self.workspace.labels.values()
+                if l.name not in reserved_labels
+            ]
+            self.label_ui['master'].delete(0, tk.END)
+            for l_str in sorted(master_labels_formatted):
+                self.label_ui['master'].insert(tk.END, l_str)
+            
+            self.label_ui['assigned'].delete(0, tk.END)
+            for l_name in sorted(assigned_labels):
+                if l_name not in reserved_labels:
+                    self.label_ui['assigned'].insert(tk.END, l_name)
+
             # Reset scroll position to top when switching items
             self.canvas.yview_moveto(0)
         finally:

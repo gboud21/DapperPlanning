@@ -54,6 +54,18 @@ class Member:
     project_ids: List[int] = field(default_factory=list)
 
 @dataclass
+class Label:
+    """
+    Represents a GitLab label.
+    """
+    id: Optional[int]
+    name: str
+    color: str
+    description: str
+    scope: str  # 'group' or 'project'
+    scope_name: str  # the name of the group or project
+
+@dataclass
 class Story:
     """
     Represents a user story or a small, deliverable piece of work.
@@ -63,6 +75,7 @@ class Story:
     description: str
     team: Team
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
+    labels: List[str] = field(default_factory=list)
     interface_boundary: Optional[str] = None
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
@@ -81,6 +94,7 @@ class Story:
             description=self.description,
             team=self.team,
             metadata=self.metadata,
+            labels=self.labels.copy(),
             interface_boundary=self.interface_boundary,
             products=self.products.copy(),
             capabilities=self.capabilities.copy(),
@@ -103,6 +117,7 @@ class Feature:
     team: Team
     stories: List[Story] = field(default_factory=list)
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
+    labels: List[str] = field(default_factory=list)
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
     # Sync Metadata
@@ -118,6 +133,7 @@ class Feature:
             team=self.team,
             stories=[s.clone() for s in self.stories],
             metadata=self.metadata,
+            labels=self.labels.copy(),
             products=self.products.copy(),
             capabilities=self.capabilities.copy(),
             gitlab_id=None,
@@ -152,6 +168,7 @@ class Epic:
     description: str
     features: List[Feature] = field(default_factory=list)
     metadata: GitLabMetadata = field(default_factory=GitLabMetadata)
+    labels: List[str] = field(default_factory=list)
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
     # Sync Metadata
@@ -166,6 +183,7 @@ class Epic:
             description=self.description,
             features=[f.clone() for f in self.features],
             metadata=self.metadata,
+            labels=self.labels.copy(),
             products=self.products.copy(),
             capabilities=self.capabilities.copy(),
             gitlab_id=None,

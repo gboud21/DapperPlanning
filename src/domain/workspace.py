@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
-from src.domain.entities import Epic, Feature, Story, Product, Member
+from src.domain.entities import Epic, Feature, Story, Product, Member, Label
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):
@@ -21,6 +21,7 @@ class Workspace:
         self._epics: List[Epic] = []
         self._products: List[Product] = []
         self._members: Dict[int, Member] = {}
+        self.labels: Dict[str, Label] = {}
         self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
@@ -33,6 +34,46 @@ class Workspace:
     @members.setter
     def members(self, value: Dict[int, Member]):
         self._members = value
+
+    def merge_labels(self, labels: List[Label]):
+        """Merges fetched labels into the workspace dictionary."""
+        for label in labels:
+            self.labels[label.name] = label
+
+    def apply_label_recursively(self, item_id: str, item_type: str, label_name: str, add: bool = True):
+        """
+        Applies or removes a label recursively to an item and its children.
+        """
+        item = self._find_item_by_id(item_id)
+        if not item:
+            return
+
+        def _apply(target_item):
+            if not hasattr(target_item, 'labels'):
+                return
+            
+            if add:
+                if label_name not in target_item.labels:
+                    target_item.labels.append(label_name)
+                    target_item.last_synced_at = None
+            else:
+                if label_name in target_item.labels:
+                    target_item.labels.remove(label_name)
+                    target_item.last_synced_at = None
+
+            # Recursive cascade
+            if isinstance(target_item, Epic):
+                for f in target_item.features:
+                    _apply(f)
+            elif isinstance(target_item, Feature):
+                for s in target_item.stories:
+                    _apply(s)
+
+        _apply(item)
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self._epics,
+            products=self._products
+        ))
 
     def add_or_update_member(self, member: Member):
         """Intelligently merges group and project IDs for a member."""
