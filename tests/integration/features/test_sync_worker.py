@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from src.features.integrations.sync_worker import SyncWorker
 from src.core.app_context import AppContext
 from src.domain.workspace import Workspace
-from src.domain.entities import Epic, Product
+from src.domain.entities import Epic, Product, Label, Feature, Story, Team
 from src.infrastructure.api.gitlab_client import GitLabClient
 
 def test_sync_worker_pull_merges_data(mocker):
@@ -143,3 +143,92 @@ def test_sync_worker_member_sync(mocker):
     assert m2.name == "Project User"
     assert 888 in m2.project_ids
     assert 999 not in m2.group_ids
+
+def test_pull_does_not_duplicate_triage_buckets(mocker):
+    """Mock a GitLab pull payload containing orphaned issues, and seed the local Workspace with an existing Epic titled '[Triage] Unassigned Items'."""
+    context = AppContext()
+    dispatcher = MagicMock()
+    workspace = Workspace(dispatcher)
+    
+    triage_title = "[Triage] Unassigned Items"
+    existing_triage = Epic(id="existing-triage", title=triage_title, description="Existing")
+    workspace.add_epic(existing_triage)
+    
+    product = Product(name="DapperPlanning")
+    product.gitlab_project_id = "888"
+    product.gitlab_group_id = "999"
+    workspace.products = [product]
+    workspace.active_product_name = "DapperPlanning"
+    
+    mock_client = MagicMock(spec=GitLabClient)
+    mock_client.base_url = "https://fake.gitlab.com"
+    mock_client.group_id = "999"
+    mock_client.project_id = "888"
+    mock_client.headers = {"PRIVATE-TOKEN": "fake_token"}
+    
+    # Mock pull with orphans
+    mock_client.fetch_group_epics.return_value = []
+    mock_client.fetch_project_issues.return_value = [
+        {"id": 505, "iid": 5, "title": "New Orphaned Story", "description": "", "weight": 1, "epic_iid": None}
+    ]
+    
+    context.register('event_dispatcher', dispatcher)
+    context.register('workspace', workspace)
+    context.register('gitlab_client', mock_client)
+    
+    worker = SyncWorker(context, sync_type="pull")
+    worker._execute_pull(dry_run=False)
+    
+    epics = workspace.get_epics()
+    assert len(epics) == 1
+    assert epics[0].title == triage_title
+    
+    triage_feat = epics[0].features[0]
+    assert any(s.title == "New Orphaned Story" for s in triage_feat.stories)
+
+def test_worker_pushes_new_labels_before_items(mocker):
+    """Mock gitlab_client.create_group_label. Seed the workspace with a new Label entity that has no remote ID."""
+    context = AppContext()
+    dispatcher = MagicMock()
+    workspace = Workspace(dispatcher)
+    
+    product = Product(name="DapperPlanning")
+    product.gitlab_project_id = 888
+    product.gitlab_group_id = 999
+    workspace.products = [product]
+    workspace.active_product_name = "DapperPlanning"
+    
+    new_label = Label(id=None, name="Critical", color="#ff0000", description="", scope="group", scope_name="999")
+    workspace.labels["Critical"] = new_label
+    
+    epic = Epic(id="e1", title="Important Epic", description="", labels=["Critical"])
+    workspace.add_epic(epic)
+    
+    mock_client = MagicMock(spec=GitLabClient)
+    mock_client.create_group_label.return_value = {"id": 777, "name": "Critical"}
+    mock_client.create_group_epic.return_value = {"id": 1001, "iid": 10}
+    
+    context.register('event_dispatcher', dispatcher)
+    context.register('workspace', workspace)
+    context.register('gitlab_client', mock_client)
+    
+    manager = MagicMock()
+    manager.attach_mock(mock_client.create_group_label, 'create_label')
+    manager.attach_mock(mock_client.create_group_epic, 'create_epic')
+    
+    worker = SyncWorker(context, sync_type="push")
+    worker._execute_push()
+    
+    label_call_index = -1
+    epic_call_index = -1
+    
+    for i, call in enumerate(manager.mock_calls):
+        if 'create_label' in str(call):
+            label_call_index = i
+        if 'create_epic' in str(call):
+            epic_call_index = i
+            
+    assert label_call_index != -1
+    assert epic_call_index != -1
+    assert label_call_index < epic_call_index
+    assert new_label.id == 777
