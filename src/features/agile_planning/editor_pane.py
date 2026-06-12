@@ -5,7 +5,7 @@ from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UICreateItemRequestedEvent, ModelActiveItemChangedEvent,
     AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
-    ModelWorkspaceLoadedEvent, UILabelUpdateRequestedEvent
+    ModelWorkspaceLoadedEvent, UILabelUpdateRequestedEvent, ModelHierarchyUpdatedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SaveItemCommand
@@ -253,7 +253,7 @@ class EditorPane:
         # Refresh master list
         reserved_labels = {'Epic', 'Feature', 'Story'}
         master_labels_formatted = [
-            f"({l.scope.capitalize()}: {l.scope_name}) {l.name}" 
+            f"({l.scope_name}) {l.name}" 
             for l in self.workspace.labels.values()
             if l.name not in reserved_labels
         ]
@@ -299,7 +299,13 @@ class EditorPane:
         if not selected_index:
             return
             
-        label_name = list_assigned.get(selected_index)
+        full_label_str = list_assigned.get(selected_index)
+        # Extract label name: format is "(Scope: Name) LabelName" or "(ScopeName) LabelName"
+        # Everything after the first ") "
+        if ") " in full_label_str:
+            label_name = full_label_str.split(") ", 1)[1]
+        else:
+            label_name = full_label_str
         
         # Protection Rule
         item_type = self.combo_item_type.get()
@@ -529,8 +535,30 @@ class EditorPane:
     def _bind_events(self):
         """Subscribes to model updates."""
         self.dispatcher.subscribe(ModelActiveItemChangedEvent, self.populate_editor)
+        self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self.handle_hierarchy_updated)
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+
+    def handle_hierarchy_updated(self, event: ModelHierarchyUpdatedEvent):
+        """Refreshes the current item view if the model was updated."""
+        if not self.current_selected_id:
+            return
+            
+        # Re-fetch item from workspace to get updated state
+        item = self.workspace._find_item_by_id(self.current_selected_id)
+        if item:
+            # Determine item type
+            item_type = "Epic"
+            if hasattr(item, 'features'):
+                item_type = "Epic"
+            elif hasattr(item, 'stories'):
+                item_type = "Feature"
+            elif hasattr(item, 'weight'):
+                item_type = "Story"
+                
+            # Simulate an active item change event to trigger re-population
+            from src.core.events import ModelActiveItemChangedEvent
+            self.populate_editor(ModelActiveItemChangedEvent(item_type=item_type, item_data=item))
 
     def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
         """Refreshes the workspace reference."""
@@ -692,7 +720,7 @@ class EditorPane:
             assigned_labels = getattr(event.item_data, 'labels', [])
             reserved_labels = {'Epic', 'Feature', 'Story'}
             master_labels_formatted = [
-                f"({l.scope.capitalize()}: {l.scope_name}) {l.name}" 
+                f"({l.scope_name}) {l.name}" 
                 for l in self.workspace.labels.values()
                 if l.name not in reserved_labels
             ]
@@ -703,7 +731,12 @@ class EditorPane:
             self.label_ui['assigned'].delete(0, tk.END)
             for l_name in sorted(assigned_labels):
                 if l_name not in reserved_labels:
-                    self.label_ui['assigned'].insert(tk.END, l_name)
+                    label_obj = self.workspace.labels.get(l_name)
+                    if label_obj:
+                        display_name = f"({label_obj.scope_name}) {label_obj.name}"
+                    else:
+                        display_name = l_name
+                    self.label_ui['assigned'].insert(tk.END, display_name)
 
             # Reset scroll position to top when switching items
             self.canvas.yview_moveto(0)

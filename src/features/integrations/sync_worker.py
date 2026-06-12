@@ -241,9 +241,10 @@ class SyncWorker(threading.Thread):
         processed = 0
 
         for epic in epics:
+            epic_labels = epic.labels + ["Epic"]
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
-                resp = self.gitlab_client.create_group_epic(gid, epic, labels='Epic') if gid else self.gitlab_client.create_project_task(pid, epic, labels='Epic')
+                resp = self.gitlab_client.create_group_epic(gid, epic, labels=",".join(epic_labels)) if gid else self.gitlab_client.create_project_task(pid, epic, labels=",".join(epic_labels))
                 epic.gitlab_id = resp.get('id')
                 epic.gitlab_iid = resp.get('iid')
                 epic.last_synced_at = datetime.now().isoformat()
@@ -251,22 +252,23 @@ class SyncWorker(threading.Thread):
                 logger.info(f"Updating existing Epic IID {epic.gitlab_iid} ({epic.title})...")
                 if gid:
                     try:
-                        self.gitlab_client.update_group_epic(gid, epic.gitlab_iid, epic, labels='Epic')
+                        self.gitlab_client.update_group_epic(gid, epic.gitlab_iid, epic, labels=",".join(epic_labels))
                     except Exception as e:
                         logger.warning(f"Group Epic update failed for IID {epic.gitlab_iid}, trying Project Task: {e}")
-                        self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic, labels='Epic')
+                        self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic, labels=",".join(epic_labels))
                 else:
-                    self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic, labels='Epic')
+                    self.gitlab_client.update_project_task(pid, epic.gitlab_iid, epic, labels=",".join(epic_labels))
                 epic.last_synced_at = datetime.now().isoformat()
             
             processed += 1
             self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=10 + (processed/total_items * 80)))
             
             for feature in epic.features:
+                feature_labels = feature.labels + ["Feature"]
                 if not feature.gitlab_id:
                     logger.info(f"Pushing new Feature: {feature.title}")
-                    resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id, labels='Feature') if gid else \
-                           self.gitlab_client.create_project_task(pid, feature, is_feature=True, parent_id=str(epic.gitlab_id), labels='Feature')
+                    resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id, labels=",".join(feature_labels)) if gid else \
+                           self.gitlab_client.create_project_task(pid, feature, is_feature=True, parent_id=str(epic.gitlab_id), labels=",".join(feature_labels))
                     feature.gitlab_id = resp.get('id')
                     feature.gitlab_iid = resp.get('iid')
                     feature.last_synced_at = datetime.now().isoformat()
@@ -274,27 +276,28 @@ class SyncWorker(threading.Thread):
                     logger.info(f"Updating existing Feature IID {feature.gitlab_iid} ({feature.title})...")
                     if gid:
                         try:
-                            self.gitlab_client.update_group_epic(gid, feature.gitlab_iid, feature, parent_id=epic.gitlab_id, labels='Feature')
+                            self.gitlab_client.update_group_epic(gid, feature.gitlab_iid, feature, parent_id=epic.gitlab_id, labels=",".join(feature_labels))
                         except Exception as e:
                             logger.warning(f"Group Epic update failed for Feature IID {feature.gitlab_iid}, trying Project Task: {e}")
-                            self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature, parent_id=str(epic.gitlab_id), labels='Feature')
+                            self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature, parent_id=str(epic.gitlab_id), labels=",".join(feature_labels))
                     else:
-                        self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature, parent_id=str(epic.gitlab_id), labels='Feature')
+                        self.gitlab_client.update_project_task(pid, feature.gitlab_iid, feature, parent_id=str(epic.gitlab_id), labels=",".join(feature_labels))
                     feature.last_synced_at = datetime.now().isoformat()
                 
                 processed += 1
                 self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Feature: {feature.title}", percent=10 + (processed/total_items * 80)))
 
                 for story in feature.stories:
+                    story_labels = story.labels + ["Story"]
                     if not story.gitlab_id:
                         logger.info(f"Pushing new Story: {story.title}")
-                        resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid, labels='Story')
+                        resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid, labels=",".join(story_labels))
                         story.gitlab_id = resp.get('id')
                         story.gitlab_iid = resp.get('iid')
                         story.last_synced_at = datetime.now().isoformat()
                     elif self._has_local_changes(story):
                         logger.info(f"Updating existing Story IID {story.gitlab_iid} ({story.title})...")
-                        self.gitlab_client.update_story(pid, story.gitlab_iid, story, epic_iid=feature.gitlab_iid, labels='Story')
+                        self.gitlab_client.update_story(pid, story.gitlab_iid, story, epic_iid=feature.gitlab_iid, labels=",".join(story_labels))
                         story.last_synced_at = datetime.now().isoformat()
                     
                     processed += 1
@@ -393,6 +396,12 @@ class SyncWorker(threading.Thread):
         remote_assignees = remote.get('assignees', [])
         remote_assignee_id = remote_assignees[0].get('id') if remote_assignees else None
         if getattr(local, 'assignee_id', None) != remote_assignee_id: return True
+
+        # Check labels (ignoring architectural labels for comparison)
+        reserved_labels = {'Epic', 'Feature', 'Story'}
+        remote_labels = [l for l in remote.get('labels', []) if l not in reserved_labels]
+        local_labels = sorted(getattr(local, 'labels', []))
+        if local_labels != sorted(remote_labels): return True
         
         return False
 
