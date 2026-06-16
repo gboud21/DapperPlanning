@@ -180,6 +180,14 @@ class GitLabClient:
         """Fetches all labels for a given project ID."""
         return self._request_all(f"projects/{project_id}/labels")
 
+    def fetch_group_iterations(self, group_id: Union[int, str]) -> list[dict]:
+        """Fetches all iterations for a given group ID."""
+        return self._request_all(f"groups/{group_id}/iterations")
+
+    def fetch_project_iterations(self, project_id: Union[int, str]) -> list[dict]:
+        """Fetches all iterations for a given project ID."""
+        return self._request_all(f"projects/{project_id}/iterations")
+
     def create_group_label(self, group_id: Union[int, str], label_data: dict) -> dict:
         """Creates a label in the Group."""
         return self._request(f"groups/{group_id}/labels", label_data, method='POST')
@@ -265,6 +273,9 @@ class GitLabClient:
         if getattr(story, 'assignee_id', None):
             payload['assignee_ids'] = [story.assignee_id]
             
+        if getattr(story, 'iteration_id', None):
+            payload['iteration_id'] = int(story.iteration_id)
+            
         return self._request(f"projects/{project_id}/issues", payload, method='POST')
 
     def update_story(self, project_id: Union[int, str], gitlab_iid: int, story: Story, epic_iid: Optional[int] = None, labels: str = None) -> dict:
@@ -284,6 +295,12 @@ class GitLabClient:
             
         if getattr(story, 'assignee_id', None):
             payload['assignee_ids'] = [story.assignee_id]
+            
+        if getattr(story, 'iteration_id', None):
+            payload['iteration_id'] = int(story.iteration_id)
+        else:
+            # Explicitly clear iteration if unassigned
+            payload['iteration_id'] = 0
             
         return self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')
 

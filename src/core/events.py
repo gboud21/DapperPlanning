@@ -58,6 +58,10 @@ class UISyncLabelsRequestedEvent(Event):
     pass
 
 @dataclass
+class UISyncIterationsRequestedEvent(Event):
+    pass
+
+@dataclass
 class UILabelUpdateRequestedEvent(Event):
     """Emitted when the user requests to add or remove a label."""
     item_id: str
@@ -195,6 +199,7 @@ class UICreateItemRequestedEvent(Event):
     weight: float = 0.0
     status: str = 'Backlog'
     assignee_id: Optional[int] = None
+    iteration_id: Optional[int] = None
 
 @dataclass
 class UIItemReparentRequestedEvent(Event):
@@ -302,6 +307,7 @@ class Actions:
     SETTINGS_SAVE = UISettingsSaveRequestedEvent
     SYNC_MEMBERS = UISyncMembersRequestedEvent
     SYNC_LABELS = UISyncLabelsRequestedEvent
+    SYNC_ITERATIONS = UISyncIterationsRequestedEvent
     LABEL_UPDATE = UILabelUpdateRequestedEvent
     LOG_LEVEL_CHANGED = UILogLevelChangedEvent
     TEMPLATE_EXPORT = UITemplateConfigExportRequestedEvent
@@ -387,7 +393,7 @@ __all__ = [
     'UIExportJsonRequestedEvent', 'UIImportCsvRequestedEvent', 'UIImportJsonRequestedEvent',
     'UIIntegrationsDialogOpenRequestedEvent', 'UIIntegrationsSaveRequestedEvent',
     'UISettingsDialogOpenRequestedEvent', 'UISettingsSaveRequestedEvent', 'UILogLevelChangedEvent',
-    'UISyncMembersRequestedEvent', 'UISyncLabelsRequestedEvent', 'UILabelUpdateRequestedEvent',
+    'UISyncMembersRequestedEvent', 'UISyncLabelsRequestedEvent', 'UISyncIterationsRequestedEvent', 'UILabelUpdateRequestedEvent',
     'UITemplateConfigExportRequestedEvent', 'UIAddEpicRequestedEvent',
     'UIAddFeatureRequestedEvent', 'UIAddStoryRequestedEvent', 'UIDeleteItemRequestedEvent',
     'UICreateItemRequestedEvent', 'UIThemeToggleRequestedEvent', 'UIWindowStateChangedEvent',

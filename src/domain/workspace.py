@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
-from src.domain.entities import Epic, Feature, Story, Product, Member, Label
+from src.domain.entities import Epic, Feature, Story, Product, Member, Label, Iteration
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):
@@ -22,10 +22,23 @@ class Workspace:
         self._products: List[Product] = []
         self._members: Dict[int, Member] = {}
         self.labels: Dict[str, Label] = {}
+        self._iterations: List[Iteration] = []
         self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
         self.deleted_remote_items: List[dict] = []
+
+    @property
+    def iterations(self) -> List[Iteration]:
+        return self._iterations
+
+    @iterations.setter
+    def iterations(self, value: List[Iteration]):
+        self._iterations = value
+
+    def merge_iterations(self, iterations: List[Iteration]):
+        """Updates the workspace iterations list."""
+        self._iterations = iterations
 
     @property
     def members(self) -> Dict[int, Member]:
@@ -155,6 +168,8 @@ class Workspace:
                         l_item.weight = r_item.weight
                     if hasattr(r_item, 'assignee_id'):
                         l_item.assignee_id = r_item.assignee_id
+                    if hasattr(r_item, 'iteration_id'):
+                        l_item.iteration_id = r_item.iteration_id
                 
                 # Ensure the product tag is present
                 if hasattr(l_item, 'products'):
@@ -206,6 +221,7 @@ class Workspace:
         data = {
             "active_product_name": self._active_product_name,
             "products": [asdict(p) for p in self._products],
+            "iterations": [asdict(i) for i in self._iterations],
             "epics": [_serialize_item(epic) for epic in self._epics]
         }
         return json.dumps(data, sort_keys=True)

@@ -5,7 +5,7 @@ from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
     UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
     ModelConflictDetectedEvent, ModelSyncErrorEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent,
-    UISyncMembersRequestedEvent, UISyncLabelsRequestedEvent
+    UISyncMembersRequestedEvent, UISyncLabelsRequestedEvent, UISyncIterationsRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SyncWithGitLabCommand
@@ -47,6 +47,7 @@ class IntegrationsController:
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
         self.dispatcher.subscribe(UISyncMembersRequestedEvent, self.handle_sync_members)
         self.dispatcher.subscribe(UISyncLabelsRequestedEvent, self.handle_sync_labels)
+        self.dispatcher.subscribe(UISyncIterationsRequestedEvent, self.handle_sync_iterations)
 
     def _register_commands(self):
         """Registers handlers for integration-related commands."""
@@ -118,6 +119,22 @@ class IntegrationsController:
         if self._initialize_gitlab_client():
             self.progress_modal = SyncProgressModal(self.root, self.dispatcher)
             worker = SyncWorker(self.context, sync_type='labels')
+            worker.start()
+
+    def handle_sync_iterations(self, event: UISyncIterationsRequestedEvent):
+        """Fetches iterations from GitLab."""
+        if not self._is_gitlab_configured():
+            if messagebox.askyesno('Configuration Required', 'GitLab integration is not configured. Would you like to configure it now?'):
+                dialog = self.handle_open_dialog()
+                self.root.wait_window(dialog)
+                if not self._is_gitlab_configured():
+                    return
+            else:
+                return
+
+        if self._initialize_gitlab_client():
+            self.progress_modal = SyncProgressModal(self.root, self.dispatcher)
+            worker = SyncWorker(self.context, sync_type='iterations')
             worker.start()
 
     def handle_sync_error(self, event: ModelSyncErrorEvent):

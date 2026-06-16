@@ -7,7 +7,8 @@ from src.core.events import (
     UIImportCsvRequestedEvent, UIImportJsonRequestedEvent, UIThemeToggleRequestedEvent, 
     AppThemeChangedEvent, UIIntegrationsDialogOpenRequestedEvent, UISettingsDialogOpenRequestedEvent,
     UIOpenWorkspaceRequestedEvent, UISaveWorkspaceRequestedEvent, UISaveAsWorkspaceRequestedEvent,
-    UINewWorkspaceRequestedEvent, UISyncMembersRequestedEvent, UISyncLabelsRequestedEvent, UIStorySplitRequestedEvent
+    UINewWorkspaceRequestedEvent, UISyncMembersRequestedEvent, UISyncLabelsRequestedEvent, 
+    UISyncIterationsRequestedEvent, UIStorySplitRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SyncWithGitLabCommand, CloneItemCommand
@@ -91,6 +92,7 @@ class ApplicationMenuBar(tk.Menu):
         integrations_menu.add_separator()
         integrations_menu.add_command(label="Sync GitLab Members", command=lambda: self.dispatcher.dispatch(UISyncMembersRequestedEvent()))
         integrations_menu.add_command(label="Sync GitLab Labels", command=lambda: self.dispatcher.dispatch(UISyncLabelsRequestedEvent()))
+        integrations_menu.add_command(label="Sync GitLab Iterations", command=lambda: self.dispatcher.dispatch(UISyncIterationsRequestedEvent()))
         self.add_cascade(label="Integrations", menu=integrations_menu)
 
         

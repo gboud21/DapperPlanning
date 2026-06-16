@@ -28,12 +28,13 @@ class JsonWorkspaceRepository(WorkspaceRepository):
         if os.path.exists(self.file_path):
             try:
                 adapter = JSONAdapter()
-                root_epics, active_product, products, members, deleted, labels = adapter.import_data(self.file_path)
+                root_epics, active_product, products, members, deleted, labels, iterations = adapter.import_data(self.file_path)
                 
                 workspace._epics = root_epics
                 workspace.products = products
                 workspace.members = {m.id: m for m in members}
                 workspace.labels = labels
+                workspace.iterations = iterations
                 workspace.active_product_name = active_product
                 workspace.deleted_remote_items = deleted
                 workspace.current_filepath = self.file_path
@@ -59,7 +60,8 @@ class JsonWorkspaceRepository(WorkspaceRepository):
                 products=workspace.products,
                 members=workspace.get_members(),
                 deleted_remote_items=workspace.deleted_remote_items,
-                labels=workspace.labels
+                labels=workspace.labels,
+                iterations=workspace.iterations
             )
             # Update workspace state after successful save
             workspace.current_filepath = self.file_path

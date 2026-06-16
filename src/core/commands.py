@@ -18,6 +18,7 @@ class SaveItemCommand(Command):
     weight: float = 0.0
     status: str = 'Backlog'
     assignee_id: Optional[int] = None
+    iteration_id: Optional[int] = None
 
 @dataclass
 class SyncWithGitLabCommand(Command):
