@@ -31,6 +31,13 @@ class CloneItemCommand(Command):
     item_id: Optional[str] = None
 
 @dataclass
+class CreateProductCommand(Command):
+    """Command to create a new product."""
+    name: str
+    gitlab_project_id: Optional[int] = None
+    gitlab_group_id: Optional[int] = None
+
+@dataclass
 class CreateProductTeamCommand(Command):
     """Command to create a new product team."""
     name: str

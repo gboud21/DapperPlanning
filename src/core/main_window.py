@@ -12,6 +12,7 @@ from src.core.events import (
 from src.utils.theme_manager import ThemeManager
 from src.features.agile_planning.tree_pane import TreePane
 from src.features.agile_planning.editor_pane import EditorPane
+from src.features.pi_planning.pi_planning_view import PIPlanningView
 from src.core.menu_bar import ApplicationMenuBar
 
 class AgilePlanningView(ttk.Frame):
@@ -32,30 +33,6 @@ class AgilePlanningView(ttk.Frame):
         self.paned_window.add(self.right_frame, weight=3)
         self.editor_pane = EditorPane(self.right_frame, self.context)
         self.context.register('editor_pane', self.editor_pane)
-
-class PIPlanningView(ttk.Frame):
-    def __init__(self, parent, context: AppContext):
-        super().__init__(parent)
-        self.context = context
-        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
-        
-        # Simple placeholder layout banner
-        self.lbl_placeholder = ttk.Label(
-            self, 
-            text="PI Planning View - Under Construction", 
-            font=("Arial", 14, "italic")
-        )
-        self.lbl_placeholder.pack(expand=True, anchor=tk.CENTER)
-        
-        self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
-
-    def handle_theme_change(self, event: AppThemeChangedEvent):
-        """Reacts to application-wide theme changes."""
-        from src.utils.theme_manager import ThemeManager
-        palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
-        self.configure(style='TFrame') # Standard ttk style handles background
-        # Labels usually follow standard style but we can be explicit if needed
-        # self.lbl_placeholder.configure(background=palette['bg'], foreground=palette['fg'])
 
 class MainWindow:
     def __init__(self, root: tk.Tk, context: AppContext):

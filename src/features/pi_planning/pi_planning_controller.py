@@ -6,7 +6,7 @@ from src.core.events import (
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import (
-    CreateProductTeamCommand, AddMemberToTeamCommand, UpdateMemberCapacityCommand
+    CreateProductCommand, CreateProductTeamCommand, AddMemberToTeamCommand, UpdateMemberCapacityCommand
 )
 from src.domain.workspace import Workspace
 from src.domain.entities import ProductTeam, TeamMemberCapacity
@@ -33,9 +33,21 @@ class PIPlanningController:
 
     def _register_commands(self):
         """Registers handlers for PI Planning related commands."""
+        self.command_bus.register(CreateProductCommand, self.handle_create_product)
         self.command_bus.register(CreateProductTeamCommand, self.handle_create_team)
         self.command_bus.register(AddMemberToTeamCommand, self.handle_add_member_to_team)
         self.command_bus.register(UpdateMemberCapacityCommand, self.handle_update_capacity)
+
+    def handle_create_product(self, command: CreateProductCommand):
+        """Creates a new product and adds it to the workspace."""
+        from src.domain.entities import Product
+        new_product = Product(
+            name=command.name,
+            gitlab_project_id=command.gitlab_project_id,
+            gitlab_group_id=command.gitlab_group_id
+        )
+        self.workspace.products.append(new_product)
+        self._trigger_refresh_and_save()
 
     def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
         """Refreshes the workspace reference."""
