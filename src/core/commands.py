@@ -29,3 +29,38 @@ class SyncWithGitLabCommand(Command):
 class CloneItemCommand(Command):
     """Command to clone an existing item."""
     item_id: Optional[str] = None
+
+@dataclass
+class CreateProductCommand(Command):
+    """Command to create a new product."""
+    name: str
+    gitlab_project_id: Optional[int] = None
+    gitlab_group_id: Optional[int] = None
+
+@dataclass
+class CreateProductTeamCommand(Command):
+    """Command to create a new product team."""
+    name: str
+    product_id: str
+
+@dataclass
+class AddMemberToTeamCommand(Command):
+    """Command to add a member to a team."""
+    team_id: str
+    member_id: int
+
+@dataclass
+class RemoveMemberFromTeamCommand(Command):
+    """Command to remove a member from a team."""
+    team_id: str
+    member_id: int
+
+@dataclass
+class UpdateMemberCapacityCommand(Command):
+    """Command to update member capacity metrics."""
+    team_id: str
+    member_id: int
+    iteration_id: int
+    pto: int
+    allocation_pct: int
+    velocity_factor: int

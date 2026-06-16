@@ -85,6 +85,22 @@ class Iteration:
             return self.title or f"Iteration {self.iid}"
 
 @dataclass
+class ProductTeam:
+    id: str
+    name: str
+    product_id: str
+    member_ids: List[int] = field(default_factory=list)
+
+@dataclass
+class TeamMemberCapacity:
+    team_id: str
+    member_id: int
+    iteration_id: int
+    pto: int = 0
+    allocation_pct: int = 100
+    velocity_factor: int = 100
+
+@dataclass
 class Story:
     """
     Represents a user story or a small, deliverable piece of work.

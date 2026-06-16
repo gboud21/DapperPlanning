@@ -96,6 +96,30 @@ class UIAppViewChangedEvent(Event):
     view_name: str  # e.g., "Agile Planning", "PI Planning"
 
 @dataclass
+class UIPiPlannerTreeSelectionChangedEvent(Event):
+    """Emitted when the user selects an item in the PI Planner tree."""
+    selected_type: str  # "Product", "Team", or "Member"
+    selected_id: str    # Internal entity reference key
+
+@dataclass
+class UIPiPlannerCellSelectedEvent(Event):
+    """Emitted when an operator selects an explicit cell intersection inside the matrix grid."""
+    selected_type: str  # "Team" or "Member"
+    selected_id: str    # team_id or member_id
+    team_id: str        # Contextual target team ID reference
+    iteration_id: int   # Targeted column iteration identity
+
+@dataclass
+class UIUpdateCapacityMetricsRequestedEvent(Event):
+    """Emitted when the user requests to update capacity metrics."""
+    team_id: str
+    member_id: int
+    iteration_id: int
+    pto: int
+    allocation_pct: int
+    velocity_factor: int
+
+@dataclass
 class UIExportCsvRequestedEvent(Event):
     file_path: str
 
@@ -323,6 +347,9 @@ class Actions:
     ITEM_REPARENT = UIItemReparentRequestedEvent
     ITEM_SPLIT = UIStorySplitRequestedEvent
     VIEW_CHANGED = UIAppViewChangedEvent
+    PI_TREE_SELECTION = UIPiPlannerTreeSelectionChangedEvent
+    PI_CELL_SELECTION = UIPiPlannerCellSelectedEvent
+    PI_CAPACITY_UPDATE = UIUpdateCapacityMetricsRequestedEvent
 
 class Notifications:
     """Namespace for all State Update and Sync Notifications."""
@@ -400,5 +427,6 @@ __all__ = [
     'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
     'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
-    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent', 'UIAppViewChangedEvent'
+    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent', 'UIAppViewChangedEvent',
+    'UIPiPlannerTreeSelectionChangedEvent', 'UIPiPlannerCellSelectedEvent', 'UIUpdateCapacityMetricsRequestedEvent'
 ]
