@@ -6,6 +6,8 @@ from src.core.events import (
     AppThemeChangedEvent, ModelWorkspaceLoadedEvent, UIPiPlannerCellSelectedEvent
 )
 
+from src.utils.debouncer import Debouncer
+
 class MetricsEditorPane(ttk.LabelFrame):
     def __init__(self, parent, context: AppContext):
         super().__init__(parent, text="Capacity Metrics Editor", padding=10)
@@ -16,8 +18,16 @@ class MetricsEditorPane(ttk.LabelFrame):
         self.current_selection = None
         self.active_iteration_id = None
         
+        # Initialize debouncer for real-time updates
+        self.metrics_debouncer = Debouncer(self, 500, self._on_debounce_trigger)
+        
         self._setup_form()
         self._bind_events()
+
+    def _on_debounce_trigger(self):
+        """Callback for debouncer to dispatch the update event."""
+        self._on_field_changed(None)
+        self._on_util_changed(None)
 
     def _setup_form(self):
         # Grid layout for inputs
@@ -25,22 +35,26 @@ class MetricsEditorPane(ttk.LabelFrame):
         ttk.Label(self, text="PTO Days:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.entry_pto = tk.Entry(self, width=10)
         self.entry_pto.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        self.entry_pto.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_pto.bind("<FocusOut>", self._on_field_changed)
         
         ttk.Label(self, text="Allocation %:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
         self.entry_alloc = tk.Entry(self, width=10)
         self.entry_alloc.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
+        self.entry_alloc.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_alloc.bind("<FocusOut>", self._on_field_changed)
 
         # Row 1: Velocity and Utilization
         ttk.Label(self, text="Velocity Factor %:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
         self.entry_vel = tk.Entry(self, width=10)
         self.entry_vel.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        self.entry_vel.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_vel.bind("<FocusOut>", self._on_field_changed)
         
         ttk.Label(self, text="Utilization Factor %:").grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
         self.entry_util = tk.Entry(self, width=10)
         self.entry_util.grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
+        self.entry_util.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_util.bind("<FocusOut>", self._on_util_changed)
 
         # Load global utilization
@@ -190,6 +204,7 @@ class MetricsEditorPane(ttk.LabelFrame):
             # Save to settings
             settings = self.context.resolve('settings_manager')
             settings.set('utilization_factor', util)
+            settings.save()
             
             # Trigger full refresh via cell selection event if available, else standard selection
             if self.current_selection and self.active_iteration_id:
