@@ -5,8 +5,12 @@ from src.core.events import (
     UIUpdateCapacityMetricsRequestedEvent, UIPiPlannerTreeSelectionChangedEvent, 
     AppThemeChangedEvent, ModelWorkspaceLoadedEvent, UIPiPlannerCellSelectedEvent
 )
-
+from src.core.constants import AgileObjectType, DEFAULT_FACTOR_VALUE
 from src.utils.debouncer import Debouncer
+
+ENTRY_WIDGET_WIDTH = 10
+GRID_PADDING_X = 5
+GRID_PADDING_Y = 5
 
 class MetricsEditorPane(ttk.LabelFrame):
     def __init__(self, parent, context: AppContext):
@@ -32,34 +36,34 @@ class MetricsEditorPane(ttk.LabelFrame):
     def _setup_form(self):
         # Grid layout for inputs
         # Row 0: PTO and Allocation
-        ttk.Label(self, text="PTO Days:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.entry_pto = tk.Entry(self, width=10)
-        self.entry_pto.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="PTO Days:").grid(row=0, column=0, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
+        self.entry_pto = tk.Entry(self, width=ENTRY_WIDGET_WIDTH)
+        self.entry_pto.grid(row=0, column=1, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
         self.entry_pto.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_pto.bind("<FocusOut>", self._on_field_changed)
         
-        ttk.Label(self, text="Allocation %:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
-        self.entry_alloc = tk.Entry(self, width=10)
-        self.entry_alloc.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Allocation %:").grid(row=0, column=2, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
+        self.entry_alloc = tk.Entry(self, width=ENTRY_WIDGET_WIDTH)
+        self.entry_alloc.grid(row=0, column=3, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
         self.entry_alloc.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_alloc.bind("<FocusOut>", self._on_field_changed)
 
         # Row 1: Velocity and Utilization
-        ttk.Label(self, text="Velocity Factor %:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.entry_vel = tk.Entry(self, width=10)
-        self.entry_vel.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Velocity Factor %:").grid(row=1, column=0, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
+        self.entry_vel = tk.Entry(self, width=ENTRY_WIDGET_WIDTH)
+        self.entry_vel.grid(row=1, column=1, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
         self.entry_vel.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_vel.bind("<FocusOut>", self._on_field_changed)
         
-        ttk.Label(self, text="Utilization Factor %:").grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
-        self.entry_util = tk.Entry(self, width=10)
-        self.entry_util.grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Utilization Factor %:").grid(row=1, column=2, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
+        self.entry_util = tk.Entry(self, width=ENTRY_WIDGET_WIDTH)
+        self.entry_util.grid(row=1, column=3, sticky=tk.W, padx=GRID_PADDING_X, pady=GRID_PADDING_Y)
         self.entry_util.bind("<KeyRelease>", lambda e: self.metrics_debouncer.schedule())
         self.entry_util.bind("<FocusOut>", self._on_util_changed)
 
         # Load global utilization
         settings = self.context.resolve('settings_manager')
-        self.entry_util.insert(0, str(settings.get('utilization_factor', 100)))
+        self.entry_util.insert(0, str(settings.get('utilization_factor', DEFAULT_FACTOR_VALUE)))
 
         # Initially disable inputs
         self._set_inputs_state("disabled")
@@ -86,7 +90,7 @@ class MetricsEditorPane(ttk.LabelFrame):
         it_name = it.title if it else "Unknown"
         self.config(text=f"Capacity Metrics Editor - {it_name}")
 
-        if event.selected_type == "Member":
+        if event.selected_type == AgileObjectType.MEMBER:
             self._set_inputs_state("normal")
             self._load_metrics()
         else:
@@ -101,7 +105,7 @@ class MetricsEditorPane(ttk.LabelFrame):
     def _handle_selection_changed(self, event: UIPiPlannerTreeSelectionChangedEvent):
         self.current_selection = {'type': event.selected_type, 'id': event.selected_id}
         
-        if event.selected_type == "Member":
+        if event.selected_type == AgileObjectType.MEMBER:
             self._set_inputs_state("normal")
             # Populate fields if we have iteration data
             if self.workspace.iterations:
@@ -139,33 +143,36 @@ class MetricsEditorPane(ttk.LabelFrame):
         self.entry_pto.insert(0, str(cap.pto if cap else 0))
         
         self.entry_alloc.delete(0, tk.END)
-        self.entry_alloc.insert(0, f"{cap.allocation_pct if cap else 100}%")
+        self.entry_alloc.insert(0, f"{cap.allocation_pct if cap else DEFAULT_FACTOR_VALUE}%")
         
         self.entry_vel.delete(0, tk.END)
-        self.entry_vel.insert(0, f"{cap.velocity_factor if cap else 100}%")
+        self.entry_vel.insert(0, f"{cap.velocity_factor if cap else DEFAULT_FACTOR_VALUE}%")
 
     def _clear_fields(self):
         for entry in [self.entry_pto, self.entry_alloc, self.entry_vel]:
             entry.delete(0, tk.END)
 
     def _on_field_changed(self, event):
-        if not self.current_selection or self.current_selection['type'] != "Member":
+        if not self.current_selection or self.current_selection['type'] != AgileObjectType.MEMBER:
             return
             
         try:
+            MIN_PERCENT_BOUND = 0
+            MAX_PERCENT_BOUND = 100
+
             # 1. Validation
             pto_str = self.entry_pto.get()
             pto = int(pto_str) if pto_str else 0
             
             alloc_str = self.entry_alloc.get().replace('%', '')
-            alloc = int(alloc_str) if alloc_str else 100
+            alloc = int(alloc_str) if alloc_str else DEFAULT_FACTOR_VALUE
             
             vel_str = self.entry_vel.get().replace('%', '')
-            vel = int(vel_str) if vel_str else 100
+            vel = int(vel_str) if vel_str else DEFAULT_FACTOR_VALUE
             
             # Clamp bounds
-            alloc = max(0, min(100, alloc))
-            vel = max(0, min(100, vel))
+            alloc = max(MIN_PERCENT_BOUND, min(MAX_PERCENT_BOUND, alloc))
+            vel = max(MIN_PERCENT_BOUND, min(MAX_PERCENT_BOUND, vel))
             
             # PTO bounds check (requires iteration context)
             if self.active_iteration_id:
@@ -196,9 +203,12 @@ class MetricsEditorPane(ttk.LabelFrame):
 
     def _on_util_changed(self, event):
         try:
+            MIN_PERCENT_BOUND = 0
+            MAX_PERCENT_BOUND = 100
+
             util_str = self.entry_util.get().replace('%', '')
-            util = int(util_str) if util_str else 100
-            util = max(0, min(100, util))
+            util = int(util_str) if util_str else DEFAULT_FACTOR_VALUE
+            util = max(MIN_PERCENT_BOUND, min(MAX_PERCENT_BOUND, util))
             self.entry_util.delete(0, tk.END); self.entry_util.insert(0, f"{util}%")
             
             # Save to settings
@@ -216,7 +226,7 @@ class MetricsEditorPane(ttk.LabelFrame):
                 ))
             else:
                 self.dispatcher.dispatch(UIPiPlannerTreeSelectionChangedEvent(
-                    selected_type=self.current_selection['type'] if self.current_selection else "Product",
+                    selected_type=self.current_selection['type'] if self.current_selection else AgileObjectType.PRODUCT,
                     selected_id=self.current_selection['id'] if self.current_selection else ""
                 ))
         except:

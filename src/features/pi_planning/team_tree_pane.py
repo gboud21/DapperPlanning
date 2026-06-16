@@ -8,6 +8,10 @@ from src.core.events import (
 from src.core.commands import (
     CreateProductCommand, CreateProductTeamCommand, AddMemberToTeamCommand, RemoveMemberFromTeamCommand
 )
+from src.core.constants import AgileObjectType
+
+TREE_FRAME_WEIGHT = 3
+LIST_FRAME_WEIGHT = 1
 
 class TeamTreePane(ttk.Frame):
     def __init__(self, parent, context: AppContext):
@@ -29,7 +33,7 @@ class TeamTreePane(ttk.Frame):
         
         # 1. Hierarchy Tree View Container Frame Area
         self.tree_frame = ttk.LabelFrame(self.paned, text="Team Composition Hierarchy")
-        self.paned.add(self.tree_frame, weight=3)
+        self.paned.add(self.tree_frame, weight=TREE_FRAME_WEIGHT)
 
         self.tree_scroll = ttk.Scrollbar(self.tree_frame, orient=tk.VERTICAL)
         self.tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -50,7 +54,7 @@ class TeamTreePane(ttk.Frame):
 
         # 2. Members Directory Listbox Container Component Frame
         self.list_frame = ttk.LabelFrame(self.paned, text="GitLab Sync Directory")
-        self.paned.add(self.list_frame, weight=1)
+        self.paned.add(self.list_frame, weight=LIST_FRAME_WEIGHT)
 
         self.list_scroll = ttk.Scrollbar(self.list_frame, orient=tk.VERTICAL)
         self.list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -78,14 +82,14 @@ class TeamTreePane(ttk.Frame):
         if not item_id:
             menu.add_command(label="Add Product", command=self._cmd_add_product)
         else:
-            node_type = self.tree.set(item_id, "type")
+            node_type = str(self.tree.set(item_id, "type"))
             entity_id = self.tree.set(item_id, "entity_id")
             
-            if node_type == "Product":
+            if node_type == str(AgileObjectType.PRODUCT):
                 menu.add_command(label="Add Product Team", command=lambda: self._cmd_add_team(entity_id))
-            elif node_type == "Team":
+            elif node_type == str(AgileObjectType.TEAM):
                 menu.add_command(label="Add Member Here", command=lambda: self._cmd_add_member(entity_id))
-            elif node_type == "Member":
+            elif node_type == str(AgileObjectType.MEMBER):
                 # Find parent team ID for this member node
                 parent_iid = self.tree.parent(item_id)
                 if parent_iid:
@@ -108,7 +112,7 @@ class TeamTreePane(ttk.Frame):
             return
         
         item_id = selected[0]
-        node_type = self.tree.set(item_id, "type")
+        node_type = str(self.tree.set(item_id, "type"))
         entity_id = self.tree.set(item_id, "entity_id")
         
         self.dispatcher.dispatch(UIPiPlannerTreeSelectionChangedEvent(
@@ -141,7 +145,7 @@ class TeamTreePane(ttk.Frame):
             node_type = self.tree.set(target_row, "type")
             team_id = self.tree.set(target_row, "entity_id")
             
-            if node_type == "Team":
+            if node_type == AgileObjectType.TEAM:
                 # Parse member ID from string "(ID) Name" or just find by name
                 member_str = self._active_drag_data
                 if "(" in member_str and ")" in member_str:
@@ -202,20 +206,20 @@ class TeamTreePane(ttk.Frame):
             
         for product in self.workspace.products:
             p_node = self.tree.insert("", tk.END, text=product.name, tags=('Product',))
-            self.tree.set(p_node, "type", "Product")
+            self.tree.set(p_node, "type", str(AgileObjectType.PRODUCT))
             self.tree.set(p_node, "entity_id", product.name)
             
             teams = [t for t in self.workspace.product_teams if t.product_id == product.name]
             for team in teams:
                 t_node = self.tree.insert(p_node, tk.END, text=team.name, tags=('Team',))
-                self.tree.set(t_node, "type", "Team")
+                self.tree.set(t_node, "type", str(AgileObjectType.TEAM))
                 self.tree.set(t_node, "entity_id", team.id)
                 
                 for m_id in team.member_ids:
                     member = self.workspace.members.get(m_id)
                     m_name = member.name if member else f"Unknown ({m_id})"
                     m_node = self.tree.insert(t_node, tk.END, text=m_name, tags=('Member',))
-                    self.tree.set(m_node, "type", "Member")
+                    self.tree.set(m_node, "type", str(AgileObjectType.MEMBER))
                     self.tree.set(m_node, "entity_id", str(m_id))
 
         # 2. Update Member List

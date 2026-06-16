@@ -7,6 +7,7 @@ from datetime import datetime
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
 from src.domain.entities import Epic, Feature, Story, Product, Member, Label, Iteration, ProductTeam, TeamMemberCapacity
+from src.core.constants import AgileObjectType, AgileStatus
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):
@@ -548,14 +549,20 @@ class Workspace:
         """Returns status text by inspecting item labels against priority mappings."""
         if not legacy_status_enabled:
             return None
-        priority_order = ["Backlog", "In Progress", "In Review", "Done", "Closed"]
+        priority_order = [
+            AgileStatus.CLOSED.value, 
+            AgileStatus.DONE.value, 
+            AgileStatus.IN_REVIEW.value, 
+            AgileStatus.IN_PROGRESS.value, 
+            AgileStatus.BACKLOG.value
+        ]
         
         for status in priority_order:
             mapped_label = status_label_mappings.get(status, status)
             if mapped_label in labels_list:
                 return status
                 
-        return "Backlog"
+        return AgileStatus.BACKLOG.value
 
     def sync_legacy_labels(self, status: str, labels_list: list[str], legacy_status_enabled: bool, status_label_mappings: dict) -> list[str]:
         """Ensures labels list matches the selected status when legacy mode is enabled."""
@@ -563,7 +570,10 @@ class Workspace:
             return labels_list
             
         # 1. Identify all potential legacy status labels to remove
-        all_legacy_labels = {status_label_mappings.get(s, s) for s in ["Backlog", "In Progress", "In Review", "Done", "Closed"]}
+        all_legacy_labels = {status_label_mappings.get(s, s) for s in [
+            AgileStatus.BACKLOG.value, AgileStatus.IN_PROGRESS.value, AgileStatus.IN_REVIEW.value, 
+            AgileStatus.DONE.value, AgileStatus.CLOSED.value
+        ]}
         
         # 2. Filter out current legacy labels
         new_labels = [l for l in labels_list if l not in all_legacy_labels]

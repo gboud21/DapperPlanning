@@ -2,7 +2,18 @@ import tkinter as tk
 from tkinter import ttk
 from src.core.app_context import AppContext
 from src.utils.date_utils import calculate_sprint_business_days
-from src.core.events import ModelHierarchyUpdatedEvent, AppThemeChangedEvent, ModelWorkspaceLoadedEvent, UIPiPlannerCellSelectedEvent
+from src.core.events import ModelHierarchyUpdatedEvent, AppThemeChangedEvent, ModelWorkspaceLoadedEvent, UIPiPlannerCellSelectedEvent, UIPiPlannerTreeSelectionChangedEvent
+from src.core.constants import AgileObjectType, PERCENT_DENOMINATOR, DEFAULT_FACTOR_VALUE
+
+HEADER_FONT = ("Arial", 10, "bold")
+DEFAULT_CELL_WIDTH = 10
+SELECTION_BG_COLOR = "#1e40af"
+OVERLOAD_FG_COLOR = "red"
+DEFAULT_FG_COLOR = "black"
+
+PAD_CELL_X = 2
+PAD_CELL_Y = 2
+PAD_ROW_X = 10
 
 class ScrollableSpreadsheetPane(ttk.Frame):
     def __init__(self, parent, context: AppContext):
@@ -73,38 +84,33 @@ class ScrollableSpreadsheetPane(ttk.Frame):
         # Header Configuration
         source_title = "Hierarchical Node Source"
         if tree_selection:
-            source_title = f"{tree_selection['selected_type']}: {tree_selection['selected_id']}"
+            source_title = f"{str(tree_selection['selected_type'])}: {tree_selection['selected_id']}"
 
-        lbl_main_title = tk.Label(self.scroll_inner_frame, text=source_title, font=("Arial", 10, "bold"), 
+        lbl_main_title = tk.Label(self.scroll_inner_frame, text=source_title, font=HEADER_FONT, 
                                   bg=palette['bg'], fg=palette['fg'], relief="ridge")
         lbl_main_title.grid(row=0, column=0, rowspan=2, sticky=tk.NSEW, padx=5, pady=5)
 
         col_idx = 1
         for iteration in iterations:
-            lbl_iter = tk.Label(self.scroll_inner_frame, text=iteration.title, anchor=tk.CENTER, font=("Arial", 10, "bold"),
+            lbl_iter = tk.Label(self.scroll_inner_frame, text=iteration.title, anchor=tk.CENTER, font=HEADER_FONT,
                                 bg=palette['field_bg'], fg=palette['fg'], relief="ridge")
-            lbl_iter.grid(row=0, column=col_idx, columnspan=2, sticky=tk.EW, padx=2, pady=2)
+            lbl_iter.grid(row=0, column=col_idx, columnspan=2, sticky=tk.EW, padx=PAD_CELL_X, pady=PAD_CELL_Y)
             
             # Row 1: Target Data Sub-headers
-            tk.Label(self.scroll_inner_frame, text="Capacity", width=10, anchor=tk.CENTER,
-                     bg=palette['bg'], fg=palette['fg']).grid(row=1, column=col_idx, padx=2, pady=2)
-            tk.Label(self.scroll_inner_frame, text="Load", width=10, anchor=tk.CENTER,
-                     bg=palette['bg'], fg=palette['fg']).grid(row=1, column=col_idx+1, padx=2, pady=2)
+            tk.Label(self.scroll_inner_frame, text="Capacity", width=DEFAULT_CELL_WIDTH, anchor=tk.CENTER,
+                     bg=palette['bg'], fg=palette['fg']).grid(row=1, column=col_idx, padx=PAD_CELL_X, pady=PAD_CELL_Y)
+            tk.Label(self.scroll_inner_frame, text="Load", width=DEFAULT_CELL_WIDTH, anchor=tk.CENTER,
+                     bg=palette['bg'], fg=palette['fg']).grid(row=1, column=col_idx+1, padx=PAD_CELL_X, pady=PAD_CELL_Y)
             col_idx += 2
 
         # Data Rows
         # Determine what rows to show based on tree selection
         rows_to_render = self._get_rows_to_render(tree_selection)
         
-        from src.utils.theme_manager import ThemeManager
-        is_dark = ThemeManager.load_settings()
-        palette = ThemeManager.DARK_PALETTE if is_dark else ThemeManager.LIGHT_PALETTE
-        highlight_bg = "#1e40af" # Distinct high-contrast blue for selection
-        
         for r_idx, row_data in enumerate(rows_to_render):
             # Column 0: Name
             tk.Label(self.scroll_inner_frame, text=row_data['display_name'], 
-                     bg=palette['bg'], fg=palette['fg']).grid(row=r_idx+2, column=0, sticky=tk.W, padx=10, pady=2)
+                     bg=palette['bg'], fg=palette['fg']).grid(row=r_idx+2, column=0, sticky=tk.W, padx=PAD_ROW_X, pady=PAD_CELL_Y)
             
             col_idx = 1
             for iteration in iterations:
@@ -118,25 +124,25 @@ class ScrollableSpreadsheetPane(ttk.Frame):
                 lbl_cap = tk.Label(
                     self.scroll_inner_frame, 
                     text=f"{capacity:.1f}", 
-                    width=10, 
+                    width=DEFAULT_CELL_WIDTH, 
                     relief="groove",
-                    bg=highlight_bg if is_selected else palette['field_bg'],
+                    bg=SELECTION_BG_COLOR if is_selected else palette['field_bg'],
                     fg=palette['fg']
                 )
-                lbl_cap.grid(row=r_idx+2, column=col_idx, padx=2, pady=2)
+                lbl_cap.grid(row=r_idx+2, column=col_idx, padx=PAD_CELL_X, pady=PAD_CELL_Y)
                 lbl_cap.bind("<Button-1>", lambda e, rd=row_data, it_id=iteration.id: self._on_cell_clicked(rd, it_id))
                 
                 # Load Cell Label Creation
-                fg_color = "red" if load > capacity and capacity > 0 else palette['fg']
+                fg_color = OVERLOAD_FG_COLOR if load > capacity and capacity > 0 else palette['fg']
                 lbl_load = tk.Label(
                     self.scroll_inner_frame, 
                     text=f"{load:.1f}", 
-                    width=10, 
+                    width=DEFAULT_CELL_WIDTH, 
                     relief="groove",
                     fg=fg_color,
-                    bg=highlight_bg if is_selected else palette['field_bg']
+                    bg=SELECTION_BG_COLOR if is_selected else palette['field_bg']
                 )
-                lbl_load.grid(row=r_idx+2, column=col_idx+1, padx=2, pady=2)
+                lbl_load.grid(row=r_idx+2, column=col_idx+1, padx=PAD_CELL_X, pady=PAD_CELL_Y)
                 lbl_load.bind("<Button-1>", lambda e, rd=row_data, it_id=iteration.id: self._on_cell_clicked(rd, it_id))
                 
                 col_idx += 2
@@ -150,46 +156,48 @@ class ScrollableSpreadsheetPane(ttk.Frame):
         sel_type = selection['selected_type']
         sel_id = selection['selected_id']
         
-        if sel_type == "Product":
+        if sel_type == AgileObjectType.PRODUCT:
             # Show all teams for this product
             teams = [t for t in self.workspace.product_teams if t.product_id == sel_id]
             for team in teams:
-                rows.append({'type': 'Team', 'id': team.id, 'display_name': team.name, 'team_id': team.id})
-        elif sel_type == "Team":
+                rows.append({'type': AgileObjectType.TEAM, 'id': team.id, 'display_name': team.name, 'team_id': team.id})
+        elif sel_type == AgileObjectType.TEAM:
             # Show the team itself plus all its members
             team = next((t for t in self.workspace.product_teams if t.id == sel_id), None)
             if team:
-                rows.append({'type': 'Team', 'id': team.id, 'display_name': f"TEAM: {team.name}", 'team_id': team.id})
+                rows.append({'type': AgileObjectType.TEAM, 'id': team.id, 'display_name': f"TEAM: {team.name}", 'team_id': team.id})
                 for m_id in team.member_ids:
                     member = self.workspace.members.get(m_id)
                     m_name = member.name if member else f"ID: {m_id}"
-                    rows.append({'type': 'Member', 'id': m_id, 'display_name': m_name, 'team_id': team.id})
-        elif sel_type == "Member":
+                    rows.append({'type': AgileObjectType.MEMBER, 'id': m_id, 'display_name': m_name, 'team_id': team.id})
+        elif sel_type == AgileObjectType.MEMBER:
             # Just show this member (but we need to know the team context from the tree selection)
-            # Tree selection doesn't currently provide parent ID, we might need to find it
             member = self.workspace.members.get(int(sel_id))
             m_name = member.name if member else f"ID: {sel_id}"
             # Find the team this member is in (simple search)
             for team in self.workspace.product_teams:
                 if int(sel_id) in team.member_ids:
-                    rows.append({'type': 'Member', 'id': int(sel_id), 'display_name': m_name, 'team_id': team.id})
+                    rows.append({'type': AgileObjectType.MEMBER, 'id': int(sel_id), 'display_name': m_name, 'team_id': team.id})
                     break
         return rows
 
     def _calculate_capacity(self, row_data, iteration) -> float:
         days = calculate_sprint_business_days(iteration.start_date, iteration.end_date)
         
-        if row_data['type'] == 'Member':
+        if row_data['type'] == AgileObjectType.MEMBER:
             key = f"{row_data['team_id']}_{row_data['id']}_{iteration.id}"
             cap_record = self.workspace.member_capacities.get(key)
             
             pto = cap_record.pto if cap_record else 0
-            alloc = (cap_record.allocation_pct if cap_record else 100) / 100.0
-            vel = (cap_record.velocity_factor if cap_record else 100) / 100.0
+            alloc_pct = cap_record.allocation_pct if cap_record else DEFAULT_FACTOR_VALUE
+            alloc = alloc_pct / PERCENT_DENOMINATOR
+            
+            vel_pct = cap_record.velocity_factor if cap_record else DEFAULT_FACTOR_VALUE
+            vel = vel_pct / PERCENT_DENOMINATOR
             
             settings = self.context.resolve('settings_manager')
-            util_val = settings._settings.get('utilization_factor', 100)
-            util = util_val / 100.0
+            util_val = settings._settings.get('utilization_factor', DEFAULT_FACTOR_VALUE)
+            util = util_val / PERCENT_DENOMINATOR
             
             return max(0, (days - pto)) * alloc * vel * util
         else:
@@ -199,12 +207,12 @@ class ScrollableSpreadsheetPane(ttk.Frame):
             
             total = 0.0
             for m_id in team.member_ids:
-                m_row = {'type': 'Member', 'id': m_id, 'team_id': team.id}
+                m_row = {'type': AgileObjectType.MEMBER, 'id': m_id, 'team_id': team.id}
                 total += self._calculate_capacity(m_row, iteration)
             return total
 
     def _calculate_load(self, row_data, iteration) -> float:
-        if row_data['type'] == 'Member':
+        if row_data['type'] == AgileObjectType.MEMBER:
             # Sum weight of stories assigned to this member in this iteration
             total_load = 0.0
             for epic in self.workspace.get_epics():
@@ -220,7 +228,7 @@ class ScrollableSpreadsheetPane(ttk.Frame):
             
             total = 0.0
             for m_id in team.member_ids:
-                m_row = {'type': 'Member', 'id': m_id, 'team_id': team.id}
+                m_row = {'type': AgileObjectType.MEMBER, 'id': m_id, 'team_id': team.id}
                 total += self._calculate_load(m_row, iteration)
             return total
 
@@ -228,4 +236,3 @@ class ScrollableSpreadsheetPane(ttk.Frame):
         from src.utils.theme_manager import ThemeManager
         palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
         self.canvas.configure(bg=palette['bg'])
-        # Re-render to apply theme to labels if needed, or rely on ttk styles

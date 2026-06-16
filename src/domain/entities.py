@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 import uuid
 from src.utils.string_utils import generate_clone_title
+from src.core.constants import AgileStatus, DEFAULT_FACTOR_VALUE
 
 @dataclass
 class Product:
@@ -97,8 +98,8 @@ class TeamMemberCapacity:
     member_id: int
     iteration_id: int
     pto: int = 0
-    allocation_pct: int = 100
-    velocity_factor: int = 100
+    allocation_pct: int = DEFAULT_FACTOR_VALUE
+    velocity_factor: int = DEFAULT_FACTOR_VALUE
 
 @dataclass
 class Story:
@@ -115,7 +116,7 @@ class Story:
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
     weight: float = 0.0
-    status: str = 'Backlog'
+    status: str = AgileStatus.BACKLOG.value
     assignee_id: Optional[int] = None
     iteration_id: Optional[int] = None
     # Sync Metadata
@@ -135,7 +136,7 @@ class Story:
             products=self.products.copy(),
             capabilities=self.capabilities.copy(),
             weight=self.weight,
-            status='Backlog',
+            status=AgileStatus.BACKLOG.value,
             assignee_id=self.assignee_id,
             iteration_id=None,
             gitlab_id=None,
@@ -187,15 +188,15 @@ class Feature:
     def status(self) -> str:
         """Dynamically calculates status based on children."""
         if not self.stories:
-            return 'Backlog'
+            return AgileStatus.BACKLOG.value
         statuses = [s.status for s in self.stories]
-        if all(s == 'Closed' for s in statuses):
-            return 'Closed'
-        if all(s in ('Done', 'Closed') for s in statuses):
-            return 'Done'
-        if all(s == 'Backlog' for s in statuses):
-            return 'Backlog'
-        return 'In Progress'
+        if all(s == AgileStatus.CLOSED.value for s in statuses):
+            return AgileStatus.CLOSED.value
+        if all(s in (AgileStatus.DONE.value, AgileStatus.CLOSED.value) for s in statuses):
+            return AgileStatus.DONE.value
+        if all(s == AgileStatus.BACKLOG.value for s in statuses):
+            return AgileStatus.BACKLOG.value
+        return AgileStatus.IN_PROGRESS.value
 
 @dataclass
 class Epic:
@@ -239,12 +240,12 @@ class Epic:
     def status(self) -> str:
         """Dynamically calculates status based on children."""
         if not self.features:
-            return 'Backlog'
+            return AgileStatus.BACKLOG.value
         statuses = [f.status for f in self.features]
-        if all(s == 'Closed' for s in statuses):
-            return 'Closed'
-        if all(s in ('Done', 'Closed') for s in statuses):
-            return 'Done'
-        if all(s == 'Backlog' for s in statuses):
-            return 'Backlog'
-        return 'In Progress'
+        if all(s == AgileStatus.CLOSED.value for s in statuses):
+            return AgileStatus.CLOSED.value
+        if all(s in (AgileStatus.DONE.value, AgileStatus.CLOSED.value) for s in statuses):
+            return AgileStatus.DONE.value
+        if all(s == AgileStatus.BACKLOG.value for s in statuses):
+            return AgileStatus.BACKLOG.value
+        return AgileStatus.IN_PROGRESS.value

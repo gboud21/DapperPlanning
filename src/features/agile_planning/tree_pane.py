@@ -305,7 +305,7 @@ class TreePane:
             
             title = getattr(item, 'title', "Untitled")
             weight = getattr(item, 'weight', 0.0)
-            status = getattr(item, 'status', 'Backlog')
+            status = str(getattr(item, 'status', 'Backlog'))
             item_type = type(item).__name__
             
             if show_status:
