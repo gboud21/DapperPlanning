@@ -256,6 +256,12 @@ class EditorPane:
 
         # Refresh master list
         reserved_labels = {'Epic', 'Feature', 'Story'}
+        legacy_enabled = self.settings.get('legacy_status_enabled', False)
+        if legacy_enabled:
+            mappings = self.settings.get('status_label_mappings', {})
+            legacy_labels = {mappings.get(s, s) for s in ["Backlog", "In Progress", "In Review", "Done", "Closed"]}
+            reserved_labels.update(legacy_labels)
+
         master_labels_formatted = [
             f"({l.scope_name}) {l.name}" 
             for l in self.workspace.labels.values()
@@ -776,6 +782,13 @@ class EditorPane:
             # Populate Labels
             assigned_labels = getattr(event.item_data, 'labels', [])
             reserved_labels = {'Epic', 'Feature', 'Story'}
+            
+            legacy_enabled = self.settings.get('legacy_status_enabled', False)
+            if legacy_enabled:
+                mappings = self.settings.get('status_label_mappings', {})
+                legacy_labels = {mappings.get(s, s) for s in ["Backlog", "In Progress", "In Review", "Done", "Closed"]}
+                reserved_labels.update(legacy_labels)
+
             master_labels_formatted = [
                 f"({l.scope_name}) {l.name}" 
                 for l in self.workspace.labels.values()
