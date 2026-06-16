@@ -199,30 +199,49 @@ class TeamTreePane(ttk.Frame):
         self.refresh()
 
     def refresh(self, event=None):
-        """Re-populates the tree and member list."""
-        # 1. Update Tree
+        """Re-populates the tree and member list while preserving expanded state."""
+        # 1. Save current expansion state
+        def get_all_expanded(parent=""):
+            expanded = []
+            for item in self.tree.get_children(parent):
+                if self.tree.item(item, "open"):
+                    expanded.append(item)
+                expanded.extend(get_all_expanded(item))
+            return expanded
+        
+        all_expanded = get_all_expanded()
+
+        # 2. Update Tree
         for item in self.tree.get_children():
             self.tree.delete(item)
             
         for product in self.workspace.products:
-            p_node = self.tree.insert("", tk.END, text=product.name, tags=('Product',))
+            prod_iid = f"PROD:{product.name}"
+            p_node = self.tree.insert("", tk.END, iid=prod_iid, text=product.name, tags=('Product',))
             self.tree.set(p_node, "type", str(AgileObjectType.PRODUCT))
             self.tree.set(p_node, "entity_id", product.name)
             
             teams = [t for t in self.workspace.product_teams if t.product_id == product.name]
             for team in teams:
-                t_node = self.tree.insert(p_node, tk.END, text=team.name, tags=('Team',))
+                team_iid = f"{prod_iid}:TEAM:{team.id}"
+                t_node = self.tree.insert(p_node, tk.END, iid=team_iid, text=team.name, tags=('Team',))
                 self.tree.set(t_node, "type", str(AgileObjectType.TEAM))
                 self.tree.set(t_node, "entity_id", team.id)
                 
                 for m_id in team.member_ids:
                     member = self.workspace.members.get(m_id)
                     m_name = member.name if member else f"Unknown ({m_id})"
-                    m_node = self.tree.insert(t_node, tk.END, text=m_name, tags=('Member',))
+                    mem_iid = f"{team_iid}:MEM:{m_id}"
+                    m_node = self.tree.insert(t_node, tk.END, iid=mem_iid, text=m_name, tags=('Member',))
                     self.tree.set(m_node, "type", str(AgileObjectType.MEMBER))
                     self.tree.set(m_node, "entity_id", str(m_id))
 
-        # 2. Update Member List
+        # 3. Restore expansion
+        for iid in all_expanded:
+            if self.tree.exists(iid):
+                self.tree.item(iid, open=True)
+
+        # 4. Update Member List
         self.listbox.delete(0, tk.END)
         for member in sorted(self.workspace.get_members(), key=lambda m: m.name):
             self.listbox.insert(tk.END, f"({member.id}) {member.name}")
