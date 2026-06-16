@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 from src.core.app_context import AppContext
 from src.core.events import (
     UIUpdateCapacityMetricsRequestedEvent, UIPiPlannerTreeSelectionChangedEvent, 
-    AppThemeChangedEvent, ModelWorkspaceLoadedEvent
+    AppThemeChangedEvent, ModelWorkspaceLoadedEvent, UIPiPlannerCellSelectedEvent
 )
 
 class MetricsEditorPane(ttk.LabelFrame):
@@ -58,8 +58,26 @@ class MetricsEditorPane(ttk.LabelFrame):
 
     def _bind_events(self):
         self.dispatcher.subscribe(UIPiPlannerTreeSelectionChangedEvent, self._handle_selection_changed)
+        self.dispatcher.subscribe(UIPiPlannerCellSelectedEvent, self._handle_cell_selected)
         self.dispatcher.subscribe(AppThemeChangedEvent, self._handle_theme_change)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self._handle_workspace_loaded)
+
+    def _handle_cell_selected(self, event: UIPiPlannerCellSelectedEvent):
+        """Intercepts matrix grid selections to contextually unlock input entries."""
+        self.current_selection = {'type': event.selected_type, 'id': event.selected_id}
+        self.active_iteration_id = event.iteration_id
+        
+        # Update title to show context
+        it = next((i for i in self.workspace.iterations if i.id == self.active_iteration_id), None)
+        it_name = it.title if it else "Unknown"
+        self.config(text=f"Capacity Metrics Editor - {it_name}")
+
+        if event.selected_type == "Member":
+            self._set_inputs_state("normal")
+            self._load_metrics()
+        else:
+            self._set_inputs_state("disabled")
+            self._clear_fields()
 
     def _handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
         """Refreshes the workspace reference."""
@@ -73,15 +91,18 @@ class MetricsEditorPane(ttk.LabelFrame):
             self._set_inputs_state("normal")
             # Populate fields if we have iteration data
             if self.workspace.iterations:
-                # For Phase 4, we default to the first iteration if none selected
-                if not self.active_iteration_id:
+                # Default to first iteration if no cell has been clicked yet
+                if self.active_iteration_id is None:
                     self.active_iteration_id = self.workspace.iterations[0].id
+                
+                it = next((i for i in self.workspace.iterations if i.id == self.active_iteration_id), None)
+                it_name = it.title if it else "Unknown"
+                self.config(text=f"Capacity Metrics Editor - {it_name}")
                 self._load_metrics()
         else:
             self._set_inputs_state("disabled")
             self._clear_fields()
-            # If it's a product or team, we might still want to trigger a refresh of the spreadsheet 
-            # if anything changed, but tree selection event already triggers that in PIPlanningView.
+            self.config(text="Capacity Metrics Editor")
 
     def _load_metrics(self):
         if not self.current_selection or not self.active_iteration_id:
@@ -104,10 +125,10 @@ class MetricsEditorPane(ttk.LabelFrame):
         self.entry_pto.insert(0, str(cap.pto if cap else 0))
         
         self.entry_alloc.delete(0, tk.END)
-        self.entry_alloc.insert(0, str(cap.allocation_pct if cap else 100))
+        self.entry_alloc.insert(0, f"{cap.allocation_pct if cap else 100}%")
         
         self.entry_vel.delete(0, tk.END)
-        self.entry_vel.insert(0, str(cap.velocity_factor if cap else 100))
+        self.entry_vel.insert(0, f"{cap.velocity_factor if cap else 100}%")
 
     def _clear_fields(self):
         for entry in [self.entry_pto, self.entry_alloc, self.entry_vel]:
@@ -119,9 +140,14 @@ class MetricsEditorPane(ttk.LabelFrame):
             
         try:
             # 1. Validation
-            pto = int(self.entry_pto.get() or 0)
-            alloc = int(self.entry_alloc.get().replace('%', '') or 100)
-            vel = int(self.entry_vel.get().replace('%', '') or 100)
+            pto_str = self.entry_pto.get()
+            pto = int(pto_str) if pto_str else 0
+            
+            alloc_str = self.entry_alloc.get().replace('%', '')
+            alloc = int(alloc_str) if alloc_str else 100
+            
+            vel_str = self.entry_vel.get().replace('%', '')
+            vel = int(vel_str) if vel_str else 100
             
             # Clamp bounds
             alloc = max(0, min(100, alloc))
@@ -135,10 +161,10 @@ class MetricsEditorPane(ttk.LabelFrame):
                     max_days = calculate_sprint_business_days(it.start_date, it.end_date)
                     pto = max(0, min(max_days, pto))
 
-            # 2. Update UI with cleaned values
+            # 2. Update UI with cleaned and formatted values
             self.entry_pto.delete(0, tk.END); self.entry_pto.insert(0, str(pto))
-            self.entry_alloc.delete(0, tk.END); self.entry_alloc.insert(0, f"{alloc}")
-            self.entry_vel.delete(0, tk.END); self.entry_vel.insert(0, f"{vel}")
+            self.entry_alloc.delete(0, tk.END); self.entry_alloc.insert(0, f"{alloc}%")
+            self.entry_vel.delete(0, tk.END); self.entry_vel.insert(0, f"{vel}%")
 
             # 3. Dispatch Update
             team_id = self._find_team_for_member(int(self.current_selection['id']))
@@ -156,19 +182,28 @@ class MetricsEditorPane(ttk.LabelFrame):
 
     def _on_util_changed(self, event):
         try:
-            util = int(self.entry_util.get().replace('%', '') or 100)
+            util_str = self.entry_util.get().replace('%', '')
+            util = int(util_str) if util_str else 100
             util = max(0, min(100, util))
-            self.entry_util.delete(0, tk.END); self.entry_util.insert(0, f"{util}")
+            self.entry_util.delete(0, tk.END); self.entry_util.insert(0, f"{util}%")
             
             # Save to settings
             settings = self.context.resolve('settings_manager')
             settings.set('utilization_factor', util)
             
-            # Trigger full refresh
-            self.dispatcher.dispatch(UIPiPlannerTreeSelectionChangedEvent(
-                selected_type=self.current_selection['type'] if self.current_selection else "Product",
-                selected_id=self.current_selection['id'] if self.current_selection else ""
-            ))
+            # Trigger full refresh via cell selection event if available, else standard selection
+            if self.current_selection and self.active_iteration_id:
+                 self.dispatcher.dispatch(UIPiPlannerCellSelectedEvent(
+                    selected_type=self.current_selection['type'],
+                    selected_id=str(self.current_selection['id']),
+                    team_id=self._find_team_for_member(int(self.current_selection['id'])),
+                    iteration_id=self.active_iteration_id
+                ))
+            else:
+                self.dispatcher.dispatch(UIPiPlannerTreeSelectionChangedEvent(
+                    selected_type=self.current_selection['type'] if self.current_selection else "Product",
+                    selected_id=self.current_selection['id'] if self.current_selection else ""
+                ))
         except:
             pass
 

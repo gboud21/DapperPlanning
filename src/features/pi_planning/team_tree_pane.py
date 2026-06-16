@@ -6,7 +6,7 @@ from src.core.events import (
     AppThemeChangedEvent, UIPiPlannerTreeSelectionChangedEvent
 )
 from src.core.commands import (
-    CreateProductCommand, CreateProductTeamCommand, AddMemberToTeamCommand
+    CreateProductCommand, CreateProductTeamCommand, AddMemberToTeamCommand, RemoveMemberFromTeamCommand
 )
 
 class TeamTreePane(ttk.Frame):
@@ -85,6 +85,12 @@ class TeamTreePane(ttk.Frame):
                 menu.add_command(label="Add Product Team", command=lambda: self._cmd_add_team(entity_id))
             elif node_type == "Team":
                 menu.add_command(label="Add Member Here", command=lambda: self._cmd_add_member(entity_id))
+            elif node_type == "Member":
+                # Find parent team ID for this member node
+                parent_iid = self.tree.parent(item_id)
+                if parent_iid:
+                    team_id = self.tree.set(parent_iid, "entity_id")
+                    menu.add_command(label="Remove Member from Team", command=lambda: self._cmd_remove_member(team_id, int(entity_id)))
             
         menu.post(event.x_root, event.y_root)
 
@@ -174,6 +180,10 @@ class TeamTreePane(ttk.Frame):
         m_id = simpledialog.askinteger("Add Member", "Enter GitLab Member ID:")
         if m_id:
             self.command_bus.execute(AddMemberToTeamCommand(team_id=team_id, member_id=m_id))
+
+    def _cmd_remove_member(self, team_id, member_id):
+        if messagebox.askyesno("Remove Member", "Are you sure you want to remove this member from the team?"):
+            self.command_bus.execute(RemoveMemberFromTeamCommand(team_id=team_id, member_id=member_id))
 
     def _bind_events(self):
         self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self.refresh)

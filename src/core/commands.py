@@ -50,6 +50,12 @@ class AddMemberToTeamCommand(Command):
     member_id: int
 
 @dataclass
+class RemoveMemberFromTeamCommand(Command):
+    """Command to remove a member from a team."""
+    team_id: str
+    member_id: int
+
+@dataclass
 class UpdateMemberCapacityCommand(Command):
     """Command to update member capacity metrics."""
     team_id: str

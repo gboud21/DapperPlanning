@@ -6,7 +6,7 @@ from src.core.events import (
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import (
-    CreateProductCommand, CreateProductTeamCommand, AddMemberToTeamCommand, UpdateMemberCapacityCommand
+    CreateProductCommand, CreateProductTeamCommand, AddMemberToTeamCommand, RemoveMemberFromTeamCommand, UpdateMemberCapacityCommand
 )
 from src.domain.workspace import Workspace
 from src.domain.entities import ProductTeam, TeamMemberCapacity
@@ -36,6 +36,7 @@ class PIPlanningController:
         self.command_bus.register(CreateProductCommand, self.handle_create_product)
         self.command_bus.register(CreateProductTeamCommand, self.handle_create_team)
         self.command_bus.register(AddMemberToTeamCommand, self.handle_add_member_to_team)
+        self.command_bus.register(RemoveMemberFromTeamCommand, self.handle_remove_member_from_team)
         self.command_bus.register(UpdateMemberCapacityCommand, self.handle_update_capacity)
 
     def handle_create_product(self, command: CreateProductCommand):
@@ -69,6 +70,13 @@ class PIPlanningController:
         team = next((t for t in self.workspace.product_teams if t.id == command.team_id), None)
         if team and command.member_id not in team.member_ids:
             team.member_ids.append(command.member_id)
+            self._trigger_refresh_and_save()
+
+    def handle_remove_member_from_team(self, command: RemoveMemberFromTeamCommand):
+        """Removes a member ID from a specific team's member list."""
+        team = next((t for t in self.workspace.product_teams if t.id == command.team_id), None)
+        if team and command.member_id in team.member_ids:
+            team.member_ids.remove(command.member_id)
             self._trigger_refresh_and_save()
 
     def handle_update_capacity(self, command: UpdateMemberCapacityCommand):

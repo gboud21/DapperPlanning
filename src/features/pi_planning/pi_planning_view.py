@@ -6,7 +6,7 @@ from src.features.pi_planning.spreadsheet_pane import ScrollableSpreadsheetPane
 from src.features.pi_planning.metrics_editor_pane import MetricsEditorPane
 from src.core.events import (
     UIPiPlannerTreeSelectionChangedEvent, ModelHierarchyUpdatedEvent, 
-    ModelWorkspaceLoadedEvent
+    ModelWorkspaceLoadedEvent, UIPiPlannerCellSelectedEvent
 )
 
 class PIPlanningView(ttk.Frame):
@@ -46,6 +46,7 @@ class PIPlanningView(ttk.Frame):
 
     def _bind_events(self):
         self.dispatcher.subscribe(UIPiPlannerTreeSelectionChangedEvent, self._handle_selection_changed)
+        self.dispatcher.subscribe(UIPiPlannerCellSelectedEvent, self._handle_cell_selected)
         self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self._handle_model_updated)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self._handle_workspace_loaded)
 
@@ -56,6 +57,13 @@ class PIPlanningView(ttk.Frame):
 
     def _handle_selection_changed(self, event: UIPiPlannerTreeSelectionChangedEvent):
         self.current_selection = {'selected_type': event.selected_type, 'selected_id': event.selected_id}
+        self.refresh_spreadsheet()
+
+    def _handle_cell_selected(self, event: UIPiPlannerCellSelectedEvent):
+        """Triggers immediate redraw to show highlight."""
+        # Note: self.current_selection doesn't necessarily need updating here 
+        # because the spreadsheet already knows its selected coords.
+        # But we refresh to force the repaint.
         self.refresh_spreadsheet()
 
     def _handle_model_updated(self, event: ModelHierarchyUpdatedEvent):

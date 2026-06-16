@@ -102,6 +102,14 @@ class UIPiPlannerTreeSelectionChangedEvent(Event):
     selected_id: str    # Internal entity reference key
 
 @dataclass
+class UIPiPlannerCellSelectedEvent(Event):
+    """Emitted when an operator selects an explicit cell intersection inside the matrix grid."""
+    selected_type: str  # "Team" or "Member"
+    selected_id: str    # team_id or member_id
+    team_id: str        # Contextual target team ID reference
+    iteration_id: int   # Targeted column iteration identity
+
+@dataclass
 class UIUpdateCapacityMetricsRequestedEvent(Event):
     """Emitted when the user requests to update capacity metrics."""
     team_id: str
@@ -340,6 +348,7 @@ class Actions:
     ITEM_SPLIT = UIStorySplitRequestedEvent
     VIEW_CHANGED = UIAppViewChangedEvent
     PI_TREE_SELECTION = UIPiPlannerTreeSelectionChangedEvent
+    PI_CELL_SELECTION = UIPiPlannerCellSelectedEvent
     PI_CAPACITY_UPDATE = UIUpdateCapacityMetricsRequestedEvent
 
 class Notifications:
@@ -419,5 +428,5 @@ __all__ = [
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
     'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
     'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent', 'UIAppViewChangedEvent',
-    'UIPiPlannerTreeSelectionChangedEvent', 'UIUpdateCapacityMetricsRequestedEvent'
+    'UIPiPlannerTreeSelectionChangedEvent', 'UIPiPlannerCellSelectedEvent', 'UIUpdateCapacityMetricsRequestedEvent'
 ]

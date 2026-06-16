@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from src.core.app_context import AppContext
 from src.utils.date_utils import calculate_sprint_business_days
-from src.core.events import ModelHierarchyUpdatedEvent, AppThemeChangedEvent, ModelWorkspaceLoadedEvent
+from src.core.events import ModelHierarchyUpdatedEvent, AppThemeChangedEvent, ModelWorkspaceLoadedEvent, UIPiPlannerCellSelectedEvent
 
 class ScrollableSpreadsheetPane(ttk.Frame):
     def __init__(self, parent, context: AppContext):
@@ -10,6 +10,7 @@ class ScrollableSpreadsheetPane(ttk.Frame):
         self.context = context
         self.workspace = context.resolve('workspace')
         self.dispatcher = context.resolve('event_dispatcher')
+        self._selected_cell_coords = None  # Tracks tuple: (row_id, iteration_id)
         
         self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
         self.scrollbar_y = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.canvas.yview)
@@ -33,6 +34,21 @@ class ScrollableSpreadsheetPane(ttk.Frame):
         """Refreshes the workspace reference."""
         self.workspace = self.context.resolve('workspace')
 
+    def _on_cell_clicked(self, row_data, iteration_id):
+        """Caches coordinates locally and dispatches parameters to update the metrics form."""
+        self._selected_cell_coords = (str(row_data['id']), iteration_id)
+        self.dispatcher.dispatch(UIPiPlannerCellSelectedEvent(
+            selected_type=row_data['type'],
+            selected_id=str(row_data['id']),
+            team_id=row_data['team_id'],
+            iteration_id=iteration_id
+        ))
+        # Refresh view locally to immediately show the highlight update
+        self.dispatcher.dispatch(UIPiPlannerTreeSelectionChangedEvent(
+            selected_type=row_data['type'],
+            selected_id=str(row_data['id'])
+        ))
+
     def _on_frame_configure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
@@ -50,52 +66,78 @@ class ScrollableSpreadsheetPane(ttk.Frame):
             ttk.Label(self.scroll_inner_frame, text="No iterations found. Sync iterations first.").pack(padx=20, pady=20)
             return
 
+        from src.utils.theme_manager import ThemeManager
+        is_dark = ThemeManager.load_settings()
+        palette = ThemeManager.DARK_PALETTE if is_dark else ThemeManager.LIGHT_PALETTE
+
         # Header Configuration
-        # Row 0: Spanned Parent Headers (Iteration Titles)
-        # Row 1: Sub-headers (Capacity, Load)
-        
         source_title = "Hierarchical Node Source"
         if tree_selection:
             source_title = f"{tree_selection['selected_type']}: {tree_selection['selected_id']}"
 
-        lbl_main_title = ttk.Label(self.scroll_inner_frame, text=source_title, font=("Arial", 10, "bold"), padding=10)
+        lbl_main_title = tk.Label(self.scroll_inner_frame, text=source_title, font=("Arial", 10, "bold"), 
+                                  bg=palette['bg'], fg=palette['fg'], relief="ridge")
         lbl_main_title.grid(row=0, column=0, rowspan=2, sticky=tk.NSEW, padx=5, pady=5)
-        
+
         col_idx = 1
         for iteration in iterations:
-            lbl_iter = ttk.Label(self.scroll_inner_frame, text=iteration.title, anchor=tk.CENTER, font=("Arial", 10, "bold"))
+            lbl_iter = tk.Label(self.scroll_inner_frame, text=iteration.title, anchor=tk.CENTER, font=("Arial", 10, "bold"),
+                                bg=palette['field_bg'], fg=palette['fg'], relief="ridge")
             lbl_iter.grid(row=0, column=col_idx, columnspan=2, sticky=tk.EW, padx=2, pady=2)
             
             # Row 1: Target Data Sub-headers
-            ttk.Label(self.scroll_inner_frame, text="Capacity", width=10, anchor=tk.CENTER).grid(row=1, column=col_idx, padx=2, pady=2)
-            ttk.Label(self.scroll_inner_frame, text="Load", width=10, anchor=tk.CENTER).grid(row=1, column=col_idx+1, padx=2, pady=2)
+            tk.Label(self.scroll_inner_frame, text="Capacity", width=10, anchor=tk.CENTER,
+                     bg=palette['bg'], fg=palette['fg']).grid(row=1, column=col_idx, padx=2, pady=2)
+            tk.Label(self.scroll_inner_frame, text="Load", width=10, anchor=tk.CENTER,
+                     bg=palette['bg'], fg=palette['fg']).grid(row=1, column=col_idx+1, padx=2, pady=2)
             col_idx += 2
 
         # Data Rows
         # Determine what rows to show based on tree selection
         rows_to_render = self._get_rows_to_render(tree_selection)
         
+        from src.utils.theme_manager import ThemeManager
+        is_dark = ThemeManager.load_settings()
+        palette = ThemeManager.DARK_PALETTE if is_dark else ThemeManager.LIGHT_PALETTE
+        highlight_bg = "#1e40af" # Distinct high-contrast blue for selection
+        
         for r_idx, row_data in enumerate(rows_to_render):
             # Column 0: Name
-            ttk.Label(self.scroll_inner_frame, text=row_data['display_name']).grid(row=r_idx+2, column=0, sticky=tk.W, padx=10, pady=2)
+            tk.Label(self.scroll_inner_frame, text=row_data['display_name'], 
+                     bg=palette['bg'], fg=palette['fg']).grid(row=r_idx+2, column=0, sticky=tk.W, padx=10, pady=2)
             
             col_idx = 1
             for iteration in iterations:
                 capacity = self._calculate_capacity(row_data, iteration)
                 load = self._calculate_load(row_data, iteration)
                 
-                # Capacity Cell
-                lbl_cap = ttk.Label(self.scroll_inner_frame, text=f"{capacity:.1f}", width=10, anchor=tk.CENTER)
+                # Establish unique coordinate lookup key
+                is_selected = (str(row_data['id']), iteration.id) == self._selected_cell_coords
+                
+                # Capacity Cell Label Creation
+                lbl_cap = tk.Label(
+                    self.scroll_inner_frame, 
+                    text=f"{capacity:.1f}", 
+                    width=10, 
+                    relief="groove",
+                    bg=highlight_bg if is_selected else palette['field_bg'],
+                    fg=palette['fg']
+                )
                 lbl_cap.grid(row=r_idx+2, column=col_idx, padx=2, pady=2)
+                lbl_cap.bind("<Button-1>", lambda e, rd=row_data, it_id=iteration.id: self._on_cell_clicked(rd, it_id))
                 
-                # Load Cell
-                # Color code load based on capacity
-                fg_color = ""
-                if load > capacity and capacity > 0:
-                    fg_color = "red"
-                
-                lbl_load = ttk.Label(self.scroll_inner_frame, text=f"{load:.1f}", width=10, anchor=tk.CENTER, foreground=fg_color)
+                # Load Cell Label Creation
+                fg_color = "red" if load > capacity and capacity > 0 else palette['fg']
+                lbl_load = tk.Label(
+                    self.scroll_inner_frame, 
+                    text=f"{load:.1f}", 
+                    width=10, 
+                    relief="groove",
+                    fg=fg_color,
+                    bg=highlight_bg if is_selected else palette['field_bg']
+                )
                 lbl_load.grid(row=r_idx+2, column=col_idx+1, padx=2, pady=2)
+                lbl_load.bind("<Button-1>", lambda e, rd=row_data, it_id=iteration.id: self._on_cell_clicked(rd, it_id))
                 
                 col_idx += 2
 
