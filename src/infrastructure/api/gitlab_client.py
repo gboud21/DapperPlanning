@@ -188,6 +188,10 @@ class GitLabClient:
         """Fetches all iterations for a given project ID."""
         return self._request_all(f"projects/{project_id}/iterations")
 
+    def create_issue_note(self, project_id: Union[int, str], issue_iid: int, body: str) -> dict:
+        """Posts a discussion note/comment to a project issue to trigger Quick Actions."""
+        return self._request(f"projects/{project_id}/issues/{issue_iid}/notes", {"body": body}, method='POST')
+
     def create_group_label(self, group_id: Union[int, str], label_data: dict) -> dict:
         """Creates a label in the Group."""
         return self._request(f"groups/{group_id}/labels", label_data, method='POST')
@@ -273,10 +277,18 @@ class GitLabClient:
         if getattr(story, 'assignee_id', None):
             payload['assignee_ids'] = [story.assignee_id]
             
-        if getattr(story, 'iteration_id', None):
-            payload['iteration_id'] = int(story.iteration_id)
-            
-        return self._request(f"projects/{project_id}/issues", payload, method='POST')
+        # Execute primary issue registration
+        resp = self._request(f"projects/{project_id}/issues", payload, method='POST')
+        
+        # Process sequential quick actions follow-up for iterations
+        issue_iid = resp.get('iid')
+        if issue_iid and getattr(story, 'iteration_id', None):
+            try:
+                self.create_issue_note(project_id, issue_iid, f"/iteration *iteration:{story.iteration_id}")
+            except Exception as e:
+                logger.warning(f"Failed to append iteration quick action on remote issue creation: {e}")
+                
+        return resp
 
     def update_story(self, project_id: Union[int, str], gitlab_iid: int, story: Story, epic_iid: Optional[int] = None, labels: str = None) -> dict:
         """Updates the project-level Issue with title, description, weight, and state."""
@@ -296,13 +308,19 @@ class GitLabClient:
         if getattr(story, 'assignee_id', None):
             payload['assignee_ids'] = [story.assignee_id]
             
-        if getattr(story, 'iteration_id', None):
-            payload['iteration_id'] = int(story.iteration_id)
-        else:
-            # Explicitly clear iteration if unassigned
-            payload['iteration_id'] = 0
+        # Execute core details modification request
+        resp = self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')
+        
+        # Apply Quick Actions to set or remove iteration state fields securely
+        try:
+            if getattr(story, 'iteration_id', None):
+                self.create_issue_note(project_id, gitlab_iid, f"/iteration *iteration:{story.iteration_id}")
+            else:
+                self.create_issue_note(project_id, gitlab_iid, "/remove_iteration")
+        except Exception as e:
+            logger.warning(f"Failed to modify iteration quick action state on remote issue update: {e}")
             
-        return self._request(f"projects/{project_id}/issues/{gitlab_iid}", payload, method='PUT')
+        return resp
 
     def delete_group_epic(self, group_id: Union[int, str], gitlab_iid: int) -> dict:
         """Deletes an Epic from the Group."""

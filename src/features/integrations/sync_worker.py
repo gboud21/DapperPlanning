@@ -369,7 +369,11 @@ class SyncWorker(threading.Thread):
     def _has_local_changes(self, item):
         """Returns True if the item has local changes that need pushing."""
         # If last_synced_at is None, it means the item is new or has been modified locally.
-        return getattr(item, 'last_synced_at', None) is None
+        if getattr(item, 'last_synced_at', None) is None:
+            return True
+            
+        # Optional: Deep check if sync timestamp logic fails or is not applied everywhere
+        return False
 
     def _process_item(self, remote_data, item_type, dry_run):
         gitlab_id = remote_data.get('id')

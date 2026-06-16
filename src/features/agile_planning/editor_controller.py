@@ -43,10 +43,20 @@ class EditorController:
         """Updates an existing item's details via command execution."""
         item = self.workspace._find_item_by_id(command.item_id)
         if isinstance(item, Story):
-             item.weight = command.weight
-             item.status = command.status
-             item.assignee_id = command.assignee_id
-             item.iteration_id = command.iteration_id
+            # Check if any story-specific fields changed to mark as dirty
+            has_changes = (
+                item.weight != command.weight or
+                item.status != command.status or
+                item.assignee_id != command.assignee_id or
+                item.iteration_id != command.iteration_id
+            )
+            
+            if has_changes:
+                item.weight = command.weight
+                item.status = command.status
+                item.assignee_id = command.assignee_id
+                item.iteration_id = command.iteration_id
+                item.last_synced_at = None  # Mark as dirty for push sync
 
         self.workspace.update_item_details(
             command.item_id, 

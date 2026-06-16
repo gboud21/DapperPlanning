@@ -720,16 +720,9 @@ class EditorPane:
         iteration_id = None
         if iteration_display and iteration_display != "Unassigned":
             for it in self.workspace.iterations:
-                from datetime import datetime
-                try:
-                    s_dt = datetime.fromisoformat(it.start_date).strftime("%m/%d/%Y")
-                    e_dt = datetime.fromisoformat(it.end_date).strftime("%m/%d/%Y")
-                    fmt = f"{it.title} ({s_dt} - {e_dt})"
-                    if fmt == iteration_display:
-                        iteration_id = it.id
-                        break
-                except:
-                    continue
+                if it.display_name == iteration_display:
+                    iteration_id = it.id
+                    break
 
         self.dispatcher.dispatch(UICreateItemRequestedEvent(
             parent_id=self.current_selected_id,
