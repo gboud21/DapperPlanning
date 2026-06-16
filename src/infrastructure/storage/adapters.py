@@ -2,7 +2,7 @@ import csv
 import json
 from dataclasses import asdict
 from abc import ABC, abstractmethod
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
 from src.domain.entities import Epic
 from src.infrastructure.storage.transformers import HierarchyFlattener, HierarchyBuilder
 from src.infrastructure.telemetry.logger import logger
