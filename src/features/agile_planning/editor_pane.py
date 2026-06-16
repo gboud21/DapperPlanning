@@ -131,10 +131,14 @@ class EditorPane:
         self.assignee_frame.pack(fill=tk.X, pady=(0, 10))
         self.assignee_lbl = ttk.Label(self.assignee_frame, text="Assignee:")
         self.assignee_lbl.grid(row=0, column=0, sticky=tk.W)
-        self.assignee_combo = ttk.Combobox(self.assignee_frame, state="readonly", style="Preferences.TCombobox")
+        self.assignee_combo = ttk.Combobox(self.assignee_frame, state="normal", style="Preferences.TCombobox")
         self.assignee_combo.grid(row=0, column=1, sticky=tk.EW, padx=5)
         self.assignee_frame.columnconfigure(1, weight=1)
+        
+        self._master_assignee_list = []
         self.assignee_combo.bind("<<ComboboxSelected>>", self._trigger_auto_save)
+        self.assignee_combo.bind("<KeyRelease>", self._on_assignee_key_release)
+        self.assignee_combo.bind("<FocusOut>", self._on_assignee_focus_out)
         
         self.assignee_lbl.grid_remove()
         self.assignee_combo.grid_remove()
@@ -671,6 +675,35 @@ class EditorPane:
             status=status,
             assignee_id=assignee_id
         ))
+
+    def set_assignee_list(self, names):
+        """Updates the master assignee list and the combobox values."""
+        self._master_assignee_list = names
+        self.assignee_combo.config(values=names)
+
+    def _on_assignee_key_release(self, event):
+        """Filters the assignee list based on user input and posts the dropdown."""
+        # Bypass navigation keys
+        if event.keysym in ("Up", "Down", "Left", "Right", "Return", "Escape", "Tab", "Shift_L", "Shift_R"):
+            return
+
+        typed_text = self.assignee_combo.get().lower()
+        if not typed_text:
+            filtered_values = self._master_assignee_list
+        else:
+            filtered_values = [name for name in self._master_assignee_list if typed_text in name.lower()]
+
+        self.assignee_combo["values"] = filtered_values
+        
+        # Open the dropdown programmatically
+        try:
+            self.assignee_combo.tk.call(self.assignee_combo._w, "post")
+        except tk.TclError:
+            pass # Widget might have been destroyed or not yet mapped
+
+    def _on_assignee_focus_out(self, event):
+        """Triggers auto-save when focus leaves the assignee combobox."""
+        self._trigger_auto_save()
 
     def populate_editor(self, event: ModelActiveItemChangedEvent):
         """Populates the fields when a model item becomes active."""
