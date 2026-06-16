@@ -192,7 +192,7 @@ class TreePane:
                  integrations_controller = self.context.resolve('integrations_controller')
                  remote_item = integrations_controller.get_latest_remote_copy(item.gitlab_id)
                  if remote_item:
-                     modal = ConflictResolutionModal(self.parent.winfo_toplevel(), self.dispatcher, item, remote_item)
+                     modal = ConflictResolutionModal(self.parent.winfo_toplevel(), self.dispatcher, item, remote_item, workspace)
 
     def _on_filter_clicked(self):
         """Opens the tree filter dialog."""

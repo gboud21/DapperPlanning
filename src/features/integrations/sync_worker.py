@@ -42,7 +42,7 @@ class SyncWorker(threading.Thread):
         
         logger.info(f"SyncWorker started: {self.sync_type}")
         # Prepare basic debug info
-        debug_info = {
+        self.debug_info = {
             "Base URL": self.gitlab_client.base_url,
             "Group ID": self.gitlab_client.group_id,
             "Project ID": self.gitlab_client.project_id,
@@ -70,7 +70,7 @@ class SyncWorker(threading.Thread):
                 title="GitLab Sync Error",
                 error_message=e.error_message,
                 suggested_solution=e.suggested_solution,
-                debug_info=debug_info
+                debug_info=self.debug_info
             ))
         except Exception as e:
             logger.exception(f"SyncWorker Unexpected Error ({self.sync_type}): {e}")
@@ -78,7 +78,7 @@ class SyncWorker(threading.Thread):
                 title="Unexpected Sync Error",
                 error_message=str(e),
                 suggested_solution="Check the application logs and verify your network connection.",
-                debug_info=debug_info
+                debug_info=self.debug_info
             ))
         finally:
             self._safe_dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))
@@ -270,6 +270,12 @@ class SyncWorker(threading.Thread):
                 
         if conflict_detected:
             self._safe_dispatch(ModelConflictDetectedEvent())
+            self._safe_dispatch(ModelSyncErrorEvent(
+                title="Merge Conflict Detected",
+                error_message="One or more items have been modified both locally and on GitLab since your last pull.",
+                suggested_solution="Resolve the highlighted conflicts in the Agile Planning tree (right-click -> Resolve Merge Conflict) before pushing again.",
+                debug_info=self.debug_info
+            ))
             self._safe_dispatch(ModelSyncProgressEvent(message="Push Aborted: Conflicts Found.", percent=100))
             return # Block push
 

@@ -3,13 +3,14 @@ from tkinter import ttk, messagebox
 from src.core.events import EventDispatcher, UIConflictResolvedEvent, ModelHierarchyUpdatedEvent
 
 class ConflictResolutionModal(tk.Toplevel):
-    def __init__(self, parent: tk.Toplevel, dispatcher: EventDispatcher, local_item, remote_item):
+    def __init__(self, parent: tk.Toplevel, dispatcher: EventDispatcher, local_item, remote_item, workspace):
         super().__init__(parent)
         self.title(f"Resolve Conflict: {local_item.title}")
         self.geometry("900x650")
         self.dispatcher = dispatcher
         self.local_item = local_item
         self.remote_item = remote_item
+        self.workspace = workspace
 
         # Selection trackers
         self.chosen_title = tk.StringVar(value="local")
@@ -101,11 +102,31 @@ class ConflictResolutionModal(tk.Toplevel):
         summary = "Please confirm your final merged values:\n\n"
         summary += f"Title: {'[Local]' if self.chosen_title.get() == 'local' else '[Remote]'} {self.local_item.title if self.chosen_title.get() == 'local' else self.remote_item.title}\n"
         
-        if messagebox.askokcancel("Confirm Merge Resolution", summary + "\nApply these changes and clear conflict status?"):
+        if messagebox.askokcancel("Confirm Merge Resolution", summary + "\nApply these changes and clear conflict status?", parent=self):
             self._apply_merge_resolutions()
             self.local_item.is_conflicted = False
-            # Trigger UI refresh to clear highlights
-            self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(root_items=[])) # Partial trigger is enough for refresh
+            
+            # Count remaining conflicts
+            remaining = [i for i in self.workspace.all_items_iterable() if getattr(i, 'is_conflicted', False)]
+            count = len(remaining)
+            
+            if count > 0:
+                messagebox.showinfo("Conflicts Remaining", f"Conflict resolved. There are {count} conflicts remaining to be resolved.", parent=self)
+                # Refresh tree to update highlighting for this item, but keep filter
+                self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+                    root_items=self.workspace.get_epics(),
+                    products=self.workspace.products
+                ))
+            else:
+                messagebox.showinfo("All Resolved", "All merge conflicts have been successfully resolved. Clearing filter.", parent=self)
+                # Clear the conflict isolation filter
+                from src.core.events import UITreeFilterAppliedEvent
+                self.dispatcher.dispatch(UITreeFilterAppliedEvent(
+                    query_string="",
+                    show_ancestors=True,
+                    show_descendants=False
+                ))
+            
             self.destroy()
 
     def _apply_merge_resolutions(self):
