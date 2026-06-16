@@ -144,7 +144,7 @@ class TreeFilterRule:
 
 @dataclass
 class UITreeFilterAppliedEvent(Event):
-    rules: List[TreeFilterRule]
+    query_string: str
     show_ancestors: bool
     show_descendants: bool
 

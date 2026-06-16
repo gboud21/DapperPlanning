@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-from typing import List
+from typing import List, Optional
 from src.core.app_context import AppContext
-from src.core.events import EventDispatcher, TreeFilterRule, UITreeFilterAppliedEvent, AppThemeChangedEvent
+from src.core.events import EventDispatcher, UITreeFilterAppliedEvent, AppThemeChangedEvent
+from src.utils.query_parser import parse_query_to_ast, tokenize
 
 class TreeFilterDialog(tk.Toplevel):
     def __init__(self, parent: tk.Tk, context: AppContext, active_filter=None):
@@ -12,11 +13,11 @@ class TreeFilterDialog(tk.Toplevel):
         self.workspace = context.resolve('workspace')
         
         self.title("Filter Hierarchy")
-        self.geometry("600x400")
-        self.minsize(500, 300)
+        self.geometry("600x450")
+        self.minsize(500, 350)
         
-        self.rules_rows = []
         self.active_filter = active_filter
+        self.autocomplete_popup = None
         
         self._setup_ui()
         self._load_active_filter()
@@ -31,25 +32,21 @@ class TreeFilterDialog(tk.Toplevel):
         self.main_frame = ttk.Frame(self, padding=10)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Rules container with scrollbar
-        self.scroll_container = ttk.Frame(self.main_frame)
-        self.scroll_container.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        ttk.Label(self.main_frame, text="Enter Query Console Expression:", font=("TkDefaultFont", 10, "bold")).pack(anchor=tk.W, pady=(0,5))
+        
+        # Query Console Input Box
+        self.txt_query = tk.Text(self.main_frame, height=5, font=("Courier New", 11), wrap=tk.WORD, undo=True)
+        self.txt_query.pack(fill=tk.BOTH, expand=True, pady=(0,2))
+        self.txt_query.bind("<KeyRelease>", self._on_query_text_mutated)
+        self.txt_query.bind("<Tab>", self._on_tab_pressed)
+        self.txt_query.bind("<Return>", self._on_enter_pressed)
+        self.txt_query.bind("<FocusOut>", lambda e: self._close_autocomplete())
+        
+        # Validation status message string label
+        self.lbl_status = ttk.Label(self.main_frame, text="Status: Ready", foreground="green")
+        self.lbl_status.pack(anchor=tk.W, pady=(0, 10))
 
-        self.canvas = tk.Canvas(self.scroll_container, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self.scroll_container, orient="vertical", command=self.canvas.yview)
-        self.rules_inner_frame = ttk.Frame(self.canvas)
-
-        self.rules_inner_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-        self.canvas.create_window((0, 0), window=self.rules_inner_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-
-        # Hierarchy Modifiers
+        # Hierarchy Modifiers Box Frame
         modifiers_frame = ttk.LabelFrame(self.main_frame, text="Hierarchy Options", padding=5)
         modifiers_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -61,148 +58,144 @@ class TreeFilterDialog(tk.Toplevel):
         self.check_descendants = ttk.Checkbutton(modifiers_frame, text="Show All Descendants", variable=self.var_show_descendants)
         self.check_descendants.pack(side=tk.LEFT, padx=5)
 
-        # Buttons
+        # Example label
+        example_text = 'Example: type == "Story" AND status != "Done"'
+        ttk.Label(self.main_frame, text=example_text, font=("TkDefaultFont", 8, "italic")).pack(anchor=tk.W, pady=(0, 10))
+
+        # Command buttons action bar layout split row
         button_frame = ttk.Frame(self.main_frame)
         button_frame.pack(fill=tk.X)
-
-        ttk.Button(button_frame, text="Add Rule", command=self._add_rule_row).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Clear All", command=self._clear_all).pack(side=tk.LEFT, padx=5)
         
-        ttk.Button(button_frame, text="Apply Filter", command=self._on_apply_clicked, style="Accent.TButton").pack(side=tk.RIGHT, padx=5)
+        self.btn_apply = ttk.Button(button_frame, text="Apply Filter", command=self._on_apply_clicked, style="Accent.TButton")
+        self.btn_apply.pack(side=tk.RIGHT, padx=5)
         ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=5)
 
-    def _add_rule_row(self, conjunction="AND", field_type="Type", target_value="Story", case_sensitive=False):
-        row_idx = len(self.rules_rows)
-        row_frame = ttk.Frame(self.rules_inner_frame, padding=(0, 2))
-        row_frame.pack(fill=tk.X)
+    def _on_query_text_mutated(self, event):
+        if event.keysym in ("Tab", "Return", "Up", "Down", "Escape"):
+             return
 
-        # Conjunction (hidden for first row)
-        var_conjunction = tk.StringVar(value=conjunction)
-        combo_conj = ttk.Combobox(row_frame, values=["AND", "OR"], textvariable=var_conjunction, state="readonly", width=5, style="Preferences.TCombobox")
-        if row_idx > 0:
-            combo_conj.grid(row=0, column=0, padx=(0, 5))
-        else:
-            # Placeholder for alignment
-            ttk.Label(row_frame, width=7).grid(row=0, column=0)
-
-        # Field Type
-        var_field = tk.StringVar(value=field_type)
-        combo_field = ttk.Combobox(row_frame, values=["Type", "Label", "Assignee", "Status", "Title", "Description"], textvariable=var_field, state="readonly", width=12, style="Preferences.TCombobox")
-        combo_field.grid(row=0, column=1, padx=5)
-        combo_field.bind("<<ComboboxSelected>>", lambda e, idx=row_idx: self._update_value_options(idx))
-
-        # Target Value (Container for switching between combo and entry)
-        value_container = ttk.Frame(row_frame)
-        value_container.grid(row=0, column=2, padx=5)
+        query_text = self.txt_query.get("1.0", tk.END).strip()
         
-        var_value = tk.StringVar(value=target_value)
-        combo_value = ttk.Combobox(value_container, textvariable=var_value, state="readonly", width=20, style="Preferences.TCombobox")
-        entry_value = tk.Entry(value_container, textvariable=var_value, width=22)
-        
-        # Case Sensitive Checkbox
-        var_case = tk.BooleanVar(value=case_sensitive)
-        check_case = ttk.Checkbutton(row_frame, text="Aa", variable=var_case, width=3)
-        check_case.grid(row=0, column=3, padx=2)
+        # 1. Real-time grammar verification check
+        try:
+            parse_query_to_ast(query_text)
+            self.lbl_status.config(text="Status: Valid Expression Syntax Structure", foreground="green")
+            self.btn_apply.config(state="normal")
+        except ValueError as err:
+            self.lbl_status.config(text=f"Syntax Error: {str(err)}", foreground="red")
+            self.btn_apply.config(state="disabled")
 
-        # Delete Button
-        btn_del = ttk.Button(row_frame, text="X", width=3, command=lambda idx=row_idx: self._remove_rule_row(idx))
-        btn_del.grid(row=0, column=4, padx=5)
+        # 2. Autocomplete logic
+        self._trigger_autocomplete()
 
-        self.rules_rows.append({
-            "frame": row_frame,
-            "var_conjunction": var_conjunction,
-            "var_field": var_field,
-            "var_value": var_value,
-            "combo_value": combo_value,
-            "entry_value": entry_value,
-            "var_case": var_case,
-            "check_case": check_case
-        })
+    def _trigger_autocomplete(self):
+        # Get word before cursor
+        cursor_pos = self.txt_query.index(tk.INSERT)
+        line, col = map(int, cursor_pos.split('.'))
+        current_line = self.txt_query.get(f"{line}.0", cursor_pos)
         
-        self._update_value_options(row_idx)
-        # Scroll to bottom
-        self.canvas.yview_moveto(1.0)
-
-    def _update_value_options(self, row_idx):
-        row = self.rules_rows[row_idx]
-        field = row["var_field"].get()
-        combo = row["combo_value"]
-        entry = row["entry_value"]
-        check = row["check_case"]
-        
-        # Determine widget visibility
-        if field in ["Title", "Description"]:
-            combo.grid_remove()
-            entry.grid(row=0, column=0)
-            check.grid() # Show case checkbox
+        # Simple word extraction
+        match = re.search(r'([a-zA-Z0-9_]+)$', current_line)
+        if not match:
+            self._close_autocomplete()
+            return
             
-            # Apply entry theme manually as it's not a ttk widget
-            from src.utils.theme_manager import ThemeManager
-            palette = ThemeManager.DARK_PALETTE if ThemeManager.load_settings() else ThemeManager.LIGHT_PALETTE
-            cursor_color = 'white' if ThemeManager.load_settings() else 'black'
-            entry.configure(
-                bg=palette['field_bg'],
-                fg=palette['fg'],
-                insertbackground=cursor_color,
-                highlightthickness=1,
-                highlightbackground=palette['bg'],
-                highlightcolor=palette['highlight'],
-                borderwidth=0
-            )
+        prefix = match.group(1)
+        
+        # Context-aware suggestions
+        suggestions = []
+        
+        # keywords
+        keywords = ["type", "status", "assignee", "label", "title", "description", 
+                    "AND", "OR", "NOT", "contains", "not contains", "==" , "!="]
+        
+        # Values from workspace
+        types = ["Epic", "Feature", "Story"]
+        statuses = ["Backlog", "In Progress", "In Review", "Done", "Closed"]
+        members = [m.name for m in self.workspace.get_members()]
+        labels = list(self.workspace.labels.keys())
+        
+        all_options = keywords + types + statuses + members + labels
+        suggestions = [opt for opt in all_options if opt.lower().startswith(prefix.lower())]
+        
+        if suggestions:
+            self._show_autocomplete(suggestions, prefix)
         else:
-            entry.grid_remove()
-            combo.grid(row=0, column=0)
-            check.grid_remove() # Hide case checkbox
+            self._close_autocomplete()
+
+    def _show_autocomplete(self, suggestions, prefix):
+        if not self.autocomplete_popup:
+            self.autocomplete_popup = tk.Toplevel(self)
+            self.autocomplete_popup.overrideredirect(True)
+            self.autocomplete_listbox = tk.Listbox(self.autocomplete_popup, font=("Courier New", 10))
+            self.autocomplete_listbox.pack(fill=tk.BOTH, expand=True)
+            self.autocomplete_listbox.bind("<ButtonRelease-1>", lambda e: self._apply_autocomplete())
             
-            values = []
-            if field == "Type":
-                values = ["Epic", "Feature", "Story"]
-            elif field == "Status":
-                values = ["Backlog", "In Progress", "In Review", "Done", "Closed"]
-            elif field == "Assignee":
-                values = ["Unassigned"] + [m.name for m in self.workspace.get_members()]
-            elif field == "Label":
-                values = sorted(list(self.workspace.labels.keys()))
-                
-            combo.config(values=values)
-            if combo.get() not in values:
-                combo.set(values[0] if values else "")
+        self.autocomplete_listbox.delete(0, tk.END)
+        for s in suggestions:
+            self.autocomplete_listbox.insert(tk.END, s)
+            
+        self.autocomplete_listbox.selection_set(0)
+        
+        # Position popup
+        bbox = self.txt_query.bbox(tk.INSERT)
+        if bbox:
+            x = self.txt_query.winfo_rootx() + bbox[0]
+            y = self.txt_query.winfo_rooty() + bbox[1] + bbox[3]
+            self.autocomplete_popup.geometry(f"200x150+{x}+{y}")
+            self.autocomplete_popup.deiconify()
+            self.autocomplete_popup.lift()
 
-    def _remove_rule_row(self, row_idx):
-        if 0 <= row_idx < len(self.rules_rows):
-            row = self.rules_rows.pop(row_idx)
-            row["frame"].destroy()
+    def _close_autocomplete(self):
+        if self.autocomplete_popup:
+            self.autocomplete_popup.withdraw()
 
-    def _clear_all(self):
-        for row in self.rules_rows:
-            row["frame"].destroy()
-        self.rules_rows = []
-        self._add_rule_row()
+    def _apply_autocomplete(self):
+        if not self.autocomplete_popup or not self.autocomplete_listbox.curselection():
+            return
+            
+        selected = self.autocomplete_listbox.get(self.autocomplete_listbox.curselection())
+        
+        # Replace prefix with selection
+        cursor_pos = self.txt_query.index(tk.INSERT)
+        line, col = map(int, cursor_pos.split('.'))
+        current_line = self.txt_query.get(f"{line}.0", cursor_pos)
+        match = re.search(r'([a-zA-Z0-9_]+)$', current_line)
+        
+        if match:
+            start_col = match.start()
+            self.txt_query.delete(f"{line}.{start_col}", cursor_pos)
+            
+            # Wrap in quotes if it's a value with spaces
+            if " " in selected and selected not in ("not contains", "In Progress", "In Review"):
+                 selected = f'"{selected}"'
+                 
+            self.txt_query.insert(f"{line}.{start_col}", selected)
+            
+        self._close_autocomplete()
+        self._on_query_text_mutated(None)
+
+    def _on_tab_pressed(self, event):
+        if self.autocomplete_popup and self.autocomplete_popup.winfo_viewable():
+            self._apply_autocomplete()
+            return "break"
+
+    def _on_enter_pressed(self, event):
+        if self.autocomplete_popup and self.autocomplete_popup.winfo_viewable():
+            self._apply_autocomplete()
+            return "break"
 
     def _load_active_filter(self):
         if self.active_filter:
-            self.var_show_ancestors.set(self.active_filter.show_ancestors)
+            self.var_show_ancestors.set(True) # Force True as requested
             self.var_show_descendants.set(self.active_filter.show_descendants)
-            if self.active_filter.rules:
-                for rule in self.active_filter.rules:
-                    self._add_rule_row(rule.conjunction, rule.field_type, rule.target_value, rule.case_sensitive)
-            else:
-                self._add_rule_row()
-        else:
-            self._add_rule_row()
+            self.txt_query.insert("1.0", self.active_filter.query_string)
+            self._on_query_text_mutated(None)
 
     def _on_apply_clicked(self):
-        compiled_rules = []
-        for row in self.rules_rows:
-            compiled_rules.append(TreeFilterRule(
-                conjunction=row["var_conjunction"].get(),
-                field_type=row["var_field"].get(),
-                target_value=row["var_value"].get(),
-                case_sensitive=row["var_case"].get()
-            ))
-            
+        query_text = self.txt_query.get("1.0", tk.END).strip()
         self.dispatcher.dispatch(UITreeFilterAppliedEvent(
-            rules=compiled_rules,
+            query_string=query_text,
             show_ancestors=self.var_show_ancestors.get(),
             show_descendants=self.var_show_descendants.get()
         ))
@@ -215,4 +208,23 @@ class TreeFilterDialog(tk.Toplevel):
         from src.utils.theme_manager import ThemeManager
         palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
         self.configure(bg=palette['bg'])
-        self.canvas.configure(bg=palette['bg'])
+        
+        cursor_color = 'white' if event.is_dark else 'black'
+        self.txt_query.configure(
+            bg=palette['field_bg'],
+            fg=palette['fg'],
+            insertbackground=cursor_color,
+            highlightthickness=1,
+            highlightbackground=palette['bg'],
+            highlightcolor=palette['highlight'],
+            borderwidth=0
+        )
+        
+        if self.autocomplete_popup:
+             self.autocomplete_listbox.configure(
+                bg=palette['field_bg'],
+                fg=palette['fg'],
+                selectbackground=palette['highlight']
+            )
+            
+import re

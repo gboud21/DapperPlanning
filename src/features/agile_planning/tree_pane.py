@@ -213,8 +213,15 @@ class TreePane:
         
         # Calculate whitelist if filtering is active
         whitelist = None
-        if filter_context and filter_context.rules:
-            whitelist = self._calculate_filter_whitelist(event.root_items, filter_context)
+        if filter_context and filter_context.query_string.strip():
+            from src.utils.query_parser import parse_query_to_ast
+            try:
+                ast = parse_query_to_ast(filter_context.query_string)
+                workspace = self.context.resolve('workspace')
+                whitelist = self._calculate_filter_whitelist(event.root_items, filter_context, ast, workspace)
+            except ValueError:
+                # Fallback to no filtering if syntax is bad
+                whitelist = None
 
         def get_all_expanded(parent=""):
             expanded = []
@@ -320,10 +327,9 @@ class TreePane:
             elif item_type == "Feature" and hasattr(item, "stories"):
                 self._populate_nodes(node_iid, item.stories, prod_prefix=prod_prefix, whitelist=whitelist)
 
-    def _calculate_filter_whitelist(self, root_items, filter_context):
-        """Calculates a set of item IDs that should be visible based on filter rules."""
+    def _calculate_filter_whitelist(self, root_items, filter_context, ast, workspace):
+        """Calculates a set of item IDs that should be visible based on query AST."""
         matches = set()
-        rules = filter_context.rules
         
         # 1. First pass: Find direct matches
         all_items = []
@@ -335,7 +341,7 @@ class TreePane:
         collect(root_items)
         
         for item in all_items:
-            if self._item_matches_rules(item, rules):
+            if ast.evaluate(item, workspace):
                 matches.add(item.id)
                 
         if not matches:
@@ -376,52 +382,3 @@ class TreePane:
                 add_descendants(matched_id)
                 
         return whitelist
-
-    def _item_matches_rules(self, item, rules):
-        """Evaluates logical rules against an individual item."""
-        if not rules: return True
-        
-        # Result starts with the evaluation of the first rule
-        res = self._evaluate_single_rule(item, rules[0])
-        
-        for rule in rules[1:]:
-            val = self._evaluate_single_rule(item, rule)
-            if rule.conjunction == "AND":
-                res = res and val
-            else:
-                res = res or val
-        return res
-
-    def _evaluate_single_rule(self, item, rule):
-        field = rule.field_type
-        target = rule.target_value
-        case_sensitive = rule.case_sensitive
-        
-        if field == "Type":
-            return type(item).__name__ == target
-        elif field == "Status":
-            return getattr(item, 'status', '') == target
-        elif field == "Assignee":
-            # Only stories have assignee_id
-            if type(item).__name__ != "Story": return False
-            assignee_id = getattr(item, 'assignee_id', None)
-            
-            # Resolve ID to Name for comparison
-            workspace = self.context.resolve('workspace')
-            if not assignee_id:
-                return target == "Unassigned"
-            
-            member = workspace.members.get(assignee_id)
-            return member.name == target if member else (target == "Unassigned")
-        elif field == "Label":
-            labels = getattr(item, 'labels', [])
-            return target in labels
-        elif field in ["Title", "Description"]:
-            val = getattr(item, field.lower(), "")
-            if val is None: val = ""
-            
-            if not case_sensitive:
-                return target.lower() in val.lower()
-            return target in val
-            
-        return False
