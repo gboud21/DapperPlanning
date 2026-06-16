@@ -28,13 +28,14 @@ class JsonWorkspaceRepository(WorkspaceRepository):
         if os.path.exists(self.file_path):
             try:
                 adapter = JSONAdapter()
-                root_epics, active_product, products, members, deleted, labels, iterations, product_teams, member_capacities = adapter.import_data(self.file_path)
+                root_epics, active_product, products, members, deleted, labels, iterations, hidden_ids, product_teams, member_capacities = adapter.import_data(self.file_path)
                 
                 workspace._epics = root_epics
                 workspace.products = products
                 workspace.members = {m.id: m for m in members}
                 workspace.labels = labels
                 workspace.iterations = iterations
+                workspace.hidden_iteration_ids = hidden_ids
                 workspace.product_teams = product_teams
                 workspace.member_capacities = {f"{c.team_id}_{c.member_id}_{c.iteration_id}": c for c in member_capacities}
                 workspace.active_product_name = active_product
@@ -64,6 +65,7 @@ class JsonWorkspaceRepository(WorkspaceRepository):
                 deleted_remote_items=workspace.deleted_remote_items,
                 labels=workspace.labels,
                 iterations=workspace.iterations,
+                hidden_iteration_ids=workspace.hidden_iteration_ids,
                 product_teams=workspace.product_teams,
                 member_capacities=list(workspace.member_capacities.values())
             )

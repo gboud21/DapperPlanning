@@ -26,6 +26,7 @@ class Workspace:
         self._iterations: List[Iteration] = []
         self._product_teams: List[ProductTeam] = []
         self._member_capacities: Dict[str, TeamMemberCapacity] = {}  # Key pattern: "team_member_iteration"
+        self.hidden_iteration_ids: List[int] = []
         self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
@@ -241,6 +242,7 @@ class Workspace:
             "active_product_name": self._active_product_name,
             "products": [asdict(p) for p in self._products],
             "iterations": [asdict(i) for i in self._iterations],
+            "hidden_iteration_ids": self.hidden_iteration_ids,
             "product_teams": [asdict(t) for t in self._product_teams],
             "member_capacities": [asdict(c) for c in self._member_capacities.values()],
             "epics": [_serialize_item(epic) for epic in self._epics]

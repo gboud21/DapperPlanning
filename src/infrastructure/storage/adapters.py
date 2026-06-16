@@ -9,15 +9,15 @@ from src.infrastructure.telemetry.logger import logger
 
 class DataAdapter(ABC):
     @abstractmethod
-    def export_data(self, filepath: str, data: List[Epic], active_product_name: str = None, products: List[Any] = None, members: List[Any] = None, deleted_remote_items: List[dict] = None, labels: Dict[str, Any] = None, iterations: List[Any] = None, product_teams: List[Any] = None, member_capacities: List[Any] = None):
+    def export_data(self, filepath: str, data: List[Epic], active_product_name: str = None, products: List[Any] = None, members: List[Any] = None, deleted_remote_items: List[dict] = None, labels: Dict[str, Any] = None, iterations: List[Any] = None, hidden_iteration_ids: List[int] = None, product_teams: List[Any] = None, member_capacities: List[Any] = None):
         pass
 
     @abstractmethod
-    def import_data(self, filepath: str) -> tuple[List[Epic], Optional[str], List[Any], List[Any], List[dict], Dict[str, Any], List[Any], List[Any], List[Any]]:
+    def import_data(self, filepath: str) -> tuple[List[Epic], Optional[str], List[Any], List[Any], List[dict], Dict[str, Any], List[Any], List[int], List[Any], List[Any]]:
         pass
 
 class CSVAdapter(DataAdapter):
-    def export_data(self, filepath: str, data: List[Epic], active_product_name: str = None, products: List[Any] = None, members: List[Any] = None, deleted_remote_items: List[dict] = None, labels: Dict[str, Any] = None, iterations: List[Any] = None, product_teams: List[Any] = None, member_capacities: List[Any] = None):
+    def export_data(self, filepath: str, data: List[Epic], active_product_name: str = None, products: List[Any] = None, members: List[Any] = None, deleted_remote_items: List[dict] = None, labels: Dict[str, Any] = None, iterations: List[Any] = None, hidden_iteration_ids: List[int] = None, product_teams: List[Any] = None, member_capacities: List[Any] = None):
         # CSV doesn't support active_product_name metadata easily, so we ignore it for now
         fieldnames = ['Item Type', 'ID', 'Parent ID', 'Title', 'Description', 'Team', 'Products', 'Capabilities', 'Labels', 'Weight', 'Status', 'Assignee ID', 'Iteration ID']
         rows = HierarchyFlattener.flatten(data)
@@ -26,14 +26,14 @@ class CSVAdapter(DataAdapter):
             writer.writeheader()
             writer.writerows(rows)
 
-    def import_data(self, filepath: str) -> tuple[List[Epic], Optional[str], List[Any], List[Any], List[dict], Dict[str, Any], List[Any], List[Any], List[Any]]:
+    def import_data(self, filepath: str) -> tuple[List[Epic], Optional[str], List[Any], List[Any], List[dict], Dict[str, Any], List[Any], List[int], List[Any], List[Any]]:
         with open(filepath, mode='r', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             rows = list(reader)
-            return HierarchyBuilder.build_from_flat_dict(rows), None, [], [], [], {}, [], [], []
+            return HierarchyBuilder.build_from_flat_dict(rows), None, [], [], [], {}, [], [], [], []
 
 class JSONAdapter(DataAdapter):
-    def export_data(self, filepath: str, data: List[Epic], active_product_name: str = None, products: List[Any] = None, members: List[Any] = None, deleted_remote_items: List[dict] = None, labels: Dict[str, Any] = None, iterations: List[Any] = None, product_teams: List[Any] = None, member_capacities: List[Any] = None):
+    def export_data(self, filepath: str, data: List[Epic], active_product_name: str = None, products: List[Any] = None, members: List[Any] = None, deleted_remote_items: List[dict] = None, labels: Dict[str, Any] = None, iterations: List[Any] = None, hidden_iteration_ids: List[int] = None, product_teams: List[Any] = None, member_capacities: List[Any] = None):
         from dataclasses import asdict
         
         def _serialize_recursive(item):
@@ -59,6 +59,7 @@ class JSONAdapter(DataAdapter):
             "members": [asdict(m) for m in members] if members else [],
             "labels": {name: asdict(label) for name, label in labels.items()} if labels else {},
             "iterations": [asdict(i) for i in iterations] if iterations else [],
+            "hidden_iteration_ids": hidden_iteration_ids or [],
             "product_teams": [asdict(t) for t in product_teams] if product_teams else [],
             "member_capacities": [asdict(c) for c in member_capacities] if member_capacities else [],
             "epics": epics_json,
@@ -69,7 +70,7 @@ class JSONAdapter(DataAdapter):
             json.dump(json_data, jsonfile, indent=4)
         logger.info(f"Workspace successfully exported to {filepath}")
 
-    def import_data(self, filepath: str) -> tuple[List[Epic], Optional[str], List[Any], List[Any], List[dict], Dict[str, Any], List[Any], List[Any], List[Any]]:
+    def import_data(self, filepath: str) -> tuple[List[Epic], Optional[str], List[Any], List[Any], List[dict], Dict[str, Any], List[Any], List[int], List[Any], List[Any]]:
         from src.domain.entities import Product, Member, Label, Iteration, ProductTeam, TeamMemberCapacity
         with open(filepath, mode='r', encoding='utf-8') as jsonfile:
             data = json.load(jsonfile)
@@ -78,13 +79,14 @@ class JSONAdapter(DataAdapter):
                 members = [Member(**m) for m in data.get("members", [])]
                 labels = {name: Label(**l) for name, l in data.get("labels", {}).items()}
                 iterations = [Iteration(**i) for i in data.get("iterations", [])]
+                hidden_ids = data.get("hidden_iteration_ids", [])
                 product_teams = [ProductTeam(**t) for t in data.get("product_teams", [])]
                 member_capacities = [TeamMemberCapacity(**c) for c in data.get("member_capacities", [])]
                 deleted = data.get("deleted_remote_items", [])
-                return HierarchyBuilder.build_from_nested_dict(data["epics"]), data.get("active_product_name"), products, members, deleted, labels, iterations, product_teams, member_capacities
+                return HierarchyBuilder.build_from_nested_dict(data["epics"]), data.get("active_product_name"), products, members, deleted, labels, iterations, hidden_ids, product_teams, member_capacities
             else:
                 # Backward compatibility for old format (just a list of epics)
-                return HierarchyBuilder.build_from_nested_dict(data), None, [], [], [], {}, [], [], []
+                return HierarchyBuilder.build_from_nested_dict(data), None, [], [], [], {}, [], [], [], []
 
 class DataAdapterFactory:
     @staticmethod

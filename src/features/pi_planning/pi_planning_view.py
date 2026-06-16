@@ -16,6 +16,8 @@ class PIPlanningView(ttk.Frame):
         self.dispatcher = context.resolve('event_dispatcher')
         self.workspace = context.resolve('workspace')
         
+        self.context.register('pi_planning_view', self)
+        
         self.current_selection = None
         
         # Main horizontal paned window to split sidebar and main area

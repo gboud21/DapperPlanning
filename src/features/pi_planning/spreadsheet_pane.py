@@ -77,6 +77,9 @@ class ScrollableSpreadsheetPane(ttk.Frame):
             ttk.Label(self.scroll_inner_frame, text="No iterations found. Sync iterations first.").pack(padx=20, pady=20)
             return
 
+        # Filter iterations down based on workspace exclusion configurations
+        visible_iterations = [i for i in iterations if i.id not in self.workspace.hidden_iteration_ids]
+
         from src.utils.theme_manager import ThemeManager
         is_dark = ThemeManager.load_settings()
         palette = ThemeManager.DARK_PALETTE if is_dark else ThemeManager.LIGHT_PALETTE
@@ -89,12 +92,14 @@ class ScrollableSpreadsheetPane(ttk.Frame):
         lbl_main_title = tk.Label(self.scroll_inner_frame, text=source_title, font=HEADER_FONT, 
                                   bg=palette['bg'], fg=palette['fg'], relief="ridge")
         lbl_main_title.grid(row=0, column=0, rowspan=2, sticky=tk.NSEW, padx=5, pady=5)
+        lbl_main_title.bind("<Button-3>", lambda e: self._show_context_menu(e))
 
         col_idx = 1
-        for iteration in iterations:
+        for iteration in visible_iterations:
             lbl_iter = tk.Label(self.scroll_inner_frame, text=iteration.title, anchor=tk.CENTER, font=HEADER_FONT,
                                 bg=palette['field_bg'], fg=palette['fg'], relief="ridge")
             lbl_iter.grid(row=0, column=col_idx, columnspan=2, sticky=tk.EW, padx=PAD_CELL_X, pady=PAD_CELL_Y)
+            lbl_iter.bind("<Button-3>", lambda e, it_id=iteration.id: self._show_context_menu(e, it_id))
             
             # Row 1: Target Data Sub-headers
             tk.Label(self.scroll_inner_frame, text="Capacity", width=DEFAULT_CELL_WIDTH, anchor=tk.CENTER,
@@ -109,11 +114,13 @@ class ScrollableSpreadsheetPane(ttk.Frame):
         
         for r_idx, row_data in enumerate(rows_to_render):
             # Column 0: Name
-            tk.Label(self.scroll_inner_frame, text=row_data['display_name'], 
-                     bg=palette['bg'], fg=palette['fg']).grid(row=r_idx+2, column=0, sticky=tk.W, padx=PAD_ROW_X, pady=PAD_CELL_Y)
+            lbl_name = tk.Label(self.scroll_inner_frame, text=row_data['display_name'], 
+                     bg=palette['bg'], fg=palette['fg'])
+            lbl_name.grid(row=r_idx+2, column=0, sticky=tk.W, padx=PAD_ROW_X, pady=PAD_CELL_Y)
+            lbl_name.bind("<Button-3>", lambda e: self._show_context_menu(e))
             
             col_idx = 1
-            for iteration in iterations:
+            for iteration in visible_iterations:
                 capacity = self._calculate_capacity(row_data, iteration)
                 load = self._calculate_load(row_data, iteration)
                 
@@ -131,6 +138,7 @@ class ScrollableSpreadsheetPane(ttk.Frame):
                 )
                 lbl_cap.grid(row=r_idx+2, column=col_idx, padx=PAD_CELL_X, pady=PAD_CELL_Y)
                 lbl_cap.bind("<Button-1>", lambda e, rd=row_data, it_id=iteration.id: self._on_cell_clicked(rd, it_id))
+                lbl_cap.bind("<Button-3>", lambda e, it_id=iteration.id: self._show_context_menu(e, it_id))
                 
                 # Load Cell Label Creation
                 fg_color = OVERLOAD_FG_COLOR if load > capacity and capacity > 0 else palette['fg']
@@ -144,8 +152,56 @@ class ScrollableSpreadsheetPane(ttk.Frame):
                 )
                 lbl_load.grid(row=r_idx+2, column=col_idx+1, padx=PAD_CELL_X, pady=PAD_CELL_Y)
                 lbl_load.bind("<Button-1>", lambda e, rd=row_data, it_id=iteration.id: self._on_cell_clicked(rd, it_id))
+                lbl_load.bind("<Button-3>", lambda e, it_id=iteration.id: self._show_context_menu(e, it_id))
                 
                 col_idx += 2
+
+    def _show_context_menu(self, event, target_iteration_id=None):
+        """Generates context menu popups housing column adjustment filters."""
+        menu = tk.Menu(self, tearoff=0)
+        
+        from src.utils.theme_manager import ThemeManager
+        is_dark = ThemeManager.load_settings()
+        palette = ThemeManager.DARK_PALETTE if is_dark else ThemeManager.LIGHT_PALETTE
+        
+        menu.configure(
+            bg=palette['field_bg'],
+            fg=palette['fg'],
+            activebackground=palette['highlight'],
+            activeforeground=palette['fg']
+        )
+        
+        if target_iteration_id is not None:
+            menu.add_command(label="Hide Iteration", command=lambda: self._action_hide_single(target_iteration_id))
+            
+        menu.add_command(label="Reveal All Iterations", command=self._action_reveal_all)
+        menu.add_command(label="Modify Iteration View...", command=self._action_open_modifier_dialog)
+        
+        # tk_popup handles focus and dismissal automatically
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _action_hide_single(self, iteration_id):
+        self.workspace.hidden_iteration_ids.append(iteration_id)
+        self._force_grid_refresh()
+
+    def _action_reveal_all(self):
+        self.workspace.hidden_iteration_ids = []
+        self._force_grid_refresh()
+
+    def _action_open_modifier_dialog(self):
+        from src.features.pi_planning.iteration_view_dialog import ModifyIterationViewDialog
+        ModifyIterationViewDialog(self.winfo_toplevel(), self.workspace, self._force_grid_refresh)
+
+    def _force_grid_refresh(self):
+        # Force spreadsheet redraw pass using current active selection parameters
+        view = self.context.resolve('pi_planning_view')
+        current_sel = getattr(view, 'current_selection', None)
+        self.render_matrix_grid(self.workspace.iterations, tree_selection=current_sel)
+        # Fire workspace modification updates to mark clean snapshots as dirty and trigger auto-save
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self.workspace.get_epics(),
+            products=self.workspace.products
+        ))
 
     def _get_rows_to_render(self, selection):
         """Returns a list of data dicts for the rows of the spreadsheet."""

@@ -79,6 +79,17 @@ class TeamTreePane(ttk.Frame):
         item_id = self.tree.identify_row(event.y)
         menu = tk.Menu(self, tearoff=0)
         
+        from src.utils.theme_manager import ThemeManager
+        is_dark = ThemeManager.load_settings()
+        palette = ThemeManager.DARK_PALETTE if is_dark else ThemeManager.LIGHT_PALETTE
+        
+        menu.configure(
+            bg=palette['field_bg'],
+            fg=palette['fg'],
+            activebackground=palette['highlight'],
+            activeforeground=palette['fg']
+        )
+        
         if not item_id:
             menu.add_command(label="Add Product", command=self._cmd_add_product)
         else:
@@ -96,7 +107,7 @@ class TeamTreePane(ttk.Frame):
                     team_id = self.tree.set(parent_iid, "entity_id")
                     menu.add_command(label="Remove Member from Team", command=lambda: self._cmd_remove_member(team_id, int(entity_id)))
             
-        menu.post(event.x_root, event.y_root)
+        menu.tk_popup(event.x_root, event.y_root)
 
     def _bind_drag_and_drop_hooks(self):
         self.listbox.bind("<Button-1>", self._on_drag_start)
