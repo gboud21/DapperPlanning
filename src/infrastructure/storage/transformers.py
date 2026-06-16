@@ -216,6 +216,15 @@ class GitLabTransformer:
             first_assignee_id = assignees[0].get('id') if assignees else None
             labels = r_issue.get('labels', [])
             
+            # Extract iteration ID
+            remote_iteration = r_issue.get('iteration')
+            iteration_id = None
+            if remote_iteration:
+                # Use global ID
+                iteration_id = remote_iteration.get('id')
+                if iteration_id:
+                    iteration_id = int(iteration_id)
+            
             story = Story(
                 id=f"gl-s-{r_issue['id']}",
                 title=r_issue.get('title', ''),
@@ -226,7 +235,8 @@ class GitLabTransformer:
                 status=_resolve_status(labels),
                 gitlab_id=r_issue['id'],
                 gitlab_iid=r_issue.get('iid'),
-                assignee_id=first_assignee_id
+                assignee_id=first_assignee_id,
+                iteration_id=iteration_id
             )
             
             # Link to Feature via epic_iid (in GitLab Issues response)

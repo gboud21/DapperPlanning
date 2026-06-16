@@ -8,7 +8,8 @@ from src.core.events import (
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
     UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent, UIItemReparentRequestedEvent,
-    UIStorySplitRequestedEvent, UILabelUpdateRequestedEvent
+    UIStorySplitRequestedEvent, UILabelUpdateRequestedEvent, UIAppViewChangedEvent,
+    UIUpdateCapacityMetricsRequestedEvent, UIPiPlannerTreeSelectionChangedEvent
 )
 from src.domain.workspace import Workspace
 from src.domain.entities import Story
@@ -18,6 +19,7 @@ from src.features.agile_planning.editor_controller import EditorController
 from src.core.menu_controller import MenuController
 from src.features.integrations.integrations_controller import IntegrationsController
 from src.features.settings.settings_controller import SettingsController
+from src.features.pi_planning.pi_planning_controller import PIPlanningController
 from src.utils.theme_manager import ThemeManager
 from src.infrastructure.telemetry.logger import AppLogger, logger
 
@@ -41,6 +43,7 @@ class MainController:
         self.menu_controller = MenuController(context)
         self.integrations_controller = IntegrationsController(context)
         self.settings_controller = SettingsController(context)
+        self.pi_planning_controller = PIPlanningController(context)
         
         self._subscribe_events()
 
@@ -94,6 +97,36 @@ class MainController:
         self.dispatcher.subscribe(UIItemReparentRequestedEvent, self.handle_reparent_requested)
         self.dispatcher.subscribe(UIStorySplitRequestedEvent, self.handle_split_requested)
         self.dispatcher.subscribe(UILabelUpdateRequestedEvent, self.handle_label_update)
+        self.dispatcher.subscribe(UIAppViewChangedEvent, self.handle_view_changed)
+        self.dispatcher.subscribe(UIUpdateCapacityMetricsRequestedEvent, self.handle_pi_capacity_update)
+
+    def handle_pi_capacity_update(self, event: UIUpdateCapacityMetricsRequestedEvent):
+        """Translates UI capacity updates into a transactional command."""
+        from src.core.commands import UpdateMemberCapacityCommand
+        self.context.resolve('command_bus').execute(UpdateMemberCapacityCommand(
+            team_id=event.team_id,
+            member_id=event.member_id,
+            iteration_id=event.iteration_id,
+            pto=event.pto,
+            allocation_pct=event.allocation_pct,
+            velocity_factor=event.velocity_factor
+        ))
+
+    def handle_view_changed(self, event: UIAppViewChangedEvent):
+        """Safely unpacks current views and shifts layout content focus layers."""
+        try:
+            # Resolve main window out of context injection boundaries
+            main_window = self.context.resolve('main_window')
+        except KeyError:
+            return
+
+        # Unpack all initialized layout frame wrappers currently filling the slot canvas
+        for name, view_frame in main_window.views.items():
+            view_frame.pack_forget()
+            
+        # Remount target active layer container panel frame
+        if event.view_name in main_window.views:
+            main_window.views[event.view_name].pack(fill=tk.BOTH, expand=True)
 
     def handle_split_requested(self, event: UIStorySplitRequestedEvent):
         """Handles the request to split a story."""

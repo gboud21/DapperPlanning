@@ -43,9 +43,20 @@ class EditorController:
         """Updates an existing item's details via command execution."""
         item = self.workspace._find_item_by_id(command.item_id)
         if isinstance(item, Story):
-             item.weight = command.weight
-             item.status = command.status
-             item.assignee_id = command.assignee_id
+            # Check if any story-specific fields changed to mark as dirty
+            has_changes = (
+                item.weight != command.weight or
+                item.status != command.status or
+                item.assignee_id != command.assignee_id or
+                item.iteration_id != command.iteration_id
+            )
+            
+            if has_changes:
+                item.weight = command.weight
+                item.status = command.status
+                item.assignee_id = command.assignee_id
+                item.iteration_id = command.iteration_id
+                item.last_synced_at = None  # Mark as dirty for push sync
 
         self.workspace.update_item_details(
             command.item_id, 
@@ -69,6 +80,10 @@ class EditorController:
             editor_pane.assignee_lbl.grid()
             editor_pane.assignee_combo.grid()
             
+            # Unhide Iteration UI
+            editor_pane.iteration_lbl.grid()
+            editor_pane.iteration_combo.grid()
+            
             # Populate members
             members = self.workspace.get_members()
             member_names = ["Unassigned"] + [m.name for m in members]
@@ -84,10 +99,28 @@ class EditorController:
                     editor_pane.assignee_combo.set("Unassigned")
             else:
                 editor_pane.assignee_combo.set("Unassigned")
+                
+            # Populate Iterations
+            iteration_names = ["Unassigned"] + [it.display_name for it in self.workspace.iterations]
+            editor_pane.iteration_combo.config(values=iteration_names)
+            
+            # Set current iteration
+            iteration_id = getattr(event.item_data, 'iteration_id', None)
+            display_iteration = "Unassigned"
+            if iteration_id:
+                it_obj = next((i for i in self.workspace.iterations if i.id == iteration_id), None)
+                if it_obj:
+                    display_iteration = it_obj.display_name
+            
+            editor_pane.iteration_combo.set(display_iteration)
         else:
             # Hide Assignee UI for Epics/Features
             editor_pane.assignee_lbl.grid_remove()
             editor_pane.assignee_combo.grid_remove()
+            
+            # Hide Iteration UI for Epics/Features
+            editor_pane.iteration_lbl.grid_remove()
+            editor_pane.iteration_combo.grid_remove()
 
     def handle_create_item(self, event: UICreateItemRequestedEvent):
         """Creates a new item and attaches it to the parent in the model."""
@@ -129,7 +162,8 @@ class EditorController:
                 capabilities=event.capabilities,
                 weight=event.weight,
                 status=event.status,
-                assignee_id=event.assignee_id
+                assignee_id=event.assignee_id,
+                iteration_id=event.iteration_id
             )
             parent.stories.append(item)
 

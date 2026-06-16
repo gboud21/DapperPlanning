@@ -41,7 +41,8 @@ class SettingsManager:
             'auth_pat': '',
             'epic_group_id': '',
             'product_mappings': {},
-            'capabilities': []
+            'capabilities': [],
+            'utilization_factor': 100
         }
 
     def load(self):

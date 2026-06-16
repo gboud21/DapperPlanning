@@ -66,6 +66,41 @@ class Label:
     scope_name: str  # the name of the group or project
 
 @dataclass
+class Iteration:
+    id: int
+    iid: int
+    title: str
+    start_date: str  # ISO format string from API
+    end_date: str    # ISO format string from API
+    state: str       # "opened", "closed", etc.
+
+    @property
+    def display_name(self) -> str:
+        from datetime import datetime
+        try:
+            s_dt = datetime.fromisoformat(self.start_date).strftime("%m/%d/%Y")
+            e_dt = datetime.fromisoformat(self.end_date).strftime("%m/%d/%Y")
+            return f"{self.title} ({s_dt} - {e_dt})"
+        except:
+            return self.title or f"Iteration {self.iid}"
+
+@dataclass
+class ProductTeam:
+    id: str
+    name: str
+    product_id: str
+    member_ids: List[int] = field(default_factory=list)
+
+@dataclass
+class TeamMemberCapacity:
+    team_id: str
+    member_id: int
+    iteration_id: int
+    pto: int = 0
+    allocation_pct: int = 100
+    velocity_factor: int = 100
+
+@dataclass
 class Story:
     """
     Represents a user story or a small, deliverable piece of work.
@@ -82,6 +117,7 @@ class Story:
     weight: float = 0.0
     status: str = 'Backlog'
     assignee_id: Optional[int] = None
+    iteration_id: Optional[int] = None
     # Sync Metadata
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
@@ -101,6 +137,7 @@ class Story:
             weight=self.weight,
             status='Backlog',
             assignee_id=self.assignee_id,
+            iteration_id=None,
             gitlab_id=None,
             gitlab_iid=None,
             last_synced_at=None

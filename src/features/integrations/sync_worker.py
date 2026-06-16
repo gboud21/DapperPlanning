@@ -7,7 +7,7 @@ from src.core.events import (
     ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
     UIConflictResolvedEvent, ModelHierarchyUpdatedEvent, UISaveWorkspaceRequestedEvent
 )
-from src.domain.entities import Epic, Feature, Story, Team, Member, Label
+from src.domain.entities import Epic, Feature, Story, Team, Member, Label, Iteration
 from src.infrastructure.storage.transformers import GitLabTransformer
 from src.utils.paths import GITLAB_SYNC_OUTPUT_FILE
 from src.infrastructure.telemetry.logger import logger
@@ -59,6 +59,8 @@ class SyncWorker(threading.Thread):
                 self._execute_member_sync()
             elif self.sync_type == 'labels':
                 self._execute_label_sync()
+            elif self.sync_type == 'iterations':
+                self._execute_iteration_sync()
             self._safe_dispatch(ModelSyncProgressEvent(message="Done.", percent=100))
             logger.info(f"SyncWorker finished successfully: {self.sync_type}")
         except GitLabBaseError as e:
@@ -367,7 +369,11 @@ class SyncWorker(threading.Thread):
     def _has_local_changes(self, item):
         """Returns True if the item has local changes that need pushing."""
         # If last_synced_at is None, it means the item is new or has been modified locally.
-        return getattr(item, 'last_synced_at', None) is None
+        if getattr(item, 'last_synced_at', None) is None:
+            return True
+            
+        # Optional: Deep check if sync timestamp logic fails or is not applied everywhere
+        return False
 
     def _process_item(self, remote_data, item_type, dry_run):
         gitlab_id = remote_data.get('id')
@@ -418,6 +424,11 @@ class SyncWorker(threading.Thread):
         remote_assignees = remote.get('assignees', [])
         remote_assignee_id = remote_assignees[0].get('id') if remote_assignees else None
         if getattr(local, 'assignee_id', None) != remote_assignee_id: return True
+
+        # Check iteration
+        remote_iteration = remote.get('iteration', {})
+        remote_iteration_id = remote_iteration.get('id') if remote_iteration else None
+        if getattr(local, 'iteration_id', None) != remote_iteration_id: return True
 
         # Check labels (ignoring architectural labels for comparison)
         reserved_labels = {self.gitlab_client.epic_sync_label, self.gitlab_client.feature_sync_label, 'Story'}
@@ -518,3 +529,61 @@ class SyncWorker(threading.Thread):
 
         self._safe_dispatch(UISaveWorkspaceRequestedEvent())
         self._safe_dispatch(ModelSyncProgressEvent(message="Label Sync Complete!", percent=100))
+
+    def _execute_iteration_sync(self):
+        logger.info("Executing Iteration Sync...")
+        self._safe_dispatch(ModelSyncProgressEvent(message="Fetching GitLab iterations...", percent=10))
+        
+        active_product_name = self.workspace.active_product_name
+        product_entity = next((p for p in self.workspace.products if p.name == active_product_name), None)
+        
+        if not product_entity or not product_entity.gitlab_project_id or not product_entity.gitlab_group_id:
+            from src.infrastructure.api.gitlab_client import GitLabBaseError
+            raise GitLabBaseError(
+                "Incomplete Product Configuration",
+                "Product requires both Project and Group IDs for iteration sync."
+            )
+
+        group_id = product_entity.gitlab_group_id
+        project_id = product_entity.gitlab_project_id
+
+        # Fetch group iterations
+        raw_group_iterations = self.gitlab_client.fetch_group_iterations(group_id)
+        iterations = []
+        for i in raw_group_iterations:
+            # Map state if it's an integer (1: opened, 2: closed)
+            state = i.get('state', 'opened')
+            if state == 1: state = "opened"
+            elif state == 2: state = "closed"
+            
+            iterations.append(Iteration(
+                id=i.get('id'), 
+                iid=i.get('iid'), 
+                title=i.get('title') or f"Iteration {i.get('iid')}",
+                start_date=i.get('start_date', ''), 
+                end_date=i.get('due_date', ''), 
+                state=str(state)
+            ))
+        
+        # Also fetch project iterations (though they are often same as group in many setups)
+        self._safe_dispatch(ModelSyncProgressEvent(message="Fetching project iterations...", percent=50))
+        raw_project_iterations = self.gitlab_client.fetch_project_iterations(project_id)
+        for i in raw_project_iterations:
+            if not any(it.id == i.get('id') for it in iterations):
+                state = i.get('state', 'opened')
+                if state == 1: state = "opened"
+                elif state == 2: state = "closed"
+
+                iterations.append(Iteration(
+                    id=i.get('id'), 
+                    iid=i.get('iid'), 
+                    title=i.get('title') or f"Iteration {i.get('iid')}",
+                    start_date=i.get('start_date', ''), 
+                    end_date=i.get('due_date', ''), 
+                    state=str(state)
+                ))
+
+        self.workspace.merge_iterations(iterations)
+
+        self._safe_dispatch(UISaveWorkspaceRequestedEvent())
+        self._safe_dispatch(ModelSyncProgressEvent(message="Iteration Sync Complete!", percent=100))

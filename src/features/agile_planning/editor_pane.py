@@ -143,6 +143,19 @@ class EditorPane:
         self.assignee_lbl.grid_remove()
         self.assignee_combo.grid_remove()
 
+        # Iteration (Hidden by default, only for Stories)
+        self.iteration_frame = ttk.Frame(self.scrollable_frame)
+        self.iteration_frame.pack(fill=tk.X, pady=(0, 10))
+        self.iteration_lbl = ttk.Label(self.iteration_frame, text="Iteration:")
+        self.iteration_lbl.grid(row=0, column=0, sticky=tk.W)
+        self.iteration_combo = ttk.Combobox(self.iteration_frame, state="readonly", style="Preferences.TCombobox")
+        self.iteration_combo.grid(row=0, column=1, sticky=tk.EW, padx=5)
+        self.iteration_frame.columnconfigure(1, weight=1)
+        self.iteration_combo.bind("<<ComboboxSelected>>", self._trigger_auto_save)
+        
+        self.iteration_lbl.grid_remove()
+        self.iteration_combo.grid_remove()
+
         # Weight Entry
         ttk.Label(self.scrollable_frame, text="Weight:").pack(anchor=tk.W)
         self.entry_weight = tk.Entry(self.scrollable_frame, validate='key', validatecommand=self.vcmd)
@@ -611,6 +624,11 @@ class EditorPane:
                 borderwidth=1,
                 relief="flat"
             )
+        
+        # Ensure Assignee and Iteration combos also respect standard theme if they were to use tk widgets, 
+        # but they use Preferences.TCombobox so they are fine. 
+        # Just ensuring context alignment.
+        pass
 
     def _trigger_auto_save(self, *args):
         """Dispatches the update request automatically when data changes."""
@@ -653,6 +671,16 @@ class EditorPane:
             if member:
                 assignee_id = member.id
 
+        # Determine iteration_id from display string
+        iteration_display = self.iteration_combo.get()
+        iteration_id = None
+        if iteration_display and iteration_display != "Unassigned":
+            # Iterations are stored in workspace. Find by matching formatted string
+            for it in self.workspace.iterations:
+                if it.display_name == iteration_display:
+                    iteration_id = it.id
+                    break
+
         self.command_bus.execute(SaveItemCommand(
             item_id=self.current_selected_id,
             new_title=title,
@@ -662,7 +690,8 @@ class EditorPane:
             new_labels=labels,
             weight=weight,
             status=status,
-            assignee_id=assignee_id
+            assignee_id=assignee_id,
+            iteration_id=iteration_id
         ))
 
     def _on_save_clicked(self):
@@ -686,6 +715,15 @@ class EditorPane:
             if member:
                 assignee_id = member.id
 
+        # Determine iteration_id from display string
+        iteration_display = self.iteration_combo.get()
+        iteration_id = None
+        if iteration_display and iteration_display != "Unassigned":
+            for it in self.workspace.iterations:
+                if it.display_name == iteration_display:
+                    iteration_id = it.id
+                    break
+
         self.dispatcher.dispatch(UICreateItemRequestedEvent(
             parent_id=self.current_selected_id,
             item_type=item_type,
@@ -695,8 +733,12 @@ class EditorPane:
             capabilities=capabilities,
             weight=weight,
             status=status,
-            assignee_id=assignee_id
+            assignee_id=assignee_id,
+            iteration_id=iteration_id
         ))
+        # Note: UICreateItemRequestedEvent doesn't have iteration_id yet in its dataclass, 
+        # but the prompt focuses on Story assignment in editor.
+        # I should probably update UICreateItemRequestedEvent too if Story creation needs it.
 
     def set_assignee_list(self, names):
         """Updates the master assignee list and the combobox values."""

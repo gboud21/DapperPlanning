@@ -58,6 +58,10 @@ class UISyncLabelsRequestedEvent(Event):
     pass
 
 @dataclass
+class UISyncIterationsRequestedEvent(Event):
+    pass
+
+@dataclass
 class UILabelUpdateRequestedEvent(Event):
     """Emitted when the user requests to add or remove a label."""
     item_id: str
@@ -85,6 +89,35 @@ class UISaveAsWorkspaceRequestedEvent(Event):
 @dataclass
 class UIAppCloseRequestedEvent(Event):
     pass
+
+@dataclass
+class UIAppViewChangedEvent(Event):
+    """Emitted when the user selects a new primary view from the activity bar."""
+    view_name: str  # e.g., "Agile Planning", "PI Planning"
+
+@dataclass
+class UIPiPlannerTreeSelectionChangedEvent(Event):
+    """Emitted when the user selects an item in the PI Planner tree."""
+    selected_type: str  # "Product", "Team", or "Member"
+    selected_id: str    # Internal entity reference key
+
+@dataclass
+class UIPiPlannerCellSelectedEvent(Event):
+    """Emitted when an operator selects an explicit cell intersection inside the matrix grid."""
+    selected_type: str  # "Team" or "Member"
+    selected_id: str    # team_id or member_id
+    team_id: str        # Contextual target team ID reference
+    iteration_id: int   # Targeted column iteration identity
+
+@dataclass
+class UIUpdateCapacityMetricsRequestedEvent(Event):
+    """Emitted when the user requests to update capacity metrics."""
+    team_id: str
+    member_id: int
+    iteration_id: int
+    pto: int
+    allocation_pct: int
+    velocity_factor: int
 
 @dataclass
 class UIExportCsvRequestedEvent(Event):
@@ -190,6 +223,7 @@ class UICreateItemRequestedEvent(Event):
     weight: float = 0.0
     status: str = 'Backlog'
     assignee_id: Optional[int] = None
+    iteration_id: Optional[int] = None
 
 @dataclass
 class UIItemReparentRequestedEvent(Event):
@@ -297,6 +331,7 @@ class Actions:
     SETTINGS_SAVE = UISettingsSaveRequestedEvent
     SYNC_MEMBERS = UISyncMembersRequestedEvent
     SYNC_LABELS = UISyncLabelsRequestedEvent
+    SYNC_ITERATIONS = UISyncIterationsRequestedEvent
     LABEL_UPDATE = UILabelUpdateRequestedEvent
     LOG_LEVEL_CHANGED = UILogLevelChangedEvent
     TEMPLATE_EXPORT = UITemplateConfigExportRequestedEvent
@@ -311,6 +346,10 @@ class Actions:
     TAG_DELETE = UIGlobalTagDeleteRequestedEvent
     ITEM_REPARENT = UIItemReparentRequestedEvent
     ITEM_SPLIT = UIStorySplitRequestedEvent
+    VIEW_CHANGED = UIAppViewChangedEvent
+    PI_TREE_SELECTION = UIPiPlannerTreeSelectionChangedEvent
+    PI_CELL_SELECTION = UIPiPlannerCellSelectedEvent
+    PI_CAPACITY_UPDATE = UIUpdateCapacityMetricsRequestedEvent
 
 class Notifications:
     """Namespace for all State Update and Sync Notifications."""
@@ -381,12 +420,13 @@ __all__ = [
     'UIExportJsonRequestedEvent', 'UIImportCsvRequestedEvent', 'UIImportJsonRequestedEvent',
     'UIIntegrationsDialogOpenRequestedEvent', 'UIIntegrationsSaveRequestedEvent',
     'UISettingsDialogOpenRequestedEvent', 'UISettingsSaveRequestedEvent', 'UILogLevelChangedEvent',
-    'UISyncMembersRequestedEvent', 'UISyncLabelsRequestedEvent', 'UILabelUpdateRequestedEvent',
+    'UISyncMembersRequestedEvent', 'UISyncLabelsRequestedEvent', 'UISyncIterationsRequestedEvent', 'UILabelUpdateRequestedEvent',
     'UITemplateConfigExportRequestedEvent', 'UIAddEpicRequestedEvent',
     'UIAddFeatureRequestedEvent', 'UIAddStoryRequestedEvent', 'UIDeleteItemRequestedEvent',
     'UICreateItemRequestedEvent', 'UIThemeToggleRequestedEvent', 'UIWindowStateChangedEvent',
     'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
     'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
-    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent'
+    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent', 'UIAppViewChangedEvent',
+    'UIPiPlannerTreeSelectionChangedEvent', 'UIPiPlannerCellSelectedEvent', 'UIUpdateCapacityMetricsRequestedEvent'
 ]
