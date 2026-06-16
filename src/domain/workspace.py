@@ -27,6 +27,7 @@ class Workspace:
         self._product_teams: List[ProductTeam] = []
         self._member_capacities: Dict[str, TeamMemberCapacity] = {}  # Key pattern: "team_member_iteration"
         self.hidden_iteration_ids: List[int] = []
+        self.shadow_hierarchy: Dict[str, dict] = {} # Maps unique entity ID strings to primitive attribute dicts
         self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
@@ -143,6 +144,17 @@ class Workspace:
         if self._active_product_name != value:
             self._active_product_name = value
 
+    def save_shadow_hierarchy(self, epics: List[Epic]):
+        """Saves a flat reference copy of the hierarchy for conflict detection."""
+        self.shadow_hierarchy = {}
+        def _collect(items):
+            for i in items:
+                # Store as dict for reliable attribute comparison later
+                self.shadow_hierarchy[i.id] = asdict(i)
+                if hasattr(i, 'features'): _collect(i.features)
+                if hasattr(i, 'stories'): _collect(i.stories)
+        _collect(epics)
+
     def merge_remote_epics(self, active_product_name: str, remote_epics: List[Epic]) -> None:
         """
         Recursively merges remote GitLab data into the local Workspace model.
@@ -160,6 +172,9 @@ class Workspace:
         # Start recursive merge at the root (Epics)
         self._merge_recursive(self._epics, remote_epics, active_product_name)
         
+        # Update shadow hierarchy baseline after successful pull/merge
+        self.save_shadow_hierarchy(self._epics)
+
         # Dispatch update to UI
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self._epics,
@@ -243,6 +258,7 @@ class Workspace:
             "products": [asdict(p) for p in self._products],
             "iterations": [asdict(i) for i in self._iterations],
             "hidden_iteration_ids": self.hidden_iteration_ids,
+            "shadow_hierarchy": self.shadow_hierarchy,
             "product_teams": [asdict(t) for t in self._product_teams],
             "member_capacities": [asdict(c) for c in self._member_capacities.values()],
             "epics": [_serialize_item(epic) for epic in self._epics]
@@ -524,6 +540,17 @@ class Workspace:
                     if story.id == item_id:
                         return story
         return None
+
+    def all_items_iterable(self):
+        """Returns a flat list of all epics, features, and stories in the workspace."""
+        all_items = []
+        for epic in self._epics:
+            all_items.append(epic)
+            for feature in epic.features:
+                all_items.append(feature)
+                for story in feature.stories:
+                    all_items.append(story)
+        return all_items
 
     def get_epics(self) -> List[Epic]:
         """

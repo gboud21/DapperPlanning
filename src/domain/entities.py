@@ -123,6 +123,7 @@ class Story:
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
+    is_conflicted: bool = False
 
     def clone(self) -> 'Story':
         return Story(
@@ -141,7 +142,8 @@ class Story:
             iteration_id=None,
             gitlab_id=None,
             gitlab_iid=None,
-            last_synced_at=None
+            last_synced_at=None,
+            is_conflicted=False
         )
 
 @dataclass
@@ -162,6 +164,7 @@ class Feature:
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
+    is_conflicted: bool = False
 
     def clone(self) -> 'Feature':
         return Feature(
@@ -176,7 +179,8 @@ class Feature:
             capabilities=self.capabilities.copy(),
             gitlab_id=None,
             gitlab_iid=None,
-            last_synced_at=None
+            last_synced_at=None,
+            is_conflicted=False
         )
 
     @property
@@ -215,6 +219,7 @@ class Epic:
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
+    is_conflicted: bool = False
 
     def clone(self) -> 'Epic':
         return Epic(
@@ -228,7 +233,8 @@ class Epic:
             capabilities=self.capabilities.copy(),
             gitlab_id=None,
             gitlab_iid=None,
-            last_synced_at=None
+            last_synced_at=None,
+            is_conflicted=False
         )
 
     @property

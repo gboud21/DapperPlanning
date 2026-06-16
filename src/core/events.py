@@ -289,8 +289,8 @@ class ModelSyncErrorEvent(Event):
 
 @dataclass
 class ModelConflictDetectedEvent(Event):
-    local_item: Any
-    remote_item: Any
+    local_item: Optional[Any] = None
+    remote_item: Optional[Any] = None
 
 
 # --- 3. SYSTEM INTERRUPT EVENTS (App-wide lifecycle & errors) ---
