@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from dataclasses import asdict
 from src.core.events import EventDispatcher, ModelHierarchyUpdatedEvent
-from src.domain.entities import Epic, Feature, Story, Product, Member, Label, Iteration
+from src.domain.entities import Epic, Feature, Story, Product, Member, Label, Iteration, ProductTeam, TeamMemberCapacity
 
 class Workspace:
     def __init__(self, dispatcher: EventDispatcher):
@@ -23,10 +23,28 @@ class Workspace:
         self._members: Dict[int, Member] = {}
         self.labels: Dict[str, Label] = {}
         self._iterations: List[Iteration] = []
+        self._product_teams: List[ProductTeam] = []
+        self._member_capacities: Dict[str, TeamMemberCapacity] = {}  # Key pattern: "team_member_iteration"
         self._active_product_name: Optional[str] = None
         self.current_filepath: Optional[str] = None
         self._clean_snapshot: Optional[str] = None
         self.deleted_remote_items: List[dict] = []
+
+    @property
+    def product_teams(self) -> List[ProductTeam]:
+        return self._product_teams
+
+    @product_teams.setter
+    def product_teams(self, value: List[ProductTeam]):
+        self._product_teams = value
+
+    @property
+    def member_capacities(self) -> Dict[str, TeamMemberCapacity]:
+        return self._member_capacities
+
+    @member_capacities.setter
+    def member_capacities(self, value: Dict[str, TeamMemberCapacity]):
+        self._member_capacities = value
 
     @property
     def iterations(self) -> List[Iteration]:
@@ -222,6 +240,8 @@ class Workspace:
             "active_product_name": self._active_product_name,
             "products": [asdict(p) for p in self._products],
             "iterations": [asdict(i) for i in self._iterations],
+            "product_teams": [asdict(t) for t in self._product_teams],
+            "member_capacities": [asdict(c) for c in self._member_capacities.values()],
             "epics": [_serialize_item(epic) for epic in self._epics]
         }
         return json.dumps(data, sort_keys=True)
