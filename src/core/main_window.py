@@ -6,12 +6,56 @@ from src.core.events import (
     EventDispatcher, UISyncRequestedEvent, UIExportCsvRequestedEvent,
     UIExportJsonRequestedEvent, UIImportCsvRequestedEvent, UIImportJsonRequestedEvent,
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
-    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent
+    ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
+    UIAppViewChangedEvent
 )
 from src.utils.theme_manager import ThemeManager
 from src.features.agile_planning.tree_pane import TreePane
 from src.features.agile_planning.editor_pane import EditorPane
 from src.core.menu_bar import ApplicationMenuBar
+
+class AgilePlanningView(ttk.Frame):
+    def __init__(self, parent, context: AppContext):
+        super().__init__(parent)
+        self.context = context
+        
+        # Move the original primary PanedWindow hierarchy layout here
+        self.paned_window = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        self.paned_window.pack(fill=tk.BOTH, expand=True)
+
+        self.left_frame = ttk.Frame(self.paned_window)
+        self.paned_window.add(self.left_frame, weight=1)
+        self.tree_pane = TreePane(self.left_frame, self.context)
+        self.context.register('tree_pane', self.tree_pane)
+
+        self.right_frame = ttk.Frame(self.paned_window, padding=10)
+        self.paned_window.add(self.right_frame, weight=3)
+        self.editor_pane = EditorPane(self.right_frame, self.context)
+        self.context.register('editor_pane', self.editor_pane)
+
+class PIPlanningView(ttk.Frame):
+    def __init__(self, parent, context: AppContext):
+        super().__init__(parent)
+        self.context = context
+        self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
+        
+        # Simple placeholder layout banner
+        self.lbl_placeholder = ttk.Label(
+            self, 
+            text="PI Planning View - Under Construction", 
+            font=("Arial", 14, "italic")
+        )
+        self.lbl_placeholder.pack(expand=True, anchor=tk.CENTER)
+        
+        self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+
+    def handle_theme_change(self, event: AppThemeChangedEvent):
+        """Reacts to application-wide theme changes."""
+        from src.utils.theme_manager import ThemeManager
+        palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
+        self.configure(style='TFrame') # Standard ttk style handles background
+        # Labels usually follow standard style but we can be explicit if needed
+        # self.lbl_placeholder.configure(background=palette['bg'], foreground=palette['fg'])
 
 class MainWindow:
     def __init__(self, root: tk.Tk, context: AppContext):
@@ -28,20 +72,23 @@ class MainWindow:
         self.workspace = context.resolve('workspace')
         self._last_maximized_state = False
         
+        # Register main_window in context so controllers can resolve it
+        self.context.register('main_window', self)
+        
         self.setup_ui()
         self._bind_events()
 
     def setup_ui(self):
-        """Sets up the PanedWindow and delegating panes."""
+        """Sets up persistent global frames, left activity bar, and view container slots."""
         self.root.overrideredirect(False)
         self.root.title("DapperPlanning")
         
-        # Instantiate and attach the menu bar
+        # 1. Main Application Top Menu Bar
         self.app_menu = ApplicationMenuBar(self.root, self.context)
         self.root.config(menu=self.app_menu)
         self.context.register('app_menu', self.app_menu)
 
-        # 1. Bottom Frame: Action Bar (Pack first to prevent being cut off)
+        # 2. Persistent Bottom Action/Sync Bar Frame
         self.bottom_frame = ttk.Frame(self.root)
         self.bottom_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=5, pady=5)
         
@@ -51,21 +98,50 @@ class MainWindow:
         self.lbl_status = ttk.Label(self.bottom_frame, text="Ready.")
         self.lbl_status.pack(side=tk.LEFT)
 
-        # 2. Main Paned Window
-        self.paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        self.paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # 3. Left-Aligned Activity Navigation Bar Frame
+        self.activity_bar = ttk.Frame(self.root, padding=5)
+        self.activity_bar.pack(side=tk.LEFT, fill=tk.Y, padx=(2, 5))
 
-        # 3. Left Pane (Hierarchy)
-        self.left_frame = ttk.Frame(self.paned_window)
-        self.paned_window.add(self.left_frame, weight=1)
-        self.tree_pane = TreePane(self.left_frame, self.context)
-        self.context.register('tree_pane', self.tree_pane)
+        # 4. Central View Content Frame Slot Canvas
+        self.container_slot = ttk.Frame(self.root)
+        self.container_slot.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # 4. Right Pane (Editor)
-        self.right_frame = ttk.Frame(self.paned_window, padding=10)
-        self.paned_window.add(self.right_frame, weight=3)
-        self.editor_pane = EditorPane(self.right_frame, self.context)
-        self.context.register('editor_pane', self.editor_pane)
+        # 5. Tab-Group Radio Button Interactivity Component Layout
+        self.var_active_view = tk.StringVar(value="Agile Planning")
+        
+        self.view_options = ["Agile Planning", "PI Planning", "Analytics"]
+        self.nav_buttons = {}
+        
+        for view_opt in self.view_options:
+            state_config = "disabled" if view_opt == "Analytics" else "normal"
+            rb = tk.Radiobutton(
+                self.activity_bar, 
+                text=view_opt, 
+                variable=self.var_active_view, 
+                value=view_opt, 
+                indicatoron=0, 
+                width=15, 
+                padx=10, 
+                pady=8,
+                state=state_config,
+                command=self._on_navigation_changed,
+                relief="flat"
+            )
+            rb.pack(fill=tk.X, pady=2)
+            self.nav_buttons[view_opt] = rb
+
+        # Initialize sub-views tracking mapping cache maps
+        self.views = {
+            "Agile Planning": AgilePlanningView(self.container_slot, self.context),
+            "PI Planning": PIPlanningView(self.container_slot, self.context)
+        }
+        
+        # Mount Default View Layout panel
+        self.views["Agile Planning"].pack(fill=tk.BOTH, expand=True)
+
+    def _on_navigation_changed(self):
+        target_view = self.var_active_view.get()
+        self.dispatcher.dispatch(UIAppViewChangedEvent(view_name=target_view))
 
     def _bind_events(self):
         """Binds overarching UI events."""

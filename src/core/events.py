@@ -87,6 +87,11 @@ class UIAppCloseRequestedEvent(Event):
     pass
 
 @dataclass
+class UIAppViewChangedEvent(Event):
+    """Emitted when the user selects a new primary view from the activity bar."""
+    view_name: str  # e.g., "Agile Planning", "PI Planning"
+
+@dataclass
 class UIExportCsvRequestedEvent(Event):
     file_path: str
 
@@ -311,6 +316,7 @@ class Actions:
     TAG_DELETE = UIGlobalTagDeleteRequestedEvent
     ITEM_REPARENT = UIItemReparentRequestedEvent
     ITEM_SPLIT = UIStorySplitRequestedEvent
+    VIEW_CHANGED = UIAppViewChangedEvent
 
 class Notifications:
     """Namespace for all State Update and Sync Notifications."""
@@ -388,5 +394,5 @@ __all__ = [
     'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
     'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
-    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent'
+    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent', 'UIAppViewChangedEvent'
 ]

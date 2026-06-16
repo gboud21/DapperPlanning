@@ -8,7 +8,7 @@ from src.core.events import (
     UIErrorNotificationEvent, UIThemeToggleRequestedEvent, AppThemeChangedEvent,
     ModelWorkspaceLoadedEvent, UIWindowStateChangedEvent, UIAppCloseRequestedEvent,
     UISaveWorkspaceRequestedEvent, UILogLevelChangedEvent, UIItemReparentRequestedEvent,
-    UIStorySplitRequestedEvent, UILabelUpdateRequestedEvent
+    UIStorySplitRequestedEvent, UILabelUpdateRequestedEvent, UIAppViewChangedEvent
 )
 from src.domain.workspace import Workspace
 from src.domain.entities import Story
@@ -94,6 +94,23 @@ class MainController:
         self.dispatcher.subscribe(UIItemReparentRequestedEvent, self.handle_reparent_requested)
         self.dispatcher.subscribe(UIStorySplitRequestedEvent, self.handle_split_requested)
         self.dispatcher.subscribe(UILabelUpdateRequestedEvent, self.handle_label_update)
+        self.dispatcher.subscribe(UIAppViewChangedEvent, self.handle_view_changed)
+
+    def handle_view_changed(self, event: UIAppViewChangedEvent):
+        """Safely unpacks current views and shifts layout content focus layers."""
+        try:
+            # Resolve main window out of context injection boundaries
+            main_window = self.context.resolve('main_window')
+        except KeyError:
+            return
+
+        # Unpack all initialized layout frame wrappers currently filling the slot canvas
+        for name, view_frame in main_window.views.items():
+            view_frame.pack_forget()
+            
+        # Remount target active layer container panel frame
+        if event.view_name in main_window.views:
+            main_window.views[event.view_name].pack(fill=tk.BOTH, expand=True)
 
     def handle_split_requested(self, event: UIStorySplitRequestedEvent):
         """Handles the request to split a story."""
