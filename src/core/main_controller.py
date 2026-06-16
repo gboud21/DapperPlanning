@@ -136,6 +136,9 @@ class MainController:
 
     def handle_label_update(self, event: UILabelUpdateRequestedEvent):
         """Processes label addition or removal, supporting recursive cascading."""
+        legacy_enabled = self.settings_controller.settings.get('legacy_status_enabled', False)
+        mappings = self.settings_controller.settings.get('status_label_mappings', {})
+
         if event.recursive:
             self.workspace.apply_label_recursively(
                 item_id=event.item_id,
@@ -143,6 +146,11 @@ class MainController:
                 label_name=event.label_name,
                 add=event.add
             )
+            # If recursive and legacy enabled, we'd need to update status for all children.
+            # apply_label_recursively already dispatches HierarchyUpdated.
+            # To be thorough, we should update status for all children too.
+            if legacy_enabled:
+                self._update_status_recursively(event.item_id, legacy_enabled, mappings)
         else:
             item = self.workspace._find_item_by_id(event.item_id)
             if item and hasattr(item, 'labels'):
@@ -155,6 +163,11 @@ class MainController:
                         item.labels.remove(event.label_name)
                         item.last_synced_at = None
                 
+                if legacy_enabled and hasattr(item, 'status'):
+                    new_status = self.workspace.resolve_legacy_status_from_labels(item.labels, legacy_enabled, mappings)
+                    if new_status:
+                        item.status = new_status
+
                 self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                     root_items=self.workspace.get_epics(),
                     products=self.workspace.products
@@ -162,6 +175,23 @@ class MainController:
         
         # Persist changes
         self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
+
+    def _update_status_recursively(self, item_id, legacy_enabled, mappings):
+        item = self.workspace._find_item_by_id(item_id)
+        if not item: return
+
+        def _upd(obj):
+            if hasattr(obj, 'labels') and hasattr(obj, 'status'):
+                new_status = self.workspace.resolve_legacy_status_from_labels(obj.labels, legacy_enabled, mappings)
+                if new_status:
+                    obj.status = new_status
+            
+            if hasattr(obj, 'features'):
+                for f in obj.features: _upd(f)
+            if hasattr(obj, 'stories'):
+                for s in obj.stories: _upd(s)
+        
+        _upd(item)
 
     def handle_workspace_loaded(self, event: ModelWorkspaceLoadedEvent):
         """Refreshes the workspace reference when a new one is loaded."""

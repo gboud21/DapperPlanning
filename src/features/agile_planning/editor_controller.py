@@ -52,7 +52,8 @@ class EditorController:
             command.new_title, 
             command.new_description, 
             products=command.new_products, 
-            capabilities=command.new_capabilities
+            capabilities=command.new_capabilities,
+            labels=command.new_labels
         )
         # State mutation is done, ModelHierarchyUpdatedEvent is dispatched by workspace.update_item_details
 

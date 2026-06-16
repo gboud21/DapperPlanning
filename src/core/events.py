@@ -118,6 +118,8 @@ class UIIntegrationsSaveRequestedEvent(Event):
     active_product_name: Optional[str] = None
     epic_sync_label: str = "Epic"
     feature_sync_label: str = "Feature"
+    legacy_status_enabled: bool = False
+    status_label_mappings: dict[str, str] = field(default_factory=dict)
 
 @dataclass
 class UISettingsDialogOpenRequestedEvent(Event):

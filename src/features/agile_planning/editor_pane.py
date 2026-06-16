@@ -152,7 +152,7 @@ class EditorPane:
 
         # Status Combobox
         ttk.Label(self.scrollable_frame, text="Status:").pack(anchor=tk.W)
-        self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done'), state="readonly", style="Preferences.TCombobox")
+        self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done', 'Closed'), state="readonly", style="Preferences.TCombobox")
         self.combo_status.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
         self.combo_status.bind("<<ComboboxSelected>>", self._trigger_auto_save)
 
@@ -616,6 +616,16 @@ class EditorPane:
         products = list(self.product_ui['assigned'].get(0, tk.END))
         capabilities = list(self.capability_ui['assigned'].get(0, tk.END))
         
+        # Collect raw labels from UI (mapped names)
+        raw_labels_display = list(self.label_ui['assigned'].get(0, tk.END))
+        # Strip scope "(Scope) LabelName" -> "LabelName"
+        labels = []
+        for l_str in raw_labels_display:
+            if ") " in l_str:
+                labels.append(l_str.split(") ", 1)[1])
+            else:
+                labels.append(l_str)
+
         weight_str = self.entry_weight.get()
         try:
             weight = float(weight_str) if weight_str else 0.0
@@ -624,6 +634,11 @@ class EditorPane:
         
         status = self.combo_status.get() or 'Backlog'
         
+        legacy_enabled = self.settings.get('legacy_status_enabled', False)
+        mappings = self.settings.get('status_label_mappings', {})
+        if legacy_enabled:
+            labels = self.workspace.sync_legacy_labels(status, labels, legacy_enabled, mappings)
+
         # Determine assignee_id from name
         assignee_name = self.assignee_combo.get()
         assignee_id = None
@@ -638,6 +653,7 @@ class EditorPane:
             new_description=desc,
             new_products=products,
             new_capabilities=capabilities,
+            new_labels=labels,
             weight=weight,
             status=status,
             assignee_id=assignee_id
@@ -725,7 +741,15 @@ class EditorPane:
             self.entry_weight.insert(0, f"{weight:.1f}")
             
             # Populate status and set state
-            self.combo_status.set(getattr(event.item_data, 'status', 'Backlog'))
+            status = getattr(event.item_data, 'status', 'Backlog')
+            legacy_enabled = self.settings.get('legacy_status_enabled', False)
+            mappings = self.settings.get('status_label_mappings', {})
+            if legacy_enabled:
+                legacy_status = self.workspace.resolve_legacy_status_from_labels(getattr(event.item_data, 'labels', []), legacy_enabled, mappings)
+                if legacy_status:
+                    status = legacy_status
+            
+            self.combo_status.set(status)
             
             if item_type in ['Epic', 'Feature']:
                 self.entry_weight.config(state='disabled')

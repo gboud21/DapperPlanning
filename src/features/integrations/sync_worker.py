@@ -124,7 +124,13 @@ class SyncWorker(threading.Thread):
         # Transform to Domain Objects
         logger.debug("Transforming GitLab data to domain objects...")
         transformer = GitLabTransformer()
-        transformation_result = transformer.transform_pull_data(remote_epics, remote_issues)
+        
+        from src.infrastructure.storage.settings_manager import SettingsManager
+        settings = self.context.resolve('settings_manager')
+        legacy_enabled = settings.get('legacy_status_enabled', False)
+        mappings = settings.get('status_label_mappings', {})
+
+        transformation_result = transformer.transform_pull_data(remote_epics, remote_issues, legacy_enabled=legacy_enabled, mappings=mappings)
         
         remote_epics_domain = transformation_result['root_epics']
         orphaned_features = transformation_result['orphaned_features']
@@ -242,9 +248,16 @@ class SyncWorker(threading.Thread):
 
         epic_label = self.gitlab_client.epic_sync_label
         feature_label = self.gitlab_client.feature_sync_label
+        
+        settings = self.context.resolve('settings_manager')
+        legacy_enabled = settings.get('legacy_status_enabled', False)
+        mappings = settings.get('status_label_mappings', {})
 
         for epic in epics:
-            epic_labels = epic.labels + [epic_label]
+            current_labels = epic.labels
+            if legacy_enabled:
+                current_labels = self.workspace.sync_legacy_labels(epic.status, current_labels, legacy_enabled, mappings)
+            epic_labels = current_labels + [epic_label]
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
                 resp = self.gitlab_client.create_group_epic(gid, epic, labels=",".join(epic_labels)) if gid else self.gitlab_client.create_project_task(pid, epic, labels=",".join(epic_labels))
@@ -267,7 +280,10 @@ class SyncWorker(threading.Thread):
             self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=10 + (processed/total_items * 80)))
             
             for feature in epic.features:
-                feature_labels = feature.labels + [feature_label]
+                current_labels = feature.labels
+                if legacy_enabled:
+                    current_labels = self.workspace.sync_legacy_labels(feature.status, current_labels, legacy_enabled, mappings)
+                feature_labels = current_labels + [feature_label]
                 if not feature.gitlab_id:
                     logger.info(f"Pushing new Feature: {feature.title}")
                     resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id, labels=",".join(feature_labels)) if gid else \
@@ -291,7 +307,10 @@ class SyncWorker(threading.Thread):
                 self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Feature: {feature.title}", percent=10 + (processed/total_items * 80)))
 
                 for story in feature.stories:
-                    story_labels = story.labels + ["Story"]
+                    current_labels = story.labels
+                    if legacy_enabled:
+                        current_labels = self.workspace.sync_legacy_labels(story.status, current_labels, legacy_enabled, mappings)
+                    story_labels = current_labels + ["Story"]
                     if not story.gitlab_id:
                         logger.info(f"Pushing new Story: {story.title}")
                         resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid, labels=",".join(story_labels))

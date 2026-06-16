@@ -137,7 +137,7 @@ class HierarchyBuilder:
         return [dict_to_obj(e_dict, "Epic") for e_dict in data]
 
 class GitLabTransformer:
-    def transform_pull_data(self, raw_epics: List[Dict[str, Any]], raw_issues: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def transform_pull_data(self, raw_epics: List[Dict[str, Any]], raw_issues: List[Dict[str, Any]], legacy_enabled: bool = False, mappings: dict = None) -> Dict[str, Any]:
         """
         Transforms flat GitLab API data into nested Domain entities.
         Returns a dict with 'root_epics', 'orphaned_features', and 'orphaned_stories'.
@@ -147,6 +147,17 @@ class GitLabTransformer:
         root_epics = []
         orphaned_features = []
         orphaned_stories = []
+
+        def _resolve_status(labels):
+            if not legacy_enabled or not mappings:
+                return 'Backlog'
+            
+            priority_order = ["Backlog", "In Progress", "In Review", "Done", "Closed"]
+            for status in priority_order:
+                mapped_label = mappings.get(status, status)
+                if mapped_label in labels:
+                    return status
+            return 'Backlog'
 
         # Step A: Process Epics (Root level)
         for r_epic in raw_epics:
@@ -212,6 +223,7 @@ class GitLabTransformer:
                 team=Team(name=""), # Placeholder
                 labels=labels,
                 weight=float(r_issue.get('weight') or 0.0),
+                status=_resolve_status(labels),
                 gitlab_id=r_issue['id'],
                 gitlab_iid=r_issue.get('iid'),
                 assignee_id=first_assignee_id

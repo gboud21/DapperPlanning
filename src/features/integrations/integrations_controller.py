@@ -197,6 +197,8 @@ class IntegrationsController:
         self.settings.set('active_product_name', event.active_product_name)
         self.settings.set('epic_sync_label', event.epic_sync_label)
         self.settings.set('feature_sync_label', event.feature_sync_label)
+        self.settings.set('legacy_status_enabled', event.legacy_status_enabled)
+        self.settings.set('status_label_mappings', event.status_label_mappings)
         self.settings.save()
         
         # Keep ThemeManager in sync for other components that might still use it
