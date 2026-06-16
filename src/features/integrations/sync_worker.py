@@ -131,8 +131,10 @@ class SyncWorker(threading.Thread):
         settings = self.context.resolve('settings_manager')
         legacy_enabled = settings.get('legacy_status_enabled', False)
         mappings = settings.get('status_label_mappings', {})
+        epic_label = self.gitlab_client.epic_sync_label
+        feature_label = self.gitlab_client.feature_sync_label
 
-        transformation_result = transformer.transform_pull_data(remote_epics, remote_issues, legacy_enabled=legacy_enabled, mappings=mappings)
+        transformation_result = transformer.transform_pull_data(epic_label, feature_label, remote_epics,  remote_issues, legacy_enabled=legacy_enabled, mappings=mappings)
         
         remote_epics_domain = transformation_result['root_epics']
         orphaned_features = transformation_result['orphaned_features']

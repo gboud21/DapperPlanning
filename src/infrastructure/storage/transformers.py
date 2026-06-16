@@ -137,7 +137,7 @@ class HierarchyBuilder:
         return [dict_to_obj(e_dict, "Epic") for e_dict in data]
 
 class GitLabTransformer:
-    def transform_pull_data(self, raw_epics: List[Dict[str, Any]], raw_issues: List[Dict[str, Any]], legacy_enabled: bool = False, mappings: dict = None) -> Dict[str, Any]:
+    def transform_pull_data(self, exact_epic_label, exact_feature_label, raw_epics: List[Dict[str, Any]], raw_issues: List[Dict[str, Any]], legacy_enabled: bool = False, mappings: dict = None) -> Dict[str, Any]:
         """
         Transforms flat GitLab API data into nested Domain entities.
         Returns a dict with 'root_epics', 'orphaned_features', and 'orphaned_stories'.
@@ -164,7 +164,7 @@ class GitLabTransformer:
             labels = r_epic.get('labels', [])
             parent_id = r_epic.get('parent_id')
             
-            is_explicit_epic = any('Epic' in l for l in labels)
+            is_explicit_epic = any(exact_epic_label in l for l in labels)
             is_root = parent_id is None
             
             if is_explicit_epic or (is_root and not any('Feature' in l for l in labels)):
@@ -187,7 +187,7 @@ class GitLabTransformer:
             labels = r_feat.get('labels', [])
             parent_id = r_feat.get('parent_id')
             
-            is_explicit_feature = any('Feature' in l for l in labels)
+            is_explicit_feature = any(exact_feature_label in l for l in labels)
             has_parent = parent_id is not None
             
             if is_explicit_feature or has_parent:
