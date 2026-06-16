@@ -44,6 +44,7 @@ class IntegrationsDialog(tk.Toplevel):
         self._setup_auth_tab()
         self._setup_product_tab()
         self._setup_capabilities_tab()
+        self._setup_sync_labels_tab()
 
         button_frame = ttk.Frame(self)
         button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
@@ -182,6 +183,18 @@ class IntegrationsDialog(tk.Toplevel):
         ttk.Button(form_frame, text="Add", command=self._add_capability).pack(side=tk.LEFT, padx=5)
         ttk.Button(form_frame, text="Remove", command=self._remove_capability).pack(side=tk.LEFT, padx=5)
 
+    def _setup_sync_labels_tab(self):
+        self.sync_labels_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.sync_labels_tab, text="Sync Labels")
+
+        ttk.Label(self.sync_labels_tab, text="Epic Sync Label Name:").pack(anchor=tk.W, padx=10, pady=(10, 0))
+        self.entry_epic_sync_label = tk.Entry(self.sync_labels_tab)
+        self.entry_epic_sync_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        ttk.Label(self.sync_labels_tab, text="Feature Sync Label Name:").pack(anchor=tk.W, padx=10, pady=(10, 0))
+        self.entry_feature_sync_label = tk.Entry(self.sync_labels_tab)
+        self.entry_feature_sync_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+
     def _bind_events(self):
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
 
@@ -194,7 +207,8 @@ class IntegrationsDialog(tk.Toplevel):
         # Style all tk.Entry widgets
         entries = [
             self.entry_url, self.entry_pat, self.entry_group_id,
-            self.entry_prod_name, self.entry_prod_id, self.entry_prod_group_id, self.entry_cap_name
+            self.entry_prod_name, self.entry_prod_id, self.entry_prod_group_id, self.entry_cap_name,
+            self.entry_epic_sync_label, self.entry_feature_sync_label
         ]
         for entry in entries:
             entry.configure(
@@ -224,6 +238,8 @@ class IntegrationsDialog(tk.Toplevel):
         self.entry_url.insert(0, self.current_settings.get('auth_url', ''))
         self.entry_pat.insert(0, self.current_settings.get('auth_pat', ''))
         self.entry_group_id.insert(0, self.current_settings.get('epic_group_id', ''))
+        self.entry_epic_sync_label.insert(0, self.current_settings.get('epic_sync_label', 'Epic'))
+        self.entry_feature_sync_label.insert(0, self.current_settings.get('feature_sync_label', 'Feature'))
 
         mappings = self.current_settings.get('product_mappings', {})
         project_ids = self.current_settings.get('product_project_ids', {})
@@ -316,6 +332,8 @@ class IntegrationsDialog(tk.Toplevel):
             capabilities=capabilities,
             product_project_ids=self._pending_product_updates,
             product_group_ids=self._pending_group_updates,
-            active_product_name=self.combo_active_prod.get()
+            active_product_name=self.combo_active_prod.get(),
+            epic_sync_label=self.entry_epic_sync_label.get().strip() or "Epic",
+            feature_sync_label=self.entry_feature_sync_label.get().strip() or "Feature"
         ))
         self.destroy()

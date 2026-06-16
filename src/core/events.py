@@ -116,6 +116,8 @@ class UIIntegrationsSaveRequestedEvent(Event):
     product_project_ids: Dict[str, Optional[int]] = field(default_factory=dict)
     product_group_ids: Dict[str, Optional[int]] = field(default_factory=dict)
     active_product_name: Optional[str] = None
+    epic_sync_label: str = "Epic"
+    feature_sync_label: str = "Feature"
 
 @dataclass
 class UISettingsDialogOpenRequestedEvent(Event):

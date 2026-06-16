@@ -163,6 +163,9 @@ class IntegrationsController:
         pat = self.settings.get('auth_pat')
         gid = self.settings.get('epic_group_id')
         pid = str(product_entity.gitlab_project_id)
+        
+        epic_label = self.settings.get('epic_sync_label', 'Epic')
+        feature_label = self.settings.get('feature_sync_label', 'Feature')
 
         # This check is redundant due to _is_gitlab_configured but kept for robustness
         if not url or not pat:
@@ -172,7 +175,7 @@ class IntegrationsController:
             ))
             return False
             
-        client = GitLabClient(url, pat, gid, pid)
+        client = GitLabClient(url, pat, gid, pid, epic_sync_label=epic_label, feature_sync_label=feature_label)
         self.context.register('gitlab_client', client)
         return True
 
@@ -192,6 +195,8 @@ class IntegrationsController:
         self.settings.set('product_group_ids', event.product_group_ids)
         self.settings.set('capabilities', event.capabilities)
         self.settings.set('active_product_name', event.active_product_name)
+        self.settings.set('epic_sync_label', event.epic_sync_label)
+        self.settings.set('feature_sync_label', event.feature_sync_label)
         self.settings.save()
         
         # Keep ThemeManager in sync for other components that might still use it

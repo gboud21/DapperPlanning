@@ -21,7 +21,7 @@ class GitLabNetworkError(GitLabBaseError):
     pass
 
 class GitLabClient:
-    def __init__(self, base_url: str, token: str, group_id: str, project_id: str):
+    def __init__(self, base_url: str, token: str, group_id: str, project_id: str, epic_sync_label: str = "Epic", feature_sync_label: str = "Feature"):
         # Sanitize base_url: strip slashes and ensure we don't have /api/v4 repeated
         self.base_url = base_url.rstrip('/')
         if "/api/v4" in self.base_url:
@@ -39,6 +39,8 @@ class GitLabClient:
         }
         self.group_id = group_id
         self.project_id = project_id
+        self.epic_sync_label = epic_sync_label
+        self.feature_sync_label = feature_sync_label
 
     def _request(self, endpoint: str, payload: dict = None, method: str = 'GET') -> dict:
         # This remains for single requests (POST, PUT, single GET)
@@ -211,7 +213,7 @@ class GitLabClient:
 
     def create_project_task(self, project_id: Union[int, str], epic: Epic, is_feature: bool = False, parent_id: Optional[str] = None, labels: str = None) -> dict:
         """Free Tier: Creates a Task to act as an Epic or Feature."""
-        item_labels = epic.labels + (["Epic" if not is_feature else "Feature"])
+        item_labels = epic.labels + ([self.epic_sync_label if not is_feature else self.feature_sync_label])
         task_labels = labels if labels is not None else (",".join(item_labels) if item_labels else "")
         
         # In Free Tier, we use labels and description links for hierarchy

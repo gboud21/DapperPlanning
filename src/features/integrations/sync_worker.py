@@ -240,8 +240,11 @@ class SyncWorker(threading.Thread):
         total_items = self._count_items(epics)
         processed = 0
 
+        epic_label = self.gitlab_client.epic_sync_label
+        feature_label = self.gitlab_client.feature_sync_label
+
         for epic in epics:
-            epic_labels = epic.labels + ["Epic"]
+            epic_labels = epic.labels + [epic_label]
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
                 resp = self.gitlab_client.create_group_epic(gid, epic, labels=",".join(epic_labels)) if gid else self.gitlab_client.create_project_task(pid, epic, labels=",".join(epic_labels))
@@ -264,7 +267,7 @@ class SyncWorker(threading.Thread):
             self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=10 + (processed/total_items * 80)))
             
             for feature in epic.features:
-                feature_labels = feature.labels + ["Feature"]
+                feature_labels = feature.labels + [feature_label]
                 if not feature.gitlab_id:
                     logger.info(f"Pushing new Feature: {feature.title}")
                     resp = self.gitlab_client.create_group_epic(gid, feature, parent_id=epic.gitlab_id, labels=",".join(feature_labels)) if gid else \
@@ -398,7 +401,7 @@ class SyncWorker(threading.Thread):
         if getattr(local, 'assignee_id', None) != remote_assignee_id: return True
 
         # Check labels (ignoring architectural labels for comparison)
-        reserved_labels = {'Epic', 'Feature', 'Story'}
+        reserved_labels = {self.gitlab_client.epic_sync_label, self.gitlab_client.feature_sync_label, 'Story'}
         remote_labels = [l for l in remote.get('labels', []) if l not in reserved_labels]
         local_labels = sorted(getattr(local, 'labels', []))
         if local_labels != sorted(remote_labels): return True
@@ -473,7 +476,7 @@ class SyncWorker(threading.Thread):
         project_id = product_entity.gitlab_project_id
 
         # Fetch group labels
-        reserved_labels = {'Epic', 'Feature', 'Story'}
+        reserved_labels = {self.gitlab_client.epic_sync_label, self.gitlab_client.feature_sync_label, 'Story'}
         raw_group_labels = self.gitlab_client.fetch_group_labels(group_id)
         group_labels = [
             Label(
