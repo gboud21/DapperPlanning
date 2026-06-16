@@ -85,8 +85,12 @@ class ApplicationMenuBar(tk.Menu):
 
         # Integrations menu
         integrations_menu = tk.Menu(self, tearoff=0)
-        integrations_menu.add_command(label="Pull from GitLab", command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='pull')))
-        integrations_menu.add_command(label="Push to GitLab", command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='push')))
+        integrations_menu.add_command(label="Pull from GitLab", 
+                                     command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='pull')),
+                                     accelerator="Ctrl+Shift+L")
+        integrations_menu.add_command(label="Push to GitLab", 
+                                     command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='push')),
+                                     accelerator="Ctrl+Shift+P")
         integrations_menu.add_separator()
         integrations_menu.add_command(label="Integrations Settings...", command=lambda: self.dispatcher.dispatch(UIIntegrationsDialogOpenRequestedEvent()))
         integrations_menu.add_separator()
@@ -122,13 +126,17 @@ class ApplicationMenuBar(tk.Menu):
         """Binds UI events and global keyboard shortcuts."""
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
         
-        # Global Keyboard Shortcuts
+        # Global Keyboard Shortcuts - Normalized to lowercase for cross-platform stability
         self.root.bind_all('<Control-n>', self._on_new_shortcut)
         self.root.bind_all('<Command-n>', self._on_new_shortcut)  # macOS
         self.root.bind_all('<Control-o>', self._on_open_shortcut)
         self.root.bind_all('<Command-o>', self._on_open_shortcut)  # macOS
         self.root.bind_all('<Control-s>', self._on_save_shortcut)
         self.root.bind_all('<Command-s>', self._on_save_shortcut)  # macOS
+        
+        # Sync Shortcuts - Using explicit Shift modifier syntax
+        self.root.bind_all('<Control-Shift-l>', self._on_pull_shortcut)
+        self.root.bind_all('<Control-Shift-p>', self._on_push_shortcut)
 
     def _on_new_shortcut(self, event):
         """Handler for the New Workspace shortcut."""
@@ -143,6 +151,16 @@ class ApplicationMenuBar(tk.Menu):
     def _on_save_shortcut(self, event):
         """Handler for the Save Workspace shortcut."""
         self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
+        return "break"
+
+    def _on_pull_shortcut(self, event):
+        """Handler for the Sync Pull shortcut."""
+        self.command_bus.execute(SyncWithGitLabCommand(sync_type='pull'))
+        return "break"
+
+    def _on_push_shortcut(self, event):
+        """Handler for the Sync Push shortcut."""
+        self.command_bus.execute(SyncWithGitLabCommand(sync_type='push'))
         return "break"
 
     def handle_theme_change(self, event: AppThemeChangedEvent):

@@ -84,8 +84,32 @@ class TreePane:
         """Binds UI events and model subscriptions."""
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
         self.tree.bind("<Button-3>", self._show_tree_context_menu)
+        
+        # Keyboard Shortcuts - Normalized to lowercase for cross-platform stability
+        self.tree.bind("<Delete>", lambda e: self._on_delete_clicked())
+        self.tree.bind("<Control-d>", lambda e: self._on_delete_clicked())
+        self.tree.bind("<Control-Shift-n>", self._on_shortcut_add_child)
+
         self.dispatcher.subscribe(ModelHierarchyUpdatedEvent, self.render_tree)
         self.dispatcher.subscribe(AppThemeChangedEvent, self.handle_theme_change)
+
+    def _on_shortcut_add_child(self, event):
+        """Context-aware shortcut handler for adding child items."""
+        selected_id = self.tree.focus()
+        if not selected_id:
+            # If nothing selected, add Epic at root
+            self._on_add_epic_clicked()
+            return "break"
+            
+        item_tags = self.tree.item(selected_id, "tags")
+        item_type = item_tags[0] if item_tags else None
+        
+        if item_type == "Epic":
+            self._on_add_feature_clicked()
+        elif item_type == "Feature":
+            self._on_add_story_clicked()
+        
+        return "break"
 
     def handle_theme_change(self, event: AppThemeChangedEvent):
         """Reacts to application-wide theme changes."""
