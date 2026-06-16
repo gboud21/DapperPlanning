@@ -1,9 +1,73 @@
 import tkinter as tk
 from tkinter import ttk
 from typing import List, Optional
+import re
 from src.core.app_context import AppContext
 from src.core.events import EventDispatcher, UITreeFilterAppliedEvent, AppThemeChangedEvent
 from src.utils.query_parser import parse_query_to_ast, tokenize
+
+class QueryHelpDialog(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Query Syntax Reference")
+        self.geometry("450x420")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+        
+        self._setup_ui()
+        self._apply_theme()
+
+    def _setup_ui(self):
+        main_frame = ttk.Frame(self, padding=12)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Reference Header Label
+        ttk.Label(
+            main_frame, 
+            text="Query Console Cheat Sheet", 
+            font=("TkDefaultFont", 11, "bold")
+        ).pack(anchor=tk.W, pady=(0, 10))
+
+        # Scrollable read-only reference layout area or organized text matrix
+        self.txt_help = tk.Text(main_frame, wrap=tk.WORD, font=("Courier New", 10), height=16)
+        self.txt_help.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        help_content = (
+            "FIELDS:\n"
+            "  type, status, assignee, label, title, description\n\n"
+            "OPERATORS:\n"
+            "  ==            (Exact Match)\n"
+            "  !=            (Not Equals)\n"
+            "  contains      (Substring Search)\n"
+            "  not contains  (Exclude Substring)\n\n"
+            "LOGICAL CONNECTIVES:\n"
+            "  AND, OR, NOT, ( ) for groupings\n\n"
+            "EXAMPLES:\n"
+            "  title not contains \"big\"\n"
+            "  type == \"Story\" AND NOT (status == \"Done\")\n"
+            "  assignee != \"Unassigned\" AND label contains \"Bug\""
+        )
+        self.txt_help.insert(tk.END, help_content)
+        self.txt_help.config(state=tk.DISABLED) # Force read-only behavior
+
+        # Bottom dismiss bar
+        btn_close = ttk.Button(main_frame, text="Close", command=self.destroy)
+        btn_close.pack(anchor=tk.SE)
+
+    def _apply_theme(self):
+        from src.utils.theme_manager import ThemeManager
+        is_dark = ThemeManager.load_settings()
+        palette = ThemeManager.DARK_PALETTE if is_dark else ThemeManager.LIGHT_PALETTE
+        self.configure(bg=palette['bg'])
+        self.txt_help.configure(
+            bg=palette['field_bg'],
+            fg=palette['fg'],
+            highlightthickness=0,
+            borderwidth=0,
+            padx=10,
+            pady=10
+        )
 
 class TreeFilterDialog(tk.Toplevel):
     def __init__(self, parent: tk.Tk, context: AppContext, active_filter=None):
@@ -66,12 +130,21 @@ class TreeFilterDialog(tk.Toplevel):
         button_frame = ttk.Frame(self.main_frame)
         button_frame.pack(fill=tk.X)
         
+        # Help Button - Positioned in the bottom right
+        btn_help = ttk.Button(button_frame, text="?", width=3, command=self._on_help_clicked)
+        btn_help.pack(side=tk.RIGHT, padx=5)
+
         self.btn_apply = ttk.Button(button_frame, text="Apply Filter", command=self._on_apply_clicked, style="Accent.TButton")
         self.btn_apply.pack(side=tk.RIGHT, padx=5)
+        
         ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=5)
 
+    def _on_help_clicked(self):
+        """Mounts and displays the syntax reference information sheet helper window."""
+        QueryHelpDialog(self)
+
     def _on_query_text_mutated(self, event):
-        if event.keysym in ("Tab", "Return", "Up", "Down", "Escape"):
+        if event and event.keysym in ("Tab", "Return", "Up", "Down", "Escape"):
              return
 
         query_text = self.txt_query.get("1.0", tk.END).strip()
@@ -226,5 +299,3 @@ class TreeFilterDialog(tk.Toplevel):
                 fg=palette['fg'],
                 selectbackground=palette['highlight']
             )
-            
-import re
