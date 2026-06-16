@@ -6,7 +6,7 @@ from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
     UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent,
-    UIItemReparentRequestedEvent
+    UIItemReparentRequestedEvent, UITreeFilterAppliedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import CloneItemCommand
@@ -35,6 +35,7 @@ class TreeController:
 
         # Drag and Drop state
         self._dragged_item_iid = None
+        self.active_filter_context = None
         
         self._subscribe_events()
         self._register_commands()
@@ -112,6 +113,15 @@ class TreeController:
         self.dispatcher.subscribe(UIAddStoryRequestedEvent, self.handle_add_story)
         self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
+        self.dispatcher.subscribe(UITreeFilterAppliedEvent, self.handle_filter_applied)
+
+    def handle_filter_applied(self, event: UITreeFilterAppliedEvent):
+        """Stores the filter context and triggers a tree refresh."""
+        self.active_filter_context = event
+        self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
+            root_items=self.workspace.get_epics(),
+            products=self.workspace.products
+        ))
 
     def _register_commands(self):
         """Registers handlers for tree-related commands."""

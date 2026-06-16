@@ -29,6 +29,10 @@ class TreePane:
 
     def _setup_ui(self):
         """Sets up the Treeview and its context menu."""
+        # Filter Button (Packed first at bottom to ensure it stays below)
+        self.btn_filter = ttk.Button(self.parent, text="Filter Hierarchy...", command=self._on_filter_clicked)
+        self.btn_filter.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+
         self.tree_scroll = ttk.Scrollbar(self.parent, orient=tk.VERTICAL)
         self.tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -132,6 +136,13 @@ class TreePane:
             
         self.tree_context_menu.tk_popup(event.x_root, event.y_root)
 
+    def _on_filter_clicked(self):
+        """Opens the tree filter dialog."""
+        from src.features.agile_planning.tree_filter_dialog import TreeFilterDialog
+        tree_controller = self.context.resolve('tree_controller')
+        dialog = TreeFilterDialog(self.parent.winfo_toplevel(), self.context, active_filter=tree_controller.active_filter_context)
+        dialog.grab_set()
+
     def _on_add_epic_clicked(self):
         self.dispatcher.dispatch(UIAddEpicRequestedEvent())
 
@@ -172,7 +183,15 @@ class TreePane:
             ))
 
     def render_tree(self, event: ModelHierarchyUpdatedEvent):
-        """Renders the tree view while preserving expanded state."""
+        """Renders the tree view while preserving expanded state and applying filters."""
+        tree_controller = self.context.resolve('tree_controller')
+        filter_context = tree_controller.active_filter_context
+        
+        # Calculate whitelist if filtering is active
+        whitelist = None
+        if filter_context and filter_context.rules:
+            whitelist = self._calculate_filter_whitelist(event.root_items, filter_context)
+
         def get_all_expanded(parent=""):
             expanded = []
             for item in self.tree.get_children(parent):
@@ -205,22 +224,35 @@ class TreePane:
         # Group items by Product
         if event.products:
             for product in event.products:
+                relevant_epics = [e for e in event.root_items if product.name in getattr(e, 'products', [])]
+                
+                # If filtering, skip entire product node if no epics visible
+                if whitelist is not None:
+                    relevant_epics = [e for e in relevant_epics if e.id in whitelist]
+                    if not relevant_epics:
+                        continue
+
                 prod_iid = f"PROD:{product.name}"
                 self.tree.insert("", tk.END, iid=prod_iid, text=product.name, tags=('Product',))
-                
-                # Filter epics that belong to this product
-                relevant_epics = [e for e in event.root_items if product.name in getattr(e, 'products', [])]
-                self._populate_nodes(prod_iid, relevant_epics, prod_prefix=product.name)
+                self._populate_nodes(prod_iid, relevant_epics, prod_prefix=product.name, whitelist=whitelist)
             
             # Handle Epics with no assigned products
             unassigned_epics = [e for e in event.root_items if not getattr(e, 'products', [])]
             if unassigned_epics:
-                self.tree.insert("", tk.END, iid="PROD:Unassigned", text="Unassigned", tags=('Product',))
-                self._populate_nodes("PROD:Unassigned", unassigned_epics, prod_prefix="Unassigned")
+                if whitelist is not None:
+                    unassigned_epics = [e for e in unassigned_epics if e.id in whitelist]
+                
+                if unassigned_epics:
+                    self.tree.insert("", tk.END, iid="PROD:Unassigned", text="Unassigned", tags=('Product',))
+                    self._populate_nodes("PROD:Unassigned", unassigned_epics, prod_prefix="Unassigned", whitelist=whitelist)
         else:
             # Legacy/Fallback: No product nodes
-            if event.root_items:
-                self._populate_nodes("", event.root_items)
+            root_items = event.root_items
+            if whitelist is not None:
+                root_items = [e for e in root_items if e.id in whitelist]
+            
+            if root_items:
+                self._populate_nodes("", root_items, whitelist=whitelist)
             
         # Restore expansion
         for iid in all_expanded:
@@ -236,10 +268,13 @@ class TreePane:
                     self.tree.focus(potential_iid)
                     break
 
-    def _populate_nodes(self, parent_iid: str, items: list, prod_prefix: str = ""):
-        """Recursively populates nodes from Agile objects."""
+    def _populate_nodes(self, parent_iid: str, items: list, prod_prefix: str = "", whitelist=None):
+        """Recursively populates nodes from Agile objects, respecting whitelist."""
         show_status = ThemeManager.load_all_settings().get('show_status_in_tree', True)
         for item in items:
+            if whitelist is not None and item.id not in whitelist:
+                continue
+
             raw_id = getattr(item, 'id', str(id(item)))
             # Ensure unique iid if item appears multiple times under different products
             item_id = f"{prod_prefix}:{raw_id}" if prod_prefix else raw_id
@@ -257,6 +292,112 @@ class TreePane:
             node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=display_text, tags=(item_type,))
             
             if item_type == "Epic" and hasattr(item, "features"):
-                self._populate_nodes(node_iid, item.features, prod_prefix=prod_prefix)
+                self._populate_nodes(node_iid, item.features, prod_prefix=prod_prefix, whitelist=whitelist)
             elif item_type == "Feature" and hasattr(item, "stories"):
-                self._populate_nodes(node_iid, item.stories, prod_prefix=prod_prefix)
+                self._populate_nodes(node_iid, item.stories, prod_prefix=prod_prefix, whitelist=whitelist)
+
+    def _calculate_filter_whitelist(self, root_items, filter_context):
+        """Calculates a set of item IDs that should be visible based on filter rules."""
+        matches = set()
+        rules = filter_context.rules
+        
+        # 1. First pass: Find direct matches
+        all_items = []
+        def collect(items):
+            for i in items:
+                all_items.append(i)
+                if hasattr(i, 'features'): collect(i.features)
+                if hasattr(i, 'stories'): collect(i.stories)
+        collect(root_items)
+        
+        for item in all_items:
+            if self._item_matches_rules(item, rules):
+                matches.add(item.id)
+                
+        if not matches:
+            return set()
+            
+        # 2. Second pass: Expand hierarchy based on modifiers
+        whitelist = set(matches)
+        
+        if filter_context.show_ancestors:
+            # We need parent mapping to trace up
+            parent_map = {}
+            def map_parents(items, parent_id=None):
+                for i in items:
+                    if parent_id: parent_map[i.id] = parent_id
+                    if hasattr(i, 'features'): map_parents(i.features, i.id)
+                    if hasattr(i, 'stories'): map_parents(i.stories, i.id)
+            map_parents(root_items)
+            
+            for matched_id in matches:
+                curr = matched_id
+                while curr in parent_map:
+                    curr = parent_map[curr]
+                    whitelist.add(curr)
+                    
+        if filter_context.show_descendants:
+            def add_descendants(item_id):
+                item = next((i for i in all_items if i.id == item_id), None)
+                if not item: return
+                if hasattr(item, 'features'):
+                    for f in item.features:
+                        whitelist.add(f.id)
+                        add_descendants(f.id)
+                if hasattr(item, 'stories'):
+                    for s in item.stories:
+                        whitelist.add(s.id)
+            
+            for matched_id in matches:
+                add_descendants(matched_id)
+                
+        return whitelist
+
+    def _item_matches_rules(self, item, rules):
+        """Evaluates logical rules against an individual item."""
+        if not rules: return True
+        
+        # Result starts with the evaluation of the first rule
+        res = self._evaluate_single_rule(item, rules[0])
+        
+        for rule in rules[1:]:
+            val = self._evaluate_single_rule(item, rule)
+            if rule.conjunction == "AND":
+                res = res and val
+            else:
+                res = res or val
+        return res
+
+    def _evaluate_single_rule(self, item, rule):
+        field = rule.field_type
+        target = rule.target_value
+        case_sensitive = rule.case_sensitive
+        
+        if field == "Type":
+            return type(item).__name__ == target
+        elif field == "Status":
+            return getattr(item, 'status', '') == target
+        elif field == "Assignee":
+            # Only stories have assignee_id
+            if type(item).__name__ != "Story": return False
+            assignee_id = getattr(item, 'assignee_id', None)
+            
+            # Resolve ID to Name for comparison
+            workspace = self.context.resolve('workspace')
+            if not assignee_id:
+                return target == "Unassigned"
+            
+            member = workspace.members.get(assignee_id)
+            return member.name == target if member else (target == "Unassigned")
+        elif field == "Label":
+            labels = getattr(item, 'labels', [])
+            return target in labels
+        elif field in ["Title", "Description"]:
+            val = getattr(item, field.lower(), "")
+            if val is None: val = ""
+            
+            if not case_sensitive:
+                return target.lower() in val.lower()
+            return target in val
+            
+        return False

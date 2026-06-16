@@ -103,6 +103,19 @@ class UIImportJsonRequestedEvent(Event):
     file_path: str
 
 @dataclass
+class TreeFilterRule:
+    conjunction: str  # "AND" or "OR"
+    field_type: str   # "Type", "Label", "Assignee", "Status", "Title", "Description"
+    target_value: str # Selected filter value string
+    case_sensitive: bool = False
+
+@dataclass
+class UITreeFilterAppliedEvent(Event):
+    rules: List[TreeFilterRule]
+    show_ancestors: bool
+    show_descendants: bool
+
+@dataclass
 class UIIntegrationsDialogOpenRequestedEvent(Event):
     pass
 
@@ -375,5 +388,5 @@ __all__ = [
     'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
     'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
-    'UIErrorNotificationEvent'
+    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent'
 ]
