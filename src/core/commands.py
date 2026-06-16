@@ -14,6 +14,7 @@ class SaveItemCommand(Command):
     new_description: str
     new_products: List[str] = field(default_factory=list)
     new_capabilities: List[str] = field(default_factory=list)
+    new_labels: List[str] = field(default_factory=list)
     weight: float = 0.0
     status: str = 'Backlog'
     assignee_id: Optional[int] = None

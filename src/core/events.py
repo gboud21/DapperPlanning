@@ -103,6 +103,19 @@ class UIImportJsonRequestedEvent(Event):
     file_path: str
 
 @dataclass
+class TreeFilterRule:
+    conjunction: str  # "AND" or "OR"
+    field_type: str   # "Type", "Label", "Assignee", "Status", "Title", "Description"
+    target_value: str # Selected filter value string
+    case_sensitive: bool = False
+
+@dataclass
+class UITreeFilterAppliedEvent(Event):
+    rules: List[TreeFilterRule]
+    show_ancestors: bool
+    show_descendants: bool
+
+@dataclass
 class UIIntegrationsDialogOpenRequestedEvent(Event):
     pass
 
@@ -116,6 +129,10 @@ class UIIntegrationsSaveRequestedEvent(Event):
     product_project_ids: Dict[str, Optional[int]] = field(default_factory=dict)
     product_group_ids: Dict[str, Optional[int]] = field(default_factory=dict)
     active_product_name: Optional[str] = None
+    epic_sync_label: str = "Epic"
+    feature_sync_label: str = "Feature"
+    legacy_status_enabled: bool = False
+    status_label_mappings: dict[str, str] = field(default_factory=dict)
 
 @dataclass
 class UISettingsDialogOpenRequestedEvent(Event):
@@ -371,5 +388,5 @@ __all__ = [
     'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
     'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
-    'UIErrorNotificationEvent'
+    'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent'
 ]

@@ -239,7 +239,7 @@ class Workspace:
             products=self._products
         ))
 
-    def update_item_details(self, item_id: str, title: str, description: str, products: List[str] = None, capabilities: List[str] = None) -> None:
+    def update_item_details(self, item_id: str, title: str, description: str, products: List[str] = None, capabilities: List[str] = None, labels: List[str] = None) -> None:
         """
         Updates the details of an item within the workspace.
 
@@ -249,6 +249,7 @@ class Workspace:
             description (str): The new description for the item.
             products (List[str]): The new list of associated product IDs.
             capabilities (List[str]): The new list of associated capability IDs.
+            labels (List[str]): The new list of associated labels.
         """
         item = self._find_item_by_id(item_id)
         if item:
@@ -259,6 +260,8 @@ class Workspace:
                 item.products = products
             if hasattr(item, 'capabilities') and capabilities is not None:
                 item.capabilities = capabilities
+            if hasattr(item, 'labels') and labels is not None:
+                item.labels = labels
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                 root_items=self._epics,
                 products=self._products
@@ -504,6 +507,36 @@ class Workspace:
                 for story in feature.stories:
                     products.update(getattr(story, 'products', []))
         return sorted(list(products))
+
+    def resolve_legacy_status_from_labels(self, labels_list: list[str], legacy_status_enabled: bool, status_label_mappings: dict) -> Optional[str]:
+        """Returns status text by inspecting item labels against priority mappings."""
+        if not legacy_status_enabled:
+            return None
+        priority_order = ["Backlog", "In Progress", "In Review", "Done", "Closed"]
+        
+        for status in priority_order:
+            mapped_label = status_label_mappings.get(status, status)
+            if mapped_label in labels_list:
+                return status
+                
+        return "Backlog"
+
+    def sync_legacy_labels(self, status: str, labels_list: list[str], legacy_status_enabled: bool, status_label_mappings: dict) -> list[str]:
+        """Ensures labels list matches the selected status when legacy mode is enabled."""
+        if not legacy_status_enabled:
+            return labels_list
+            
+        # 1. Identify all potential legacy status labels to remove
+        all_legacy_labels = {status_label_mappings.get(s, s) for s in ["Backlog", "In Progress", "In Review", "Done", "Closed"]}
+        
+        # 2. Filter out current legacy labels
+        new_labels = [l for l in labels_list if l not in all_legacy_labels]
+        
+        # 3. Add the target legacy label
+        target_label = status_label_mappings.get(status, status)
+        new_labels.append(target_label)
+        
+        return sorted(list(set(new_labels)))
 
     def remove_global_tag(self, tag_type: str, tag_value: str) -> None:
         """

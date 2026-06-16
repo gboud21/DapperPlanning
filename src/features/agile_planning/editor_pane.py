@@ -131,10 +131,14 @@ class EditorPane:
         self.assignee_frame.pack(fill=tk.X, pady=(0, 10))
         self.assignee_lbl = ttk.Label(self.assignee_frame, text="Assignee:")
         self.assignee_lbl.grid(row=0, column=0, sticky=tk.W)
-        self.assignee_combo = ttk.Combobox(self.assignee_frame, state="readonly", style="Preferences.TCombobox")
+        self.assignee_combo = ttk.Combobox(self.assignee_frame, state="normal", style="Preferences.TCombobox")
         self.assignee_combo.grid(row=0, column=1, sticky=tk.EW, padx=5)
         self.assignee_frame.columnconfigure(1, weight=1)
+        
+        self._master_assignee_list = []
         self.assignee_combo.bind("<<ComboboxSelected>>", self._trigger_auto_save)
+        self.assignee_combo.bind("<KeyRelease>", self._on_assignee_key_release)
+        self.assignee_combo.bind("<FocusOut>", self._on_assignee_focus_out)
         
         self.assignee_lbl.grid_remove()
         self.assignee_combo.grid_remove()
@@ -148,7 +152,7 @@ class EditorPane:
 
         # Status Combobox
         ttk.Label(self.scrollable_frame, text="Status:").pack(anchor=tk.W)
-        self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done'), state="readonly", style="Preferences.TCombobox")
+        self.combo_status = ttk.Combobox(self.scrollable_frame, values=('Backlog', 'In Progress', 'In Review', 'Done', 'Closed'), state="readonly", style="Preferences.TCombobox")
         self.combo_status.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
         self.combo_status.bind("<<ComboboxSelected>>", self._trigger_auto_save)
 
@@ -252,6 +256,12 @@ class EditorPane:
 
         # Refresh master list
         reserved_labels = {'Epic', 'Feature', 'Story'}
+        legacy_enabled = self.settings.get('legacy_status_enabled', False)
+        if legacy_enabled:
+            mappings = self.settings.get('status_label_mappings', {})
+            legacy_labels = {mappings.get(s, s) for s in ["Backlog", "In Progress", "In Review", "Done", "Closed"]}
+            reserved_labels.update(legacy_labels)
+
         master_labels_formatted = [
             f"({l.scope_name}) {l.name}" 
             for l in self.workspace.labels.values()
@@ -612,6 +622,16 @@ class EditorPane:
         products = list(self.product_ui['assigned'].get(0, tk.END))
         capabilities = list(self.capability_ui['assigned'].get(0, tk.END))
         
+        # Collect raw labels from UI (mapped names)
+        raw_labels_display = list(self.label_ui['assigned'].get(0, tk.END))
+        # Strip scope "(Scope) LabelName" -> "LabelName"
+        labels = []
+        for l_str in raw_labels_display:
+            if ") " in l_str:
+                labels.append(l_str.split(") ", 1)[1])
+            else:
+                labels.append(l_str)
+
         weight_str = self.entry_weight.get()
         try:
             weight = float(weight_str) if weight_str else 0.0
@@ -620,6 +640,11 @@ class EditorPane:
         
         status = self.combo_status.get() or 'Backlog'
         
+        legacy_enabled = self.settings.get('legacy_status_enabled', False)
+        mappings = self.settings.get('status_label_mappings', {})
+        if legacy_enabled:
+            labels = self.workspace.sync_legacy_labels(status, labels, legacy_enabled, mappings)
+
         # Determine assignee_id from name
         assignee_name = self.assignee_combo.get()
         assignee_id = None
@@ -634,6 +659,7 @@ class EditorPane:
             new_description=desc,
             new_products=products,
             new_capabilities=capabilities,
+            new_labels=labels,
             weight=weight,
             status=status,
             assignee_id=assignee_id
@@ -672,6 +698,35 @@ class EditorPane:
             assignee_id=assignee_id
         ))
 
+    def set_assignee_list(self, names):
+        """Updates the master assignee list and the combobox values."""
+        self._master_assignee_list = names
+        self.assignee_combo.config(values=names)
+
+    def _on_assignee_key_release(self, event):
+        """Filters the assignee list based on user input and posts the dropdown."""
+        # Bypass navigation keys
+        if event.keysym in ("Up", "Down", "Left", "Right", "Return", "Escape", "Tab", "Shift_L", "Shift_R"):
+            return
+
+        typed_text = self.assignee_combo.get().lower()
+        if not typed_text:
+            filtered_values = self._master_assignee_list
+        else:
+            filtered_values = [name for name in self._master_assignee_list if typed_text in name.lower()]
+
+        self.assignee_combo["values"] = filtered_values
+        
+        # Open the dropdown programmatically
+        try:
+            self.assignee_combo.tk.call(self.assignee_combo._w, "post")
+        except tk.TclError:
+            pass # Widget might have been destroyed or not yet mapped
+
+    def _on_assignee_focus_out(self, event):
+        """Triggers auto-save when focus leaves the assignee combobox."""
+        self._trigger_auto_save()
+
     def populate_editor(self, event: ModelActiveItemChangedEvent):
         """Populates the fields when a model item becomes active."""
         self._is_populating = True
@@ -692,7 +747,15 @@ class EditorPane:
             self.entry_weight.insert(0, f"{weight:.1f}")
             
             # Populate status and set state
-            self.combo_status.set(getattr(event.item_data, 'status', 'Backlog'))
+            status = getattr(event.item_data, 'status', 'Backlog')
+            legacy_enabled = self.settings.get('legacy_status_enabled', False)
+            mappings = self.settings.get('status_label_mappings', {})
+            if legacy_enabled:
+                legacy_status = self.workspace.resolve_legacy_status_from_labels(getattr(event.item_data, 'labels', []), legacy_enabled, mappings)
+                if legacy_status:
+                    status = legacy_status
+            
+            self.combo_status.set(status)
             
             if item_type in ['Epic', 'Feature']:
                 self.entry_weight.config(state='disabled')
@@ -719,6 +782,13 @@ class EditorPane:
             # Populate Labels
             assigned_labels = getattr(event.item_data, 'labels', [])
             reserved_labels = {'Epic', 'Feature', 'Story'}
+            
+            legacy_enabled = self.settings.get('legacy_status_enabled', False)
+            if legacy_enabled:
+                mappings = self.settings.get('status_label_mappings', {})
+                legacy_labels = {mappings.get(s, s) for s in ["Backlog", "In Progress", "In Review", "Done", "Closed"]}
+                reserved_labels.update(legacy_labels)
+
             master_labels_formatted = [
                 f"({l.scope_name}) {l.name}" 
                 for l in self.workspace.labels.values()

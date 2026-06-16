@@ -152,7 +152,9 @@ class Feature:
         if not self.stories:
             return 'Backlog'
         statuses = [s.status for s in self.stories]
-        if all(s == 'Done' for s in statuses):
+        if all(s == 'Closed' for s in statuses):
+            return 'Closed'
+        if all(s in ('Done', 'Closed') for s in statuses):
             return 'Done'
         if all(s == 'Backlog' for s in statuses):
             return 'Backlog'
@@ -202,7 +204,9 @@ class Epic:
         if not self.features:
             return 'Backlog'
         statuses = [f.status for f in self.features]
-        if all(s == 'Done' for s in statuses):
+        if all(s == 'Closed' for s in statuses):
+            return 'Closed'
+        if all(s in ('Done', 'Closed') for s in statuses):
             return 'Done'
         if all(s == 'Backlog' for s in statuses):
             return 'Backlog'
