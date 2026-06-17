@@ -2,6 +2,7 @@ import threading
 import time
 import json
 from datetime import datetime
+from dataclasses import asdict
 from src.core.app_context import AppContext
 from src.core.events import (
     ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
@@ -41,7 +42,7 @@ class SyncWorker(threading.Thread):
         
         logger.info(f"SyncWorker started: {self.sync_type}")
         # Prepare basic debug info
-        debug_info = {
+        self.debug_info = {
             "Base URL": self.gitlab_client.base_url,
             "Group ID": self.gitlab_client.group_id,
             "Project ID": self.gitlab_client.project_id,
@@ -69,7 +70,7 @@ class SyncWorker(threading.Thread):
                 title="GitLab Sync Error",
                 error_message=e.error_message,
                 suggested_solution=e.suggested_solution,
-                debug_info=debug_info
+                debug_info=self.debug_info
             ))
         except Exception as e:
             logger.exception(f"SyncWorker Unexpected Error ({self.sync_type}): {e}")
@@ -77,7 +78,7 @@ class SyncWorker(threading.Thread):
                 title="Unexpected Sync Error",
                 error_message=str(e),
                 suggested_solution="Check the application logs and verify your network connection.",
-                debug_info=debug_info
+                debug_info=self.debug_info
             ))
         finally:
             self._safe_dispatch(ModelHierarchyUpdatedEvent(root_items=self.workspace.get_epics()))
@@ -204,26 +205,105 @@ class SyncWorker(threading.Thread):
         self._safe_dispatch(ModelSyncProgressEvent(message="Sync Complete!", percent=100))
 
     def _execute_push(self):
-        logger.info("Executing Push Sync...")
-        self._safe_dispatch(ModelSyncProgressEvent(message="Pushing local changes...", percent=10))
+        """Forces an inbound pull pre-fetch, sweeps all items for attribute divergence, and blocks if conflicts are found."""
+        logger.info("Executing Secure Push Sync with Pre-fetch...")
         
-        # Determine active product IDs for context
+        # 1. Trigger fresh server fetch (Pull)
+        # Reuse _execute_pull logic but handle results locally for scanning
+        self._safe_dispatch(ModelSyncProgressEvent(message="Pre-fetching remote state...", percent=5))
+        
         active_product_name = self.workspace.active_product_name
         product_entity = next((p for p in self.workspace.products if p.name == active_product_name), None)
-        
         if not product_entity or not product_entity.gitlab_project_id:
-            from src.infrastructure.api.gitlab_client import GitLabBaseError
-            logger.error(f"Push Sync failed: Missing Project ID for product '{active_product_name}'")
-            raise GitLabBaseError(
-                "Missing Project ID", 
-                f"Product '{active_product_name}' must have a GitLab Project ID configured."
-            )
+             from src.infrastructure.api.gitlab_client import GitLabBaseError
+             raise GitLabBaseError("Missing Project ID", f"Product '{active_product_name}' must have a GitLab Project ID configured.")
 
+        remote_epics = self.gitlab_client.fetch_group_epics(product_entity.gitlab_group_id)
+        remote_issues = self.gitlab_client.fetch_project_issues(product_entity.gitlab_project_id)
+        
+        transformer = GitLabTransformer()
+        settings = self.context.resolve('settings_manager')
+        legacy_enabled = settings.get('legacy_status_enabled', False)
+        mappings = settings.get('status_label_mappings', {})
+        epic_label = self.gitlab_client.epic_sync_label
+        feature_label = self.gitlab_client.feature_sync_label
+
+        transformation_result = transformer.transform_pull_data(epic_label, feature_label, remote_epics,  remote_issues, legacy_enabled=legacy_enabled, mappings=mappings)
+        remote_data = transformation_result['root_epics']
+        
+        # Populate remote cache in controller for UI resolution later
+        integrations_controller = self.context.resolve('integrations_controller')
+        integrations_controller.remote_data_cache = {}
+        
+        # Flatten remote data for easy lookup
+        remote_lookup = {}
+        def _collect_remote(items):
+            for i in items:
+                remote_lookup[i.gitlab_id] = i
+                integrations_controller.remote_data_cache[i.gitlab_id] = i
+                if hasattr(i, 'features'): _collect_remote(i.features)
+                if hasattr(i, 'stories'): _collect_remote(i.stories)
+        _collect_remote(remote_data)
+
+        conflict_detected = False
+        # 2. Iterate across all local objects to identify collisions against Shadow
+        self._safe_dispatch(ModelSyncProgressEvent(message="Scanning for merge conflicts...", percent=10))
+        for local_item in self.workspace.all_items_iterable():
+            if not local_item.gitlab_id:
+                continue # Skip new local items
+                
+            shadow_copy = self.workspace.shadow_hierarchy.get(local_item.id)
+            remote_copy_obj = remote_lookup.get(local_item.gitlab_id)
+            
+            if shadow_copy and remote_copy_obj:
+                remote_copy_dict = asdict(remote_copy_obj)
+                local_item_dict = asdict(local_item)
+                
+                # Detect if both local working copy and remote server copy have changed from common ancestor
+                has_remote_changed = self._check_diff(shadow_copy, remote_copy_dict)
+                has_local_changed = self._check_diff(shadow_copy, local_item_dict)
+                
+                if has_remote_changed and has_local_changed:
+                    local_item.is_conflicted = True
+                    conflict_detected = True
+                    logger.warning(f"Conflict detected for {local_item.id}: {local_item.title}")
+                
+        if conflict_detected:
+            self._safe_dispatch(ModelConflictDetectedEvent())
+            self._safe_dispatch(ModelSyncErrorEvent(
+                title="Merge Conflict Detected",
+                error_message="One or more items have been modified both locally and on GitLab since your last pull.",
+                suggested_solution="Resolve the highlighted conflicts in the Agile Planning tree (right-click -> Resolve Merge Conflict) before pushing again.",
+                debug_info=self.debug_info
+            ))
+            self._safe_dispatch(ModelSyncProgressEvent(message="Push Aborted: Conflicts Found.", percent=100))
+            return # Block push
+
+        # 3. Proceed with normal push if clean
+        self._perform_actual_push(product_entity, settings, legacy_enabled, mappings)
+
+    def _check_diff(self, shadow_dict, current_dict):
+        """Compares core agile attributes for divergence."""
+        core_fields = ['title', 'description', 'weight', 'status', 'assignee_id', 'iteration_id', 'labels']
+        for field in core_fields:
+            s_val = shadow_dict.get(field)
+            c_val = current_dict.get(field)
+            
+            if field == 'labels':
+                # Sort for comparison
+                if sorted(s_val or []) != sorted(c_val or []):
+                    return True
+            elif s_val != c_val:
+                return True
+        return False
+
+    def _perform_actual_push(self, product_entity, settings, legacy_enabled, mappings):
+        self._safe_dispatch(ModelSyncProgressEvent(message="Pushing local changes...", percent=15))
         pid = product_entity.gitlab_project_id
         gid = product_entity.gitlab_group_id # May be None for Free Tier
         
         # 1. Sync Labels first
-        self._safe_dispatch(ModelSyncProgressEvent(message="Ensuring labels exist on GitLab...", percent=15))
+        self._safe_dispatch(ModelSyncProgressEvent(message="Ensuring labels exist on GitLab...", percent=20))
         for label in self.workspace.labels.values():
             if not label.id:
                 logger.info(f"Pushing new Label: {label.name}")
@@ -252,15 +332,10 @@ class SyncWorker(threading.Thread):
 
         epic_label = self.gitlab_client.epic_sync_label
         feature_label = self.gitlab_client.feature_sync_label
-        
-        settings = self.context.resolve('settings_manager')
-        legacy_enabled = settings.get('legacy_status_enabled', False)
-        mappings = settings.get('status_label_mappings', {})
 
         for epic in epics:
             current_labels = epic.labels
-            if legacy_enabled:
-                current_labels = self.workspace.sync_legacy_labels(epic.status, current_labels, legacy_enabled, mappings)
+            # Epics and Features should NOT apply Status Labels when pushing
             epic_labels = current_labels + [epic_label]
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
@@ -281,12 +356,11 @@ class SyncWorker(threading.Thread):
                 epic.last_synced_at = datetime.now().isoformat()
             
             processed += 1
-            self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=10 + (processed/total_items * 80)))
+            self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Epic: {epic.title}", percent=20 + (processed/total_items * 70)))
             
             for feature in epic.features:
                 current_labels = feature.labels
-                if legacy_enabled:
-                    current_labels = self.workspace.sync_legacy_labels(feature.status, current_labels, legacy_enabled, mappings)
+                # Epics and Features should NOT apply Status Labels when pushing
                 feature_labels = current_labels + [feature_label]
                 if not feature.gitlab_id:
                     logger.info(f"Pushing new Feature: {feature.title}")
@@ -308,13 +382,14 @@ class SyncWorker(threading.Thread):
                     feature.last_synced_at = datetime.now().isoformat()
                 
                 processed += 1
-                self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Feature: {feature.title}", percent=10 + (processed/total_items * 80)))
+                self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Feature: {feature.title}", percent=20 + (processed/total_items * 70)))
 
                 for story in feature.stories:
                     current_labels = story.labels
                     if legacy_enabled:
                         current_labels = self.workspace.sync_legacy_labels(story.status, current_labels, legacy_enabled, mappings)
-                    story_labels = current_labels + ["Story"]
+                    # Removed "Story" label assignment
+                    story_labels = current_labels
                     if not story.gitlab_id:
                         logger.info(f"Pushing new Story: {story.title}")
                         resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid, labels=",".join(story_labels))
@@ -327,7 +402,7 @@ class SyncWorker(threading.Thread):
                         story.last_synced_at = datetime.now().isoformat()
                     
                     processed += 1
-                    self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Story: {story.title}", percent=10 + (processed/total_items * 80)))
+                    self._safe_dispatch(ModelSyncProgressEvent(message=f"Synced Story: {story.title}", percent=20 + (processed/total_items * 70)))
 
         # Process remote deletions
         if self.workspace.deleted_remote_items:
@@ -377,38 +452,6 @@ class SyncWorker(threading.Thread):
         # Optional: Deep check if sync timestamp logic fails or is not applied everywhere
         return False
 
-    def _process_item(self, remote_data, item_type, dry_run):
-        gitlab_id = remote_data.get('id')
-        local_item = self._find_local_by_gitlab_id(gitlab_id)
-        
-        if not local_item:
-            if not dry_run:
-                # Add new remote item to local (Stubbed)
-                pass
-            return
-
-        # Compare
-        if self._has_diff(local_item, remote_data):
-            logger.warning(f"Conflict detected for item {local_item.id} ({local_item.title})")
-            self.active_conflict_id = local_item.id
-            self.conflict_event.clear()
-            
-            # Create a temporary remote item object for the UI
-            remote_item_stub = Story(id="remote", title=remote_data.get('title'), description=remote_data.get('description'), team=local_item.team)
-            if hasattr(local_item, 'weight'): remote_item_stub.weight = remote_data.get('weight', 0)
-            
-            self._safe_dispatch(ModelConflictDetectedEvent(local_item=local_item, remote_item=remote_item_stub))
-            
-            # Wait for user input
-            logger.info(f"Waiting for user resolution for conflict {local_item.id}...")
-            self.conflict_event.wait()
-            
-            logger.info(f"Conflict resolved: {self.last_resolution} for item {local_item.id}")
-            if self.last_resolution == 'remote' and not dry_run:
-                local_item.title = remote_data.get('title')
-                local_item.description = remote_data.get('description')
-                local_item.last_synced_at = datetime.now().isoformat()
-
     def _find_local_by_gitlab_id(self, gitlab_id):
         for epic in self.workspace.get_epics():
             if epic.gitlab_id == gitlab_id: return epic
@@ -417,28 +460,6 @@ class SyncWorker(threading.Thread):
                 for story in feature.stories:
                     if story.gitlab_id == gitlab_id: return story
         return None
-
-    def _has_diff(self, local, remote):
-        if local.title != remote.get('title'): return True
-        if local.description != remote.get('description'): return True
-        
-        # Check assignee
-        remote_assignees = remote.get('assignees', [])
-        remote_assignee_id = remote_assignees[0].get('id') if remote_assignees else None
-        if getattr(local, 'assignee_id', None) != remote_assignee_id: return True
-
-        # Check iteration
-        remote_iteration = remote.get('iteration', {})
-        remote_iteration_id = remote_iteration.get('id') if remote_iteration else None
-        if getattr(local, 'iteration_id', None) != remote_iteration_id: return True
-
-        # Check labels (ignoring architectural labels for comparison)
-        reserved_labels = {self.gitlab_client.epic_sync_label, self.gitlab_client.feature_sync_label, 'Story'}
-        remote_labels = [l for l in remote.get('labels', []) if l not in reserved_labels]
-        local_labels = sorted(getattr(local, 'labels', []))
-        if local_labels != sorted(remote_labels): return True
-        
-        return False
 
     def _execute_member_sync(self):
         logger.info("Executing Member Sync...")

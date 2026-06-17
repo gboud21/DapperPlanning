@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+from typing import Dict, Any, Optional
 from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
@@ -33,6 +34,9 @@ class IntegrationsController:
         self.workspace = context.resolve('workspace')
         self.settings: SettingsManager = context.resolve('settings_manager')
         
+        self.context.register('integrations_controller', self)
+        self.remote_data_cache: Dict[int, Any] = {} # Maps gitlab_id to domain object
+        
         self.progress_modal = None
         self._subscribe_events()
         self._register_commands()
@@ -57,6 +61,10 @@ class IntegrationsController:
         """Refreshes the workspace reference."""
         self.workspace = self.context.resolve('workspace')
 
+    def get_latest_remote_copy(self, gitlab_id: int) -> Optional[Any]:
+        """Returns a domain object from the latest fetch cache."""
+        return self.remote_data_cache.get(gitlab_id)
+
     def _is_gitlab_configured(self) -> bool:
         """Returns True if essential GitLab credentials are set."""
         url = self.settings.get('auth_url', '')
@@ -74,6 +82,16 @@ class IntegrationsController:
 
     def handle_sync_with_gitlab(self, command: SyncWithGitLabCommand):
         """Unified sync handler via Command Bus."""
+        if command.sync_type == 'push':
+            unresolved = [i for i in self.workspace.all_items_iterable() if getattr(i, 'is_conflicted', False)]
+            if unresolved:
+                messagebox.showerror(
+                    "Push Denied", 
+                    f"Cannot complete operation. There are {len(unresolved)} unresolved merge conflicts.\n"
+                    "Please resolve all highlighted conflicts before pushing changes."
+                )
+                return
+
         if not self._is_gitlab_configured():
             if messagebox.askyesno('Configuration Required', 'GitLab integration is not configured. Would you like to configure it now?'):
                 dialog = self.handle_open_dialog()
@@ -155,7 +173,8 @@ class IntegrationsController:
 
     def handle_conflict_detected(self, event: ModelConflictDetectedEvent):
         """Displays the conflict resolution modal on the main thread."""
-        ConflictResolutionModal(self.root, self.dispatcher, event.local_item, event.remote_item)
+        if event.local_item and event.remote_item:
+            ConflictResolutionModal(self.root, self.dispatcher, event.local_item, event.remote_item, self.workspace)
 
     def _initialize_gitlab_client(self) -> bool:
         """Loads settings and registers the GitLabClient in the context."""

@@ -6,7 +6,7 @@ from src.core.events import (
     EventDispatcher, UIItemSelectedEvent, ModelActiveItemChangedEvent, 
     UIAddEpicRequestedEvent, UIAddFeatureRequestedEvent, UIAddStoryRequestedEvent, 
     UIDeleteItemRequestedEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent,
-    UIItemReparentRequestedEvent, UITreeFilterAppliedEvent
+    UIItemReparentRequestedEvent, UITreeFilterAppliedEvent, ModelConflictDetectedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import CloneItemCommand
@@ -114,6 +114,19 @@ class TreeController:
         self.dispatcher.subscribe(UIDeleteItemRequestedEvent, self.handle_delete_item)
         self.dispatcher.subscribe(ModelWorkspaceLoadedEvent, self.handle_workspace_loaded)
         self.dispatcher.subscribe(UITreeFilterAppliedEvent, self.handle_filter_applied)
+        self.dispatcher.subscribe(ModelConflictDetectedEvent, self.handle_conflict_detected)
+
+    def handle_conflict_detected(self, event: ModelConflictDetectedEvent):
+        """Automatically switches the tree view filter layout context to isolate conflict paths."""
+        # Programmatically set the filter query to only display conflicted items and their ancestors
+        conflicted_filter_query = 'is_conflicted == "True" OR is_conflicted == True'
+        
+        # Dispatch a filter applied event to trigger isolation
+        self.dispatcher.dispatch(UITreeFilterAppliedEvent(
+            query_string=conflicted_filter_query,
+            show_ancestors=True,
+            show_descendants=False
+        ))
 
     def handle_filter_applied(self, event: UITreeFilterAppliedEvent):
         """Stores the filter context and triggers a tree refresh."""

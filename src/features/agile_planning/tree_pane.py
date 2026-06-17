@@ -50,8 +50,14 @@ class TreePane:
         self.tree.tag_configure('Feature_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
         self.tree.tag_configure('Story_Stub', font=("TkDefaultFont", 10, "italic"), foreground="gray")
 
+        # Conflict Highlight Tags
+        self.tree.tag_configure("conflict_leaf", background="#fee2e2", foreground="#991b1b")   # Soft red
+        self.tree.tag_configure("conflict_parent", background="#fef08a", foreground="#854d0e") # Soft yellow
+
         # Context Menu for Treeview
         self.tree_context_menu = tk.Menu(self.tree, tearoff=0)
+        self.tree_context_menu.add_command(label="Resolve Merge Conflict", command=self._on_resolve_clicked)
+        self.tree_context_menu.add_separator()
         self.tree_context_menu.add_command(label="Add Epic", command=self._on_add_epic_clicked)
         self.tree_context_menu.add_command(label="Add Feature", command=self._on_add_feature_clicked)
         self.tree_context_menu.add_command(label="Add Story", command=self._on_add_story_clicked)
@@ -139,8 +145,17 @@ class TreePane:
             self.tree.selection_set(item_id)
             self.tree.focus(item_id)
             
+            # Extract raw item id
+            raw_id = item_id.split(":", 1)[1] if ":" in item_id else item_id
+            workspace = self.context.resolve('workspace')
+            item = workspace._find_item_by_id(raw_id)
+            
             item_tags = self.tree.item(item_id, "tags")
             item_type = item_tags[0] if item_tags else None
+            
+            # Conflict Logic
+            is_conflicted = getattr(item, 'is_conflicted', False)
+            self.tree_context_menu.entryconfig("Resolve Merge Conflict", state=tk.NORMAL if is_conflicted else tk.DISABLED)
             
             # Context-aware enablement
             self.tree_context_menu.entryconfig("Add Epic", state=tk.DISABLED) # Cannot add Epic under another item in tree
@@ -151,6 +166,7 @@ class TreePane:
             self.tree_context_menu.entryconfig("Delete", state=tk.NORMAL)
         else:
             # Clicked empty space
+            self.tree_context_menu.entryconfig("Resolve Merge Conflict", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Epic", state=tk.NORMAL)
             self.tree_context_menu.entryconfig("Add Feature", state=tk.DISABLED)
             self.tree_context_menu.entryconfig("Add Story", state=tk.DISABLED)
@@ -159,6 +175,24 @@ class TreePane:
             self.tree_context_menu.entryconfig("Delete", state=tk.DISABLED)
             
         self.tree_context_menu.tk_popup(event.x_root, event.y_root)
+
+    def _on_resolve_clicked(self):
+        """Dispatches the resolve request for the currently selected item."""
+        selected_id = self.tree.focus()
+        if selected_id:
+            raw_id = selected_id.split(":", 1)[1] if ":" in selected_id else selected_id
+            workspace = self.context.resolve('workspace')
+            item = workspace._find_item_by_id(raw_id)
+            if item and getattr(item, 'is_conflicted', False):
+                 # Find remote item from sync_worker or latest fetch cache
+                 # For now we'll assume we need to dispatch an event to the Integrations Controller
+                 from src.features.integrations.conflict_resolution_modal import ConflictResolutionModal
+                 # We need the remote copy which was identified during pre-push
+                 # I'll need to make sure this is available in the workspace or sync_worker
+                 integrations_controller = self.context.resolve('integrations_controller')
+                 remote_item = integrations_controller.get_latest_remote_copy(item.gitlab_id)
+                 if remote_item:
+                     modal = ConflictResolutionModal(self.parent.winfo_toplevel(), self.dispatcher, item, remote_item, workspace)
 
     def _on_filter_clicked(self):
         """Opens the tree filter dialog."""
@@ -299,6 +333,28 @@ class TreePane:
                     self.tree.focus(potential_iid)
                     break
 
+    def _has_conflicted_descendant(self, item) -> bool:
+        """Recursively checks if any child of the item is conflicted."""
+        if getattr(item, 'is_conflicted', False):
+            return True
+        if hasattr(item, 'features'):
+            return any(self._has_conflicted_descendant(f) for f in item.features)
+        if hasattr(item, 'stories'):
+            return any(getattr(s, 'is_conflicted', False) for s in item.stories)
+        return False
+
+    def _determine_node_tags(self, item) -> tuple:
+        """Returns the appropriate layout fill tags depending on conflict presence."""
+        item_type = type(item).__name__
+        tags = [item_type]
+        
+        if getattr(item, 'is_conflicted', False):
+            tags.append("conflict_leaf")
+        elif self._has_conflicted_descendant(item):
+            tags.append("conflict_parent")
+            
+        return tuple(tags)
+
     def _populate_nodes(self, parent_iid: str, items: list, prod_prefix: str = "", whitelist=None):
         """Recursively populates nodes from Agile objects, respecting whitelist."""
         show_status = ThemeManager.load_all_settings().get('show_status_in_tree', True)
@@ -320,7 +376,8 @@ class TreePane:
             else:
                 display_text = f"[{weight:.1f}] {title}"
                 
-            node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=display_text, tags=(item_type,))
+            tags = self._determine_node_tags(item)
+            node_iid = self.tree.insert(parent_iid, tk.END, iid=item_id, text=display_text, tags=tags)
             
             if item_type == "Epic" and hasattr(item, "features"):
                 self._populate_nodes(node_iid, item.features, prod_prefix=prod_prefix, whitelist=whitelist)

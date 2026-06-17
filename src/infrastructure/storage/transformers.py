@@ -60,16 +60,16 @@ class HierarchyBuilder:
             team = Team(name=team_name) if team_name else None
             
             if item_type == "Epic":
-                obj = Epic(id=item_id, title=title, description=description, products=products, capabilities=capabilities, labels=labels)
+                obj = Epic(id=item_id, title=title, description=description, products=products, capabilities=capabilities, labels=labels, is_conflicted=row.get('Conflicted') == "True")
             elif item_type == "Feature":
-                obj = Feature(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels)
+                obj = Feature(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels, is_conflicted=row.get('Conflicted') == "True")
             elif item_type == "Story":
                 assignee_id = row.get('Assignee ID')
                 if assignee_id and assignee_id != "":
                     assignee_id = int(assignee_id)
                 else:
                     assignee_id = None
-                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels, weight=weight, status=status, assignee_id=assignee_id)
+                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels, weight=weight, status=status, assignee_id=assignee_id, is_conflicted=row.get('Conflicted') == "True")
             else:
                 continue
                 
@@ -108,13 +108,15 @@ class HierarchyBuilder:
             gitlab_id = d.get("gitlab_id")
             gitlab_iid = d.get("gitlab_iid")
             last_synced_at = d.get("last_synced_at")
+            is_conflicted = d.get("is_conflicted", False)
 
             if item_type == "Epic":
                 features = [dict_to_obj(f, "Feature") for f in d.get("features", [])]
                 return Epic(
                     id=d["id"], title=d["title"], description=d["description"], 
                     features=features, products=products, capabilities=capabilities,
-                    labels=labels, gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                    labels=labels, gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, 
+                    last_synced_at=last_synced_at, is_conflicted=is_conflicted
                 )
             elif item_type == "Feature":
                 stories = [dict_to_obj(s, "Story") for s in d.get("stories", [])]
@@ -122,7 +124,8 @@ class HierarchyBuilder:
                 return Feature(
                     id=d["id"], title=d["title"], description=d["description"], 
                     team=team, stories=stories, products=products, capabilities=capabilities,
-                    labels=labels, gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                    labels=labels, gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, 
+                    last_synced_at=last_synced_at, is_conflicted=is_conflicted
                 )
             elif item_type == "Story":
                 team = Team(**d["team"]) if d.get("team") else None
@@ -130,7 +133,8 @@ class HierarchyBuilder:
                     id=d["id"], title=d["title"], description=d["description"], 
                     team=team, products=products, capabilities=capabilities, 
                     labels=labels, weight=weight, status=status, assignee_id=d.get("assignee_id"),
-                    gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at
+                    gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at,
+                    is_conflicted=is_conflicted
                 )
             return None
 
