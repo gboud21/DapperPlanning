@@ -335,8 +335,7 @@ class SyncWorker(threading.Thread):
 
         for epic in epics:
             current_labels = epic.labels
-            if legacy_enabled:
-                current_labels = self.workspace.sync_legacy_labels(epic.status, current_labels, legacy_enabled, mappings)
+            # Epics and Features should NOT apply Status Labels when pushing
             epic_labels = current_labels + [epic_label]
             if not epic.gitlab_id:
                 logger.info(f"Pushing new Epic: {epic.title}")
@@ -361,8 +360,7 @@ class SyncWorker(threading.Thread):
             
             for feature in epic.features:
                 current_labels = feature.labels
-                if legacy_enabled:
-                    current_labels = self.workspace.sync_legacy_labels(feature.status, current_labels, legacy_enabled, mappings)
+                # Epics and Features should NOT apply Status Labels when pushing
                 feature_labels = current_labels + [feature_label]
                 if not feature.gitlab_id:
                     logger.info(f"Pushing new Feature: {feature.title}")
@@ -390,7 +388,8 @@ class SyncWorker(threading.Thread):
                     current_labels = story.labels
                     if legacy_enabled:
                         current_labels = self.workspace.sync_legacy_labels(story.status, current_labels, legacy_enabled, mappings)
-                    story_labels = current_labels + ["Story"]
+                    # Removed "Story" label assignment
+                    story_labels = current_labels
                     if not story.gitlab_id:
                         logger.info(f"Pushing new Story: {story.title}")
                         resp = self.gitlab_client.create_story(pid, story, feature.gitlab_iid, labels=",".join(story_labels))

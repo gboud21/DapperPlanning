@@ -8,6 +8,7 @@ class MockWorkspace:
     def __init__(self, items):
         self._items = items
         self.products = []
+        self.shadow_hierarchy = {}
     def all_items_iterable(self):
         return self._items
     def get_epics(self):
@@ -102,3 +103,20 @@ def test_resolution_with_no_remaining_conflicts(setup_modal):
             # Verify it's clearing the filter (query_string="")
             clear_event = next(c.args[0] for c in dispatcher.dispatch.call_args_list if isinstance(c.args[0], UITreeFilterAppliedEvent))
             assert clear_event.query_string == ""
+
+def test_shadow_baseline_advanced(setup_modal):
+    modal, dispatcher, local_item, workspace = setup_modal
+    
+    # Mock remote item attributes
+    modal.remote_item.title = "Resolved Remote Title"
+    modal.remote_item.description = "Resolved Remote Desc"
+    
+    with patch('tkinter.messagebox.askokcancel', return_value=True):
+        with patch('tkinter.messagebox.showinfo'):
+            modal._on_ok_clicked()
+            
+            # Verify shadow baseline for the item was updated to match remote
+            assert local_item.id in workspace.shadow_hierarchy
+            shadow_entry = workspace.shadow_hierarchy[local_item.id]
+            assert shadow_entry['title'] == "Resolved Remote Title"
+            assert shadow_entry['description'] == "Resolved Remote Desc"

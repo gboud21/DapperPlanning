@@ -173,7 +173,8 @@ class IntegrationsController:
 
     def handle_conflict_detected(self, event: ModelConflictDetectedEvent):
         """Displays the conflict resolution modal on the main thread."""
-        ConflictResolutionModal(self.root, self.dispatcher, event.local_item, event.remote_item)
+        if event.local_item and event.remote_item:
+            ConflictResolutionModal(self.root, self.dispatcher, event.local_item, event.remote_item, self.workspace)
 
     def _initialize_gitlab_client(self) -> bool:
         """Loads settings and registers the GitLabClient in the context."""
