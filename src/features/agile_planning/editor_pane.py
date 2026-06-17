@@ -306,7 +306,9 @@ class EditorPane:
             messagebox.showwarning("Reserved Label", "The 'Feature' label is reserved for hierarchy identification and cannot be manually added to Feature items.")
             return
 
-        recursive = messagebox.askyesno("Recursive Update", "Apply this label update recursively to all child items?")
+        recursive = False
+        if item_type != 'Story':
+            recursive = messagebox.askyesno("Recursive Update", "Apply this label update recursively to all child items?")
         
         self.dispatcher.dispatch(UILabelUpdateRequestedEvent(
             item_id=self.current_selected_id,
@@ -336,7 +338,9 @@ class EditorPane:
             messagebox.showwarning("Reserved Label", "The 'Feature' label is reserved for hierarchy identification and cannot be removed from Feature items.")
             return
 
-        recursive = messagebox.askyesno("Recursive Update", "Remove this label recursively from all child items?")
+        recursive = False
+        if item_type != 'Story':
+            recursive = messagebox.askyesno("Recursive Update", "Remove this label recursively from all child items?")
         
         self.dispatcher.dispatch(UILabelUpdateRequestedEvent(
             item_id=self.current_selected_id,

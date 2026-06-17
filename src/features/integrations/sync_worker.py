@@ -31,6 +31,16 @@ class SyncWorker(threading.Thread):
         self.active_conflict_id = None
 
         self.dispatcher.subscribe(UIConflictResolvedEvent, self._handle_resolution)
+        
+        # Initialize basic debug info (will be updated in run() with fresh timestamps)
+        self.debug_info = {
+            "Base URL": getattr(self.gitlab_client, 'base_url', 'N/A'),
+            "Group ID": getattr(self.gitlab_client, 'group_id', 'N/A'),
+            "Project ID": getattr(self.gitlab_client, 'project_id', 'N/A'),
+            "Sync Type": self.sync_type,
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Token": "PROTECTED"
+        }
 
     def _handle_resolution(self, event: UIConflictResolvedEvent):
         if event.item_id == self.active_conflict_id:

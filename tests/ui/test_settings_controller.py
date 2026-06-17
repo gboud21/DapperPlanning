@@ -13,10 +13,12 @@ def test_settings_controller_dispatches_log_level_change(mocker, headless_tk):
     mock_dispatcher = mocker.MagicMock(spec=EventDispatcher)
     mock_workspace = mocker.MagicMock(spec=Workspace)
     mock_workspace.get_epics.return_value = []
+    mock_settings_manager = mocker.MagicMock()
     
     context.register('event_dispatcher', mock_dispatcher)
     context.register('workspace', mock_workspace)
     context.register('root_window', headless_tk)
+    context.register('settings_manager', mock_settings_manager)
     
     # 2. Instantiate the controller
     # Note: Our SettingsController takes context in __init__.

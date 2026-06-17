@@ -21,6 +21,7 @@ def sync_setup():
     context.register('workspace', workspace)
     context.register('gitlab_client', client)
     context.register('settings_manager', MagicMock())
+    context.register('integrations_controller', MagicMock())
     
     return context, workspace, client, dispatcher
 

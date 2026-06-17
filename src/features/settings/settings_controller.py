@@ -12,6 +12,8 @@ from src.features.settings.settings_dialog import SettingsDialog
 from src.utils.paths import get_user_data_dir, get_app_config_dir
 from src.domain.workspace import Workspace
 
+from src.infrastructure.storage.settings_manager import SettingsManager
+
 class SettingsController:
     def __init__(self, context: AppContext):
         """
@@ -24,6 +26,7 @@ class SettingsController:
         self.root: tk.Tk = context.resolve('root_window')
         self.dispatcher: EventDispatcher = context.resolve('event_dispatcher')
         self.workspace: Workspace = context.resolve('workspace')
+        self.settings: SettingsManager = context.resolve('settings_manager')
         
         self._subscribe_events()
 

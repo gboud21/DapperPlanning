@@ -6,14 +6,28 @@ from src.domain.workspace import Workspace
 from src.domain.entities import Epic, Product, Label, Feature, Story, Team
 from src.infrastructure.api.gitlab_client import GitLabClient
 
-def test_sync_worker_pull_merges_data(mocker):
-    """Verifies the SyncWorker correctly extracts data from the mocked client and populates the Workspace."""
-    # 1. Setup AppContext and mocks
+@pytest.fixture
+def sync_setup(mocker):
     context = AppContext()
-    
     dispatcher = MagicMock()
     workspace = MagicMock(spec=Workspace)
     mock_client = MagicMock(spec=GitLabClient)
+    mock_client.epic_sync_label = "Epic"
+    mock_client.feature_sync_label = "Feature"
+    mock_settings = MagicMock()
+    mock_integrations = MagicMock()
+    
+    context.register('event_dispatcher', dispatcher)
+    context.register('workspace', workspace)
+    context.register('gitlab_client', mock_client)
+    context.register('settings_manager', mock_settings)
+    context.register('integrations_controller', mock_integrations)
+    
+    return context, workspace, mock_client, dispatcher, mock_settings
+
+def test_sync_worker_pull_merges_data(sync_setup):
+    """Verifies the SyncWorker correctly extracts data from the mocked client and populates the Workspace."""
+    context, workspace, mock_client, dispatcher, _ = sync_setup
     
     # Configure Workspace mock
     workspace.active_product_name = "DapperPlanning"
@@ -22,11 +36,7 @@ def test_sync_worker_pull_merges_data(mocker):
     product.gitlab_group_id = "999"
     workspace.products = [product]
     
-    context.register('event_dispatcher', dispatcher)
-    context.register('workspace', workspace)
-    context.register('gitlab_client', mock_client)
-    
-    # 2. Configure GitLabClient mock to return raw dicts as expected by GitLabTransformer
+    # Configure GitLabClient mock to return raw dicts as expected by GitLabTransformer
     mock_client.base_url = "https://fake.gitlab.com"
     mock_client.group_id = "999"
     mock_client.project_id = "888"
@@ -52,11 +62,11 @@ def test_sync_worker_pull_merges_data(mocker):
     assert epics[0].title == "Pulled Epic"
     assert epics[0].gitlab_id == 101
 
-def test_sync_worker_pull_handles_orphans_with_triage(mocker):
+def test_sync_worker_pull_handles_orphans_with_triage(sync_setup, mocker):
     """Verifies that orphaned items are moved to a [Triage] bucket."""
-    context = AppContext()
-    dispatcher = MagicMock()
+    context, _, mock_client, dispatcher, _ = sync_setup
     workspace = Workspace(dispatcher) # Use real workspace to test find-by-title logic
+    context.register('workspace', workspace) # Override the mock
     
     product = Product(name="DapperPlanning")
     product.gitlab_project_id = "888"
@@ -64,7 +74,6 @@ def test_sync_worker_pull_handles_orphans_with_triage(mocker):
     workspace.products = [product]
     workspace.active_product_name = "DapperPlanning"
     
-    mock_client = MagicMock(spec=GitLabClient)
     mock_client.base_url = "https://fake.gitlab.com"
     mock_client.group_id = "999"
     mock_client.project_id = "888"
@@ -79,10 +88,6 @@ def test_sync_worker_pull_handles_orphans_with_triage(mocker):
     mock_client.fetch_project_issues.return_value = [
         {"id": 303, "iid": 3, "title": "Orphaned Story", "description": "", "weight": 5, "epic_iid": None}
     ]
-
-    context.register('event_dispatcher', dispatcher)
-    context.register('workspace', workspace)
-    context.register('gitlab_client', mock_client)
 
     worker = SyncWorker(context, sync_type="pull")
     worker._execute_pull(dry_run=False)
@@ -100,19 +105,17 @@ def test_sync_worker_pull_handles_orphans_with_triage(mocker):
     assert triage_feat is not None
     assert any(s.title == "Orphaned Story" for s in triage_feat.stories)
 
-def test_sync_worker_member_sync(mocker):
+def test_sync_worker_member_sync(sync_setup):
     """Verifies that the SyncWorker correctly fetches and merges GitLab members."""
-    context = AppContext()
-    dispatcher = MagicMock()
+    context, _, mock_client, dispatcher, _ = sync_setup
     workspace = Workspace(dispatcher)
+    context.register('workspace', workspace)
     
     product = Product(name="DapperPlanning")
     product.gitlab_project_id = 888
     product.gitlab_group_id = 999
     workspace.products = [product]
     workspace.active_product_name = "DapperPlanning"
-    
-    mock_client = MagicMock(spec=GitLabClient)
     
     # Mock raw member data
     mock_client.fetch_group_members.return_value = [
@@ -122,10 +125,6 @@ def test_sync_worker_member_sync(mocker):
         {"id": 2, "name": "Project User", "username": "puser"},
         {"id": 1, "name": "Group User", "username": "guser"} # Overlap
     ]
-
-    context.register('event_dispatcher', dispatcher)
-    context.register('workspace', workspace)
-    context.register('gitlab_client', mock_client)
 
     worker = SyncWorker(context, sync_type="members")
     worker._execute_member_sync()
@@ -144,11 +143,11 @@ def test_sync_worker_member_sync(mocker):
     assert 888 in m2.project_ids
     assert 999 not in m2.group_ids
 
-def test_pull_does_not_duplicate_triage_buckets(mocker):
+def test_pull_does_not_duplicate_triage_buckets(sync_setup):
     """Mock a GitLab pull payload containing orphaned issues, and seed the local Workspace with an existing Epic titled '[Triage] Unassigned Items'."""
-    context = AppContext()
-    dispatcher = MagicMock()
+    context, _, mock_client, dispatcher, _ = sync_setup
     workspace = Workspace(dispatcher)
+    context.register('workspace', workspace)
     
     triage_title = "[Triage] Unassigned Items"
     existing_triage = Epic(id="existing-triage", title=triage_title, description="Existing")
@@ -160,7 +159,6 @@ def test_pull_does_not_duplicate_triage_buckets(mocker):
     workspace.products = [product]
     workspace.active_product_name = "DapperPlanning"
     
-    mock_client = MagicMock(spec=GitLabClient)
     mock_client.base_url = "https://fake.gitlab.com"
     mock_client.group_id = "999"
     mock_client.project_id = "888"
@@ -172,10 +170,6 @@ def test_pull_does_not_duplicate_triage_buckets(mocker):
         {"id": 505, "iid": 5, "title": "New Orphaned Story", "description": "", "weight": 1, "epic_iid": None}
     ]
     
-    context.register('event_dispatcher', dispatcher)
-    context.register('workspace', workspace)
-    context.register('gitlab_client', mock_client)
-    
     worker = SyncWorker(context, sync_type="pull")
     worker._execute_pull(dry_run=False)
     
@@ -186,11 +180,11 @@ def test_pull_does_not_duplicate_triage_buckets(mocker):
     triage_feat = epics[0].features[0]
     assert any(s.title == "New Orphaned Story" for s in triage_feat.stories)
 
-def test_worker_pushes_new_labels_before_items(mocker):
+def test_worker_pushes_new_labels_before_items(sync_setup, mocker):
     """Mock gitlab_client.create_group_label. Seed the workspace with a new Label entity that has no remote ID."""
-    context = AppContext()
-    dispatcher = MagicMock()
+    context, _, mock_client, dispatcher, _ = sync_setup
     workspace = Workspace(dispatcher)
+    context.register('workspace', workspace)
     
     product = Product(name="DapperPlanning")
     product.gitlab_project_id = 888
@@ -204,13 +198,8 @@ def test_worker_pushes_new_labels_before_items(mocker):
     epic = Epic(id="e1", title="Important Epic", description="", labels=["Critical"])
     workspace.add_epic(epic)
     
-    mock_client = MagicMock(spec=GitLabClient)
     mock_client.create_group_label.return_value = {"id": 777, "name": "Critical"}
     mock_client.create_group_epic.return_value = {"id": 1001, "iid": 10}
-    
-    context.register('event_dispatcher', dispatcher)
-    context.register('workspace', workspace)
-    context.register('gitlab_client', mock_client)
     
     manager = MagicMock()
     manager.attach_mock(mock_client.create_group_label, 'create_label')

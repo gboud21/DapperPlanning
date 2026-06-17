@@ -30,8 +30,9 @@ def test_epic_full_serialization_cycle(tmp_path):
     assert saved_data["epics"][0]["features"][0]["id"] == "f1"
     
     # 2. Test Import (File -> Object)
-    # import_data returns (root_epics, active_product, products, members, deleted)
-    restored_epics, _, _, _, _ = adapter.import_data(str(test_file))
+    # import_data returns 11 values
+    import_result = adapter.import_data(str(test_file))
+    restored_epics = import_result[0]
     restored_epic = restored_epics[0]
     
     assert restored_epic.id == "e1"
