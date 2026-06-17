@@ -97,6 +97,7 @@ class ApplicationMenuBar(tk.Menu):
         integrations_menu.add_command(label="Sync GitLab Members", command=lambda: self.dispatcher.dispatch(UISyncMembersRequestedEvent()))
         integrations_menu.add_command(label="Sync GitLab Labels", command=lambda: self.dispatcher.dispatch(UISyncLabelsRequestedEvent()))
         integrations_menu.add_command(label="Sync GitLab Iterations", command=lambda: self.dispatcher.dispatch(UISyncIterationsRequestedEvent()))
+        integrations_menu.add_command(label="Sync All Metadata", command=self._on_sync_all_meta)
         self.add_cascade(label="Integrations", menu=integrations_menu)
 
         
@@ -162,6 +163,12 @@ class ApplicationMenuBar(tk.Menu):
         """Handler for the Sync Push shortcut."""
         self.command_bus.execute(SyncWithGitLabCommand(sync_type='push'))
         return "break"
+
+    def _on_sync_all_meta(self):
+        """Triggers Members, Labels, and Iterations synchronization in batch."""
+        self.dispatcher.dispatch(UISyncMembersRequestedEvent())
+        self.dispatcher.dispatch(UISyncLabelsRequestedEvent())
+        self.dispatcher.dispatch(UISyncIterationsRequestedEvent())
 
     def handle_theme_change(self, event: AppThemeChangedEvent):
         """Reacts to application-wide theme changes to update menu item states."""
