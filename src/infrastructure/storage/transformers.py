@@ -24,7 +24,10 @@ class HierarchyFlattener:
                     'Labels': ",".join(getattr(item, 'labels', [])),
                     'Weight': getattr(item, 'weight', 0.0),
                     'Status': getattr(item, 'status', 'Backlog'),
-                    'Assignee ID': getattr(item, 'assignee_id', "") if item_type == "Story" else ""
+                    'Assignee ID': getattr(item, 'assignee_id', "") if item_type == "Story" else "",
+                    'Actual Hours': getattr(item, 'actual_hours', "") if item_type == "Story" else "",
+                    'Started At': getattr(item, 'started_at', "") if item_type == "Story" else "",
+                    'Completed At': getattr(item, 'completed_at', "") if item_type == "Story" else ""
                 })
                 
                 # Recursive traversal
@@ -69,7 +72,15 @@ class HierarchyBuilder:
                     assignee_id = int(assignee_id)
                 else:
                     assignee_id = None
-                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels, weight=weight, status=status, assignee_id=assignee_id, is_conflicted=row.get('Conflicted') == "True")
+                
+                actual_hours = row.get('Actual Hours')
+                actual_hours = float(actual_hours) if actual_hours and actual_hours != "" else None
+                started_at = row.get('Started At')
+                if started_at == "": started_at = None
+                completed_at = row.get('Completed At')
+                if completed_at == "": completed_at = None
+
+                obj = Story(id=item_id, title=title, description=description, team=team, products=products, capabilities=capabilities, labels=labels, weight=weight, status=status, assignee_id=assignee_id, is_conflicted=row.get('Conflicted') == "True", actual_hours=actual_hours, started_at=started_at, completed_at=completed_at)
             else:
                 continue
                 
@@ -134,7 +145,10 @@ class HierarchyBuilder:
                     team=team, products=products, capabilities=capabilities, 
                     labels=labels, weight=weight, status=status, assignee_id=d.get("assignee_id"),
                     gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at,
-                    is_conflicted=is_conflicted
+                    is_conflicted=is_conflicted,
+                    actual_hours=d.get("actual_hours"),
+                    started_at=d.get("started_at"),
+                    completed_at=d.get("completed_at")
                 )
             return None
 

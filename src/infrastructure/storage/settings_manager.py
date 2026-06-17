@@ -42,7 +42,10 @@ class SettingsManager:
             'epic_group_id': '',
             'product_mappings': {},
             'capabilities': [],
-            'utilization_factor': 100
+            'utilization_factor': 100,
+            'ai_api_key': '',
+            'ai_endpoint': 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+            'ai_model': 'gemini-1.5-flash'
         }
 
     def load(self):

@@ -15,6 +15,7 @@ from src.infrastructure.telemetry.logger import AppLogger
 from src.utils.theme_manager import ThemeManager
 from src.core.command_bus import CommandBus
 from src.infrastructure.storage.json_workspace_repository import JsonWorkspaceRepository
+from src.infrastructure.api.ai_client import GenericLLMClient
 from src.utils.paths import get_output_dir
 
 def main():
@@ -56,10 +57,14 @@ def main():
     last_workspace_path = ThemeManager.get_last_workspace() or str(get_output_dir() / 'workspace.json')
     repository = JsonWorkspaceRepository(last_workspace_path, dispatcher)
     
+    # Initialize AI Client
+    ai_client = GenericLLMClient(context)
+    
     context.register('event_dispatcher', dispatcher)
     context.register('command_bus', command_bus)
     context.register('workspace', workspace)
     context.register('workspace_repository', repository)
+    context.register('generic_llm_client', ai_client)
     context.register('root_window', root)
 
     # 5. Initialize View and Controller with AppContext

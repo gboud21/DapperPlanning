@@ -1,11 +1,12 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import re
 from src.core.app_context import AppContext
 from src.core.events import (
     EventDispatcher, UICreateItemRequestedEvent, ModelActiveItemChangedEvent,
     AppThemeChangedEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
-    ModelWorkspaceLoadedEvent, UILabelUpdateRequestedEvent, ModelHierarchyUpdatedEvent
+    ModelWorkspaceLoadedEvent, UILabelUpdateRequestedEvent, ModelHierarchyUpdatedEvent,
+    UISaveWorkspaceRequestedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SaveItemCommand
@@ -158,10 +159,16 @@ class EditorPane:
 
         # Weight Entry
         ttk.Label(self.scrollable_frame, text="Weight:").pack(anchor=tk.W)
-        self.entry_weight = tk.Entry(self.scrollable_frame, validate='key', validatecommand=self.vcmd)
-        self.entry_weight.pack(anchor=tk.W, fill=tk.X, pady=(0, 10))
+        weight_container = ttk.Frame(self.scrollable_frame)
+        weight_container.pack(fill=tk.X, pady=(0, 10))
+        
+        self.entry_weight = tk.Entry(weight_container, validate='key', validatecommand=self.vcmd)
+        self.entry_weight.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.entry_weight.bind("<FocusOut>", self._trigger_auto_save)
         self.entry_weight.bind("<Return>", self._trigger_auto_save)
+        
+        self.btn_ai = ttk.Button(weight_container, text="AI Estimate", command=self._on_ai_estimate_clicked)
+        self.btn_ai.pack(side=tk.LEFT, padx=5)
 
         # Status Combobox
         ttk.Label(self.scrollable_frame, text="Status:").pack(anchor=tk.W)
@@ -693,6 +700,122 @@ class EditorPane:
             assignee_id=assignee_id,
             iteration_id=iteration_id
         ))
+
+    def _on_ai_estimate_clicked(self):
+        """Initiates the AI estimation process by gathering context and launching the dialog."""
+        if not self.current_selected_id:
+            messagebox.showwarning("Selection Required", "Please select a Story to estimate.")
+            return
+
+        item = self.workspace._find_item_by_id(self.current_selected_id)
+        if type(item).__name__ != 'Story':
+            messagebox.showwarning("Unsupported Item", "AI Estimation is currently only supported for Stories.")
+            return
+
+        # 1. Ask for timesheet CSV
+        csv_path = filedialog.askopenfilename(
+            title="Select Engineer Timesheet CSV",
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
+        )
+        if not csv_path:
+            return
+
+        # 2. Harvest Execution Analytics for historical stories if missing
+        # This part implements the Phase 2 requirements for CSV parsing and alignment
+        self._harvest_analytics(csv_path)
+
+        # 3. Gather historical context
+        # Find all stories that have actual_hours logged
+        historical_stories = []
+        for epic in self.workspace.get_epics():
+            for feature in epic.features:
+                for story in feature.stories:
+                    if story.actual_hours is not None:
+                        historical_stories.append(story)
+
+        # Use semantic matcher to find top 3 similar stories
+        from src.utils.semantic_matcher import get_top_similar_stories
+        new_story_text = f"{item.title} {item.description}"
+        similar_stories = get_top_similar_stories(new_story_text, historical_stories, limit=3)
+
+        # 4. Construct initial payload (few-shot)
+        # ... (rest of the logic)
+
+    def _harvest_analytics(self, csv_path):
+        """Internal helper to populate actual_hours from CSV and GitLab lifecycle events."""
+        from src.utils.ai_utils import parse_timesheet_csv
+        gitlab_client = self.context.resolve('gitlab_client')
+        
+        # Only process completed/closed stories
+        for epic in self.workspace.get_epics():
+            for feature in epic.features:
+                for story in feature.stories:
+                    if story.status in ('Done', 'Closed') and story.gitlab_id:
+                        # Fetch lifecycle events if dates missing
+                        if not story.started_at or not story.completed_at:
+                            try:
+                                # We need project_id for this. Assume stored in product or metadata
+                                # For simplicity, try to find product ID from story tags
+                                pid = None
+                                if story.products:
+                                    prod = next((p for p in self.workspace.products if p.name == story.products[0]), None)
+                                    if prod: pid = prod.gitlab_project_id
+                                
+                                if pid:
+                                    events = gitlab_client.fetch_issue_lifecycle_events(pid, story.gitlab_iid)
+                                    # Find 'started_at' (first transition to In Progress)
+                                    # and 'completed_at' (last transition to Done/Closed)
+                                    # Note: This is a simplified heuristic
+                                    for e in events:
+                                        label = e.get('label', {}).get('name', '')
+                                        if label == 'In Progress' and not story.started_at:
+                                            story.started_at = e.get('created_at')
+                                        elif label in ('Done', 'Closed'):
+                                            story.completed_at = e.get('created_at')
+                            except Exception:
+                                pass
+                        
+                        # Sum hours from CSV
+                        if story.started_at and story.completed_at:
+                            # Resolve assignee name
+                            member = self.workspace.members.get(story.assignee_id)
+                            if member:
+                                story.actual_hours = parse_timesheet_csv(
+                                    csv_path, member.name, story.started_at, story.completed_at
+                                )
+
+        # 3. Construct initial payload (few-shot)
+        # Format for Gemini v1beta 'contents'
+        system_instruction = (
+            "You are an expert software engineering effort estimator. "
+            "You will be given a description of a new Story and a few examples of historical Stories with their actual hours spent. "
+            "Your goal is to estimate the number of hours the new Story will take. "
+            "You MUST respond ONLY with a JSON object in this format: "
+            "{\"estimated_hours\": float, \"reasoning\": \"string\"}"
+        )
+        
+        messages = [
+            {"role": "user", "parts": [{"text": system_instruction}]},
+            {"role": "model", "parts": [{"text": "{\"estimated_hours\": 0, \"reasoning\": \"Understood. I will provide estimates in the requested JSON format.\"}"}]}
+        ]
+
+        example_text = "Historical Examples:\n"
+        for s in similar_stories:
+            example_text += f"- Story: {s.title}\n  Description: {s.description}\n  Actual Hours Spent: {s.actual_hours}\n\n"
+        
+        target_text = (
+            f"{example_text}\n"
+            f"New Story to Estimate:\n"
+            f"Title: {item.title}\n"
+            f"Description: {item.description}\n"
+            f"Please estimate the hours for this new story."
+        )
+        
+        messages.append({"role": "user", "parts": [{"text": target_text}]})
+
+        # 4. Launch dialog
+        from src.features.agile_planning.ai_estimation_dialog import AIEstimationDialog
+        AIEstimationDialog(self.parent.winfo_toplevel(), self.context, item.id, messages)
 
     def _on_save_clicked(self):
         """Dispatches the create request using the current selection as parent."""

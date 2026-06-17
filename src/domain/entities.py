@@ -124,6 +124,9 @@ class Story:
     gitlab_iid: Optional[int] = None
     last_synced_at: Optional[str] = None
     is_conflicted: bool = False
+    actual_hours: Optional[float] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
 
     def clone(self) -> 'Story':
         return Story(

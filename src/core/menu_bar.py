@@ -99,6 +99,11 @@ class ApplicationMenuBar(tk.Menu):
         integrations_menu.add_command(label="Sync GitLab Iterations", command=lambda: self.dispatcher.dispatch(UISyncIterationsRequestedEvent()))
         self.add_cascade(label="Integrations", menu=integrations_menu)
 
+        # AI Tools menu
+        ai_menu = tk.Menu(self, tearoff=0)
+        ai_menu.add_command(label="AI Settings...", command=self._open_ai_settings_dialog)
+        self.add_cascade(label="AI Tools", menu=ai_menu)
+
         
         # Help menu
         help_menu = tk.Menu(self, tearoff=0)
@@ -162,6 +167,10 @@ class ApplicationMenuBar(tk.Menu):
         """Handler for the Sync Push shortcut."""
         self.command_bus.execute(SyncWithGitLabCommand(sync_type='push'))
         return "break"
+
+    def _open_ai_settings_dialog(self):
+        """Opens the AI Settings dialog."""
+        AISettingsDialog(self.root, self.context)
 
     def handle_theme_change(self, event: AppThemeChangedEvent):
         """Reacts to application-wide theme changes to update menu item states."""
@@ -276,3 +285,53 @@ class ApplicationMenuBar(tk.Menu):
             self.root.attributes("-zoomed", False)
         except tk.TclError:
             pass
+
+class AISettingsDialog(tk.Toplevel):
+    def __init__(self, parent, context):
+        super().__init__(parent)
+        self.context = context
+        self.settings = context.resolve('settings_manager')
+        self.title("AI Settings")
+        self.geometry("600x250")
+        self.transient(parent)
+        self.grab_set()
+        self._setup_ui()
+
+    def _setup_ui(self):
+        main_frame = ttk.Frame(self, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # API Key
+        ttk.Label(main_frame, text="AI API Key:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.entry_key = ttk.Entry(main_frame, width=50, show="*")
+        self.entry_key.insert(0, self.settings.get('ai_api_key', ''))
+        self.entry_key.grid(row=0, column=1, sticky=tk.EW, pady=5)
+
+        # Endpoint
+        ttk.Label(main_frame, text="AI Endpoint:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.entry_endpoint = ttk.Entry(main_frame, width=50)
+        self.entry_endpoint.insert(0, self.settings.get('ai_endpoint', ''))
+        self.entry_endpoint.grid(row=1, column=1, sticky=tk.EW, pady=5)
+
+        # Model
+        ttk.Label(main_frame, text="AI Model:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.entry_model = ttk.Entry(main_frame, width=50)
+        self.entry_model.insert(0, self.settings.get('ai_model', ''))
+        self.entry_model.grid(row=2, column=1, sticky=tk.EW, pady=5)
+
+        # Buttons
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=20)
+
+        ttk.Button(btn_frame, text="Save", command=self._save).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT, padx=5)
+
+        main_frame.columnconfigure(1, weight=1)
+
+    def _save(self):
+        self.settings.set('ai_api_key', self.entry_key.get())
+        self.settings.set('ai_endpoint', self.entry_endpoint.get())
+        self.settings.set('ai_model', self.entry_model.get())
+        self.settings.save()
+        messagebox.showinfo("Success", "AI Settings saved successfully.")
+        self.destroy()

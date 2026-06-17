@@ -329,3 +329,7 @@ class GitLabClient:
     def delete_project_task(self, project_id: Union[int, str], gitlab_iid: int) -> dict:
         """Deletes a Task (Epic/Feature/Story) from the Project."""
         return self._request(f"projects/{project_id}/issues/{gitlab_iid}", method='DELETE')
+
+    def fetch_issue_lifecycle_events(self, project_id: Union[int, str], issue_iid: int) -> list[dict]:
+        """Fetches the label change events for an issue/task to track lifecycle transitions."""
+        return self._request_all(f"projects/{project_id}/issues/{issue_iid}/resource_label_events")
