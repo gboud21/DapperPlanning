@@ -162,7 +162,8 @@ class MainController:
         # Re-dispatch hierarchy update to ensure UI reflects new order/parenting
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self.workspace.get_epics(),
-            products=self.workspace.products
+            products=self.workspace.products,
+            select_id=event.item_id
         ))
         # Trigger save to persist the move
         self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())

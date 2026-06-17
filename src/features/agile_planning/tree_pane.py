@@ -257,21 +257,34 @@ class TreePane:
                 # Fallback to no filtering if syntax is bad
                 whitelist = None
 
+        # 1. Capture current expansion and selection state
         def get_all_expanded(parent=""):
-            expanded = []
+            expanded = set()
             for item in self.tree.get_children(parent):
+                # Tkinter returns 1 or True for open items
                 if self.tree.item(item, "open"):
-                    expanded.append(item)
-                expanded.extend(get_all_expanded(item))
+                    expanded.add(item)
+                    expanded.update(get_all_expanded(item))
             return expanded
         
-        all_expanded = get_all_expanded()
+        captured_expanded_iids = get_all_expanded()
+        
+        # Also track raw IDs of expanded nodes for robustness (e.g. if item moves product)
+        captured_expanded_raw_ids = set()
+        for iid in captured_expanded_iids:
+            raw_id = iid.split(":", 1)[1] if ":" in iid else iid
+            captured_expanded_raw_ids.add(raw_id)
+
+        # Capture selection/focus raw ID if not explicitly in event
+        target_select_id = event.select_id
+        if not target_select_id:
+            current_focus = self.tree.focus()
+            if current_focus:
+                target_select_id = current_focus.split(":", 1)[1] if ":" in current_focus else current_focus
         
         # Helper to find any iid matching a raw_id (prefixed or not)
         def find_iids_for_raw(raw_id):
             matches = []
-            # Check existing items before clearing (though they will be re-inserted)
-            # Actually, since we re-insert with the same strategy, we can predict iids
             if event.products:
                 for prod in event.products:
                     matches.append(f"{prod.name}:{raw_id}")
@@ -280,9 +293,12 @@ class TreePane:
                 matches.append(raw_id)
             return matches
 
+        # If explicit expand_id provided, add its potential IIDs to expansion set
         if event.expand_id:
-            all_expanded.extend(find_iids_for_raw(event.expand_id))
+            for iid in find_iids_for_raw(event.expand_id):
+                captured_expanded_iids.add(iid)
 
+        # 2. Re-populate the tree
         for item in self.tree.get_children():
             self.tree.delete(item)
             
@@ -319,17 +335,28 @@ class TreePane:
             if root_items:
                 self._populate_nodes("", root_items, whitelist=whitelist)
             
-        # Restore expansion
-        for iid in all_expanded:
+        # 3. Restore expansion state
+        # First pass: direct IID match
+        for iid in captured_expanded_iids:
             if self.tree.exists(iid):
                 self.tree.item(iid, open=True)
+        
+        # Second pass: raw ID match (ensures moved items stay expanded)
+        if captured_expanded_raw_ids:
+            def expand_by_raw(parent=""):
+                for item in self.tree.get_children(parent):
+                    raw_id = item.split(":", 1)[1] if ":" in item else item
+                    if raw_id in captured_expanded_raw_ids:
+                        self.tree.item(item, open=True)
+                    expand_by_raw(item)
+            expand_by_raw()
 
-        # Restore selection (checking all potential prefixed iids)
-        if event.select_id:
-            for potential_iid in find_iids_for_raw(event.select_id):
+        # 4. Restore selection/focus (checking all potential prefixed iids)
+        if target_select_id:
+            for potential_iid in find_iids_for_raw(target_select_id):
                 if self.tree.exists(potential_iid):
                     self.tree.selection_set(potential_iid)
-                    self.tree.see(potential_iid)
+                    self.tree.see(potential_iid) # Also expands ancestors!
                     self.tree.focus(potential_iid)
                     break
 

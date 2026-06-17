@@ -171,5 +171,7 @@ class EditorController:
             # Trigger refresh and expand the parent
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                 root_items=self.workspace.get_epics(),
-                expand_id=event.parent_id
+                products=self.workspace.products,
+                expand_id=event.parent_id,
+                select_id=new_id
             ))

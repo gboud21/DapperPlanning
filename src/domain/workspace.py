@@ -291,7 +291,8 @@ class Workspace:
         # Notify the rest of the application that the data has changed
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self._epics,
-            products=self._products
+            products=self._products,
+            select_id=epic.id
         ))
 
     def update_item_details(self, item_id: str, title: str, description: str, products: List[str] = None, capabilities: List[str] = None, labels: List[str] = None) -> None:
@@ -319,7 +320,8 @@ class Workspace:
                 item.labels = labels
             self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
                 root_items=self._epics,
-                products=self._products
+                products=self._products,
+                select_id=item_id
             ))
 
     def delete_item(self, item_id: str) -> None:
@@ -418,7 +420,8 @@ class Workspace:
         
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self._epics,
-            products=self._products
+            products=self._products,
+            select_id=feature_id
         ))
 
     def move_story(self, story_id: str, new_feature_id: str) -> None:
@@ -446,7 +449,8 @@ class Workspace:
         
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self._epics,
-            products=self._products
+            products=self._products,
+            select_id=story_id
         ))
 
     def split_story(self, story_id: str, orig_new_weight: float, clone_new_weight: float, split_desc: str) -> None:
@@ -505,7 +509,8 @@ class Workspace:
         
         self.dispatcher.dispatch(ModelHierarchyUpdatedEvent(
             root_items=self._epics,
-            products=self._products
+            products=self._products,
+            select_id=story_id
         ))
 
     def _find_parent(self, item_id: str) -> Optional[Any]:
