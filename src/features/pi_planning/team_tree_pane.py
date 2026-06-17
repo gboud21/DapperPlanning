@@ -56,6 +56,14 @@ class TeamTreePane(ttk.Frame):
         self.list_frame = ttk.LabelFrame(self.paned, text="GitLab Sync Directory")
         self.paned.add(self.list_frame, weight=LIST_FRAME_WEIGHT)
 
+        # Filter Entry
+        filter_frame = ttk.Frame(self.list_frame)
+        filter_frame.pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(filter_frame, text="Filter:").pack(side=tk.LEFT)
+        self.entry_filter = tk.Entry(filter_frame)
+        self.entry_filter.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.entry_filter.bind("<KeyRelease>", lambda e: self._apply_member_filter())
+
         self.list_scroll = ttk.Scrollbar(self.list_frame, orient=tk.VERTICAL)
         self.list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -211,6 +219,9 @@ class TeamTreePane(ttk.Frame):
 
     def refresh(self, event=None):
         """Re-populates the tree and member list while preserving expanded state."""
+        # Clear filter entry on full refresh
+        self.entry_filter.delete(0, tk.END)
+
         # 1. Save current expansion state
         def get_all_expanded(parent=""):
             expanded = []
@@ -253,13 +264,32 @@ class TeamTreePane(ttk.Frame):
                 self.tree.item(iid, open=True)
 
         # 4. Update Member List
+        self._apply_member_filter()
+
+    def _apply_member_filter(self):
+        """Updates the listbox based on the current filter text (Name and ID)."""
+        filter_text = self.entry_filter.get().lower().strip()
         self.listbox.delete(0, tk.END)
+        
         for member in sorted(self.workspace.get_members(), key=lambda m: m.name):
-            self.listbox.insert(tk.END, f"({member.id}) {member.name}")
+            display_str = f"({member.id}) {member.name}"
+            if not filter_text or filter_text in display_str.lower():
+                self.listbox.insert(tk.END, display_str)
 
     def _handle_theme_change(self, event: AppThemeChangedEvent):
         from src.utils.theme_manager import ThemeManager
         palette = ThemeManager.DARK_PALETTE if event.is_dark else ThemeManager.LIGHT_PALETTE
+        cursor_color = 'white' if event.is_dark else 'black'
+
+        self.entry_filter.configure(
+            bg=palette['field_bg'],
+            fg=palette['fg'],
+            insertbackground=cursor_color,
+            highlightthickness=1,
+            highlightbackground=palette['bg'],
+            highlightcolor=palette['highlight'],
+            borderwidth=0
+        )
         
         self.listbox.configure(
             bg=palette['field_bg'],
