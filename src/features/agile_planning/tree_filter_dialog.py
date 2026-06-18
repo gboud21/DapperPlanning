@@ -130,6 +130,9 @@ class TreeFilterDialog(tk.Toplevel):
         button_frame = ttk.Frame(self.main_frame)
         button_frame.pack(fill=tk.X)
         
+        # Action Buttons
+        ttk.Button(button_frame, text="Clear", command=self._on_clear_clicked).pack(side=tk.LEFT, padx=5)
+        
         # Help Button - Positioned in the bottom right
         btn_help = ttk.Button(button_frame, text="?", width=3, command=self._on_help_clicked)
         btn_help.pack(side=tk.RIGHT, padx=5)
@@ -142,6 +145,11 @@ class TreeFilterDialog(tk.Toplevel):
     def _on_help_clicked(self):
         """Mounts and displays the syntax reference information sheet helper window."""
         QueryHelpDialog(self)
+
+    def _on_clear_clicked(self):
+        """Removes all text from the query console and triggers re-validation."""
+        self.txt_query.delete("1.0", tk.END)
+        self._on_query_text_mutated(None)
 
     def _on_query_text_mutated(self, event):
         if event and event.keysym in ("Tab", "Return", "Up", "Down", "Escape"):
