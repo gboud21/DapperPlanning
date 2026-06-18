@@ -129,11 +129,8 @@ class ApplicationMenuBar(tk.Menu):
         
         # Global Keyboard Shortcuts - Normalized to lowercase for cross-platform stability
         self.root.bind_all('<Control-n>', self._on_new_shortcut)
-        self.root.bind_all('<Command-n>', self._on_new_shortcut)  # macOS
         self.root.bind_all('<Control-o>', self._on_open_shortcut)
-        self.root.bind_all('<Command-o>', self._on_open_shortcut)  # macOS
         self.root.bind_all('<Control-s>', self._on_save_shortcut)
-        self.root.bind_all('<Command-s>', self._on_save_shortcut)  # macOS
         
         # Sync Shortcuts - Using explicit Shift modifier syntax
         self.root.bind_all('<Control-Shift-l>', self._on_pull_shortcut)

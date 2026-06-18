@@ -31,9 +31,9 @@ class ModifyIterationViewDialog(tk.Toplevel):
         left_frame = ttk.Frame(main_frame)
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         ttk.Label(left_frame, text="Displayed Iterations").pack(anchor=tk.W)
-        self.list_displayed = tk.Listbox(left_frame, exportselection=False)
+        self.list_displayed = tk.Listbox(left_frame, exportselection=False, selectmode=tk.EXTENDED)
         self.list_displayed.pack(fill=tk.BOTH, expand=True)
-        self.list_displayed.bind("<Double-Button-1>", lambda e: self._move_to_hidden())
+        self.list_displayed.bind("<Double-Button-1>", self._on_double_click_displayed)
 
         # Middle Buttons Column
         mid_frame = ttk.Frame(main_frame, padding=10)
@@ -45,9 +45,9 @@ class ModifyIterationViewDialog(tk.Toplevel):
         right_frame = ttk.Frame(main_frame)
         right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         ttk.Label(right_frame, text="Hidden Iterations").pack(anchor=tk.W)
-        self.list_hidden = tk.Listbox(right_frame, exportselection=False)
+        self.list_hidden = tk.Listbox(right_frame, exportselection=False, selectmode=tk.EXTENDED)
         self.list_hidden.pack(fill=tk.BOTH, expand=True)
-        self.list_hidden.bind("<Double-Button-1>", lambda e: self._move_to_displayed())
+        self.list_hidden.bind("<Double-Button-1>", self._on_double_click_hidden)
 
         # Bottom Actions Bar
         btn_frame = ttk.Frame(self, padding=10)
@@ -66,18 +66,31 @@ class ModifyIterationViewDialog(tk.Toplevel):
         for item in self.hidden_items: self.list_hidden.insert(tk.END, item.title)
 
     def _move_to_hidden(self):
-        idx = self.list_displayed.curselection()
-        if idx:
-            item = self.displayed_items.pop(idx[0])
-            self.hidden_items.append(item)
-            self._populate_lists()
+        indices = self.list_displayed.curselection()
+        if indices:
+            self._move_items(self.displayed_items, self.hidden_items, indices)
 
     def _move_to_displayed(self):
-        idx = self.list_hidden.curselection()
-        if idx:
-            item = self.hidden_items.pop(idx[0])
-            self.displayed_items.append(item)
-            self._populate_lists()
+        indices = self.list_hidden.curselection()
+        if indices:
+            self._move_items(self.hidden_items, self.displayed_items, indices)
+
+    def _on_double_click_displayed(self, event):
+        idx = self.list_displayed.nearest(event.y)
+        if idx >= 0:
+            self._move_items(self.displayed_items, self.hidden_items, [idx])
+
+    def _on_double_click_hidden(self, event):
+        idx = self.list_hidden.nearest(event.y)
+        if idx >= 0:
+            self._move_items(self.hidden_items, self.displayed_items, [idx])
+
+    def _move_items(self, source_list, target_list, indices):
+        # Sort indices in reverse to pop without affecting subsequent indices
+        for idx in sorted(indices, reverse=True):
+            item = source_list.pop(idx)
+            target_list.append(item)
+        self._populate_lists()
 
     def _on_apply(self):
         # Update backing array structures only on Apply selection
