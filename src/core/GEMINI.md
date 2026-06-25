@@ -17,3 +17,9 @@ Defined in `src.core.events`:
 ## Rules for Core
 - Do not add business-specific logic here; core must remain domain-agnostic.
 - The `EventDispatcher` is the only component that should handle Tkinter's `.after()` for thread-safe cross-thread communication.
+
+## Sub-Agent Instructions & Testing
+- **Local Hard Stops**:
+  - UI components (like `MainWindow`) MUST NOT import `src.domain`. Communicate state changes purely via events or commands.
+- **Testing Targets**:
+  - Add or update tests in `tests/unit/core/` (e.g. `test_events.py`, `test_constants.py`) BEFORE modifying logic in `src/core/`.
