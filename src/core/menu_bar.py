@@ -91,6 +91,9 @@ class ApplicationMenuBar(tk.Menu):
         integrations_menu.add_command(label="Push to GitLab", 
                                      command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='push')),
                                      accelerator="Ctrl+Shift+P")
+        integrations_menu.add_command(label="Dry-Push to GitLab", 
+                                     command=lambda: self.command_bus.execute(SyncWithGitLabCommand(sync_type='dry-push')),
+                                     accelerator="Ctrl+Shift+D")
         integrations_menu.add_separator()
         integrations_menu.add_command(label="Integrations Settings...", command=lambda: self.dispatcher.dispatch(UIIntegrationsDialogOpenRequestedEvent()))
         integrations_menu.add_separator()
@@ -135,6 +138,7 @@ class ApplicationMenuBar(tk.Menu):
         # Sync Shortcuts - Using explicit Shift modifier syntax
         self.root.bind_all('<Control-Shift-l>', self._on_pull_shortcut)
         self.root.bind_all('<Control-Shift-p>', self._on_push_shortcut)
+        self.root.bind_all('<Control-Shift-d>', self._on_dry_push_shortcut)
 
     def _on_new_shortcut(self, event):
         """Handler for the New Workspace shortcut."""
@@ -159,6 +163,11 @@ class ApplicationMenuBar(tk.Menu):
     def _on_push_shortcut(self, event):
         """Handler for the Sync Push shortcut."""
         self.command_bus.execute(SyncWithGitLabCommand(sync_type='push'))
+        return "break"
+
+    def _on_dry_push_shortcut(self, event):
+        """Handler for the Sync Dry-Push shortcut."""
+        self.command_bus.execute(SyncWithGitLabCommand(sync_type='dry-push'))
         return "break"
 
     def _on_sync_all_meta(self):

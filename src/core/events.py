@@ -293,6 +293,15 @@ class ModelConflictDetectedEvent(Event):
     remote_item: Optional[Any] = None
 
 
+@dataclass
+class ModelDryPushCompletedEvent(Event):
+    creations: int
+    updates: int
+    conflicts: int
+    deletions: int
+    report_path: str
+
+
 # --- 3. SYSTEM INTERRUPT EVENTS (App-wide lifecycle & errors) ---
 
 @dataclass
@@ -359,6 +368,7 @@ class Notifications:
     SYNC_PROGRESS = ModelSyncProgressEvent
     SYNC_ERROR = ModelSyncErrorEvent
     CONFLICT_DETECTED = ModelConflictDetectedEvent
+    DRY_PUSH_COMPLETED = ModelDryPushCompletedEvent
 
 class System:
     """Namespace for Application-wide Interrupts and Core Events."""
@@ -387,7 +397,7 @@ class EventDispatcher:
 
     def dispatch(self, event: Event) -> None:
         """
-        Dispatches an event to all registered listeners.
+         Dispatches an event to all registered listeners.
         Includes runtime telemetry for thread-safety validation.
         """
         event_type = type(event)
@@ -426,7 +436,7 @@ __all__ = [
     'UICreateItemRequestedEvent', 'UIThemeToggleRequestedEvent', 'UIWindowStateChangedEvent',
     'UIGlobalTagAddRequestedEvent', 'UIGlobalTagDeleteRequestedEvent',
     'ModelActiveItemChangedEvent', 'ModelHierarchyUpdatedEvent', 'ModelWorkspaceLoadedEvent',
-    'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'AppThemeChangedEvent',
+    'ModelSyncProgressEvent', 'ModelSyncErrorEvent', 'ModelConflictDetectedEvent', 'ModelDryPushCompletedEvent', 'AppThemeChangedEvent',
     'UIErrorNotificationEvent', 'TreeFilterRule', 'UITreeFilterAppliedEvent', 'UIAppViewChangedEvent',
     'UIPiPlannerTreeSelectionChangedEvent', 'UIPiPlannerCellSelectedEvent', 'UIUpdateCapacityMetricsRequestedEvent'
 ]

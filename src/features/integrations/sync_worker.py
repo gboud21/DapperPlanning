@@ -1,12 +1,14 @@
 import threading
 import time
 import json
+import os
 from datetime import datetime
 from dataclasses import asdict
 from src.core.app_context import AppContext
 from src.core.events import (
     ModelSyncProgressEvent, ModelSyncErrorEvent, ModelConflictDetectedEvent, 
-    UIConflictResolvedEvent, ModelHierarchyUpdatedEvent, UISaveWorkspaceRequestedEvent
+    UIConflictResolvedEvent, ModelHierarchyUpdatedEvent, UISaveWorkspaceRequestedEvent,
+    ModelDryPushCompletedEvent
 )
 from src.domain.entities import Epic, Feature, Story, Team, Member, Label, Iteration
 from src.infrastructure.storage.transformers import GitLabTransformer
@@ -66,6 +68,8 @@ class SyncWorker(threading.Thread):
                 self._execute_pull()
             elif self.sync_type == 'push':
                 self._execute_push()
+            elif self.sync_type == 'dry-push':
+                self._execute_dry_push()
             elif self.sync_type == 'members':
                 self._execute_member_sync()
             elif self.sync_type == 'labels':
@@ -620,3 +624,147 @@ class SyncWorker(threading.Thread):
 
         self._safe_dispatch(UISaveWorkspaceRequestedEvent())
         self._safe_dispatch(ModelSyncProgressEvent(message="Iteration Sync Complete!", percent=100))
+
+    def _execute_dry_push(self):
+        """Simulates a push to GitLab without mutating domain model flags or modifying server state."""
+        logger.info("Executing GitLab Dry-Push Simulation...")
+        self._safe_dispatch(ModelSyncProgressEvent(message="Pre-fetching remote state...", percent=5))
+        
+        # 1. Resolve active product and ensure configuration exists
+        active_product_name = self.workspace.active_product_name
+        product_entity = next((p for p in self.workspace.products if p.name == active_product_name), None)
+        if not product_entity or not product_entity.gitlab_project_id:
+             from src.infrastructure.api.gitlab_client import GitLabBaseError
+             raise GitLabBaseError("Missing Project ID", f"Product '{active_product_name}' must have a GitLab Project ID configured.")
+
+        # 2. Fetch remote data (simulate push by comparing against fresh remote fetch)
+        remote_epics = self.gitlab_client.fetch_group_epics(product_entity.gitlab_group_id)
+        remote_issues = self.gitlab_client.fetch_project_issues(product_entity.gitlab_project_id)
+        
+        transformer = GitLabTransformer()
+        settings = self.context.resolve('settings_manager')
+        legacy_enabled = settings.get('legacy_status_enabled', False)
+        mappings = settings.get('status_label_mappings', {})
+        epic_label = self.gitlab_client.epic_sync_label
+        feature_label = self.gitlab_client.feature_sync_label
+
+        transformation_result = transformer.transform_pull_data(epic_label, feature_label, remote_epics, remote_issues, legacy_enabled=legacy_enabled, mappings=mappings)
+        remote_data = transformation_result['root_epics']
+        
+        # Populate remote cache in controller (matching normal push behavior)
+        integrations_controller = self.context.resolve('integrations_controller')
+        integrations_controller.remote_data_cache = {}
+        
+        # Flatten remote data for easy lookup
+        remote_lookup = {}
+        def _collect_remote(items):
+            for i in items:
+                remote_lookup[i.gitlab_id] = i
+                integrations_controller.remote_data_cache[i.gitlab_id] = i
+                if hasattr(i, 'features'): _collect_remote(i.features)
+                if hasattr(i, 'stories'): _collect_remote(i.stories)
+        _collect_remote(remote_data)
+
+        # 3. Categorize changes
+        creations_list = []
+        updates_list = []
+        conflicts_list = []
+        deletions_list = []
+
+        self._safe_dispatch(ModelSyncProgressEvent(message="Analyzing differences...", percent=50))
+        for local_item in self.workspace.all_items_iterable():
+            if not local_item.gitlab_id:
+                creations_list.append(local_item)
+                continue
+                
+            shadow_copy = self.workspace.shadow_hierarchy.get(local_item.id)
+            remote_copy_obj = remote_lookup.get(local_item.gitlab_id)
+            
+            if shadow_copy and remote_copy_obj:
+                remote_copy_dict = asdict(remote_copy_obj)
+                local_item_dict = asdict(local_item)
+                
+                has_remote_changed = self._check_diff(shadow_copy, remote_copy_dict)
+                has_local_changed = self._check_diff(shadow_copy, local_item_dict)
+                
+                if has_remote_changed and has_local_changed:
+                    conflicts_list.append(local_item)
+                elif has_local_changed:
+                    updates_list.append(local_item)
+            else:
+                if self._has_local_changes(local_item):
+                    updates_list.append(local_item)
+
+        # Populate deletions list from workspace.deleted_remote_items
+        for item in self.workspace.deleted_remote_items:
+            deletions_list.append(item)
+
+        # 4. Generate markdown report
+        report_dir = os.path.dirname(self.workspace.current_filepath) if self.workspace.current_filepath else os.getcwd()
+        report_path = os.path.join(report_dir, 'gitlab_dry_push_report.md')
+        
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Prepare content lists
+        def format_item(item):
+            return f"- **{item.__class__.__name__}**: {item.title} (ID: {item.id})"
+            
+        def format_deleted(item):
+            return f"- **{item['type'].capitalize()}**: (GitLab IID: {item['iid']}, GitLab ID: {item['id']})"
+            
+        creations_str = "\n".join(format_item(i) for i in creations_list) or "*None*"
+        updates_str = "\n".join(format_item(i) for i in updates_list) or "*None*"
+        conflicts_str = "\n".join(format_item(i) for i in conflicts_list) or "*None*"
+        deletions_str = "\n".join(format_deleted(i) for i in deletions_list) or "*None*"
+        
+        if len(conflicts_list) > 0:
+            alert_status = (
+                "> [!WARNING]\n"
+                "> **Conflicts detected!** A normal push will be blocked. "
+                "Please resolve the conflicts before pushing."
+            )
+        else:
+            alert_status = (
+                "> [!NOTE]\n"
+                "> Dry-push simulated successfully. No conflicts found."
+            )
+
+        report_content = f"""# GitLab Dry-Push Simulation Report
+
+Generated on: {timestamp}
+
+## Summary of Changes
+- **Creations:** {len(creations_list)}
+- **Updates:** {len(updates_list)}
+- **Conflicts:** {len(conflicts_list)}
+- **Deletions:** {len(deletions_list)}
+
+{alert_status}
+
+## Detailed Log
+
+### Creations ({len(creations_list)})
+{creations_str}
+
+### Updates ({len(updates_list)})
+{updates_str}
+
+### Conflicts ({len(conflicts_list)})
+{conflicts_str}
+
+### Deletions ({len(deletions_list)})
+{deletions_str}
+"""
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(report_content)
+            
+        self._safe_dispatch(ModelSyncProgressEvent(message="Report generated.", percent=95))
+        
+        # 5. Dispatch completion event
+        self._safe_dispatch(ModelDryPushCompletedEvent(
+            creations=len(creations_list),
+            updates=len(updates_list),
+            conflicts=len(conflicts_list),
+            deletions=len(deletions_list),
+            report_path=report_path
+        ))

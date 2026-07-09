@@ -6,7 +6,8 @@ from src.core.events import (
     EventDispatcher, UIIntegrationsDialogOpenRequestedEvent, UIIntegrationsSaveRequestedEvent,
     UIErrorNotificationEvent, UIGlobalTagAddRequestedEvent, UIGlobalTagDeleteRequestedEvent,
     ModelConflictDetectedEvent, ModelSyncErrorEvent, ModelHierarchyUpdatedEvent, ModelWorkspaceLoadedEvent,
-    UISyncMembersRequestedEvent, UISyncLabelsRequestedEvent, UISyncIterationsRequestedEvent
+    UISyncMembersRequestedEvent, UISyncLabelsRequestedEvent, UISyncIterationsRequestedEvent,
+    ModelDryPushCompletedEvent
 )
 from src.core.command_bus import CommandBus
 from src.core.commands import SyncWithGitLabCommand
@@ -16,6 +17,7 @@ from src.features.integrations.sync_progress_modal import SyncProgressModal
 from src.features.integrations.sync_error_modal import SyncErrorModal
 from src.features.integrations.conflict_resolution_modal import ConflictResolutionModal
 from src.features.integrations.sync_worker import SyncWorker
+from src.features.integrations.dry_push_summary_modal import DryPushSummaryModal
 from src.infrastructure.api.gitlab_client import GitLabClient
 from src.infrastructure.storage.settings_manager import SettingsManager
 
@@ -52,6 +54,7 @@ class IntegrationsController:
         self.dispatcher.subscribe(UISyncMembersRequestedEvent, self.handle_sync_members)
         self.dispatcher.subscribe(UISyncLabelsRequestedEvent, self.handle_sync_labels)
         self.dispatcher.subscribe(UISyncIterationsRequestedEvent, self.handle_sync_iterations)
+        self.dispatcher.subscribe(ModelDryPushCompletedEvent, self.handle_dry_push_completed)
 
     def _register_commands(self):
         """Registers handlers for integration-related commands."""
@@ -272,3 +275,18 @@ class IntegrationsController:
             root_items=self.workspace.get_epics(),
             products=self.workspace.products
         ))
+
+    def handle_dry_push_completed(self, event: ModelDryPushCompletedEvent):
+        """Closes the progress modal and displays the dry push summary modal."""
+        if self.progress_modal and self.progress_modal.winfo_exists():
+            self.progress_modal.destroy()
+            self.progress_modal = None
+            
+        DryPushSummaryModal(
+            self.root,
+            event.creations,
+            event.updates,
+            event.conflicts,
+            event.deletions,
+            event.report_path
+        )

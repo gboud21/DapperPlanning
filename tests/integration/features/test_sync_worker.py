@@ -221,3 +221,137 @@ def test_worker_pushes_new_labels_before_items(sync_setup, mocker):
     assert epic_call_index != -1
     assert label_call_index < epic_call_index
     assert new_label.id == 777
+
+def test_sync_worker_dry_push(sync_setup, tmp_path, mocker):
+    """Verifies that dry-push simulation correctly identifies creations, updates, conflicts, and deletions, without mutating the workspace models."""
+    context, workspace, mock_client, dispatcher, mock_settings = sync_setup
+    
+    # 1. Configure Workspace
+    workspace.active_product_name = "DapperPlanning"
+    product = Product(name="DapperPlanning")
+    product.gitlab_project_id = "888"
+    product.gitlab_group_id = "999"
+    workspace.products = [product]
+    
+    # Set workspace current filepath so report is written to tmp_path
+    workspace.current_filepath = str(tmp_path / "workspace.json")
+    
+    # 2. Setup mock client response for fetch
+    mock_client.base_url = "https://fake.gitlab.com"
+    mock_client.group_id = "999"
+    mock_client.project_id = "888"
+    mock_client.headers = {"PRIVATE-TOKEN": "fake_token"}
+    mock_client.epic_sync_label = "Epic"
+    mock_client.feature_sync_label = "Feature"
+    
+    # Create domain items
+    # - Local Creation (no gitlab_id)
+    new_epic = Epic(id="local-epic-1", title="New Local Epic", description="Desc")
+    new_epic.gitlab_id = None
+    
+    # - Local Update (has gitlab_id, has local changes, no remote changes)
+    update_epic = Epic(id="local-epic-2", title="Updated Epic", description="Local Desc")
+    update_epic.gitlab_id = 200
+    
+    # - Local Conflict (has gitlab_id, has local and remote changes)
+    conflict_epic = Epic(id="local-epic-3", title="Conflict Epic Local", description="Local Desc")
+    conflict_epic.gitlab_id = 300
+    conflict_epic.is_conflicted = False # starts false
+    
+    # - Deleted item (tracked in deleted_remote_items)
+    workspace.deleted_remote_items = [
+        {'type': 'story', 'id': 400, 'iid': 4, 'project_id': 888, 'group_id': 999}
+    ]
+    
+    # Setup shadow hierarchy (ancestors)
+    workspace.shadow_hierarchy = {
+        "local-epic-2": {
+            "id": "local-epic-2",
+            "title": "Updated Epic Original",
+            "description": "Original Desc",
+            "labels": [],
+            "products": [],
+            "capabilities": [],
+            "gitlab_id": 200,
+            "gitlab_iid": 2,
+            "last_synced_at": None,
+            "is_conflicted": False
+        },
+        "local-epic-3": {
+            "id": "local-epic-3",
+            "title": "Conflict Epic Original",
+            "description": "Original Desc",
+            "labels": [],
+            "products": [],
+            "capabilities": [],
+            "gitlab_id": 300,
+            "gitlab_iid": 3,
+            "last_synced_at": None,
+            "is_conflicted": False
+        }
+    }
+    
+    # Setup workspace all_items_iterable
+    workspace.get_epics.return_value = [new_epic, update_epic, conflict_epic]
+    workspace.all_items_iterable.return_value = [new_epic, update_epic, conflict_epic]
+    
+    # Setup remote data returning from GitLab API
+    # remote epic 2: same as shadow (no remote changes)
+    remote_epic_2 = {"id": 200, "iid": 2, "title": "Updated Epic Original", "description": "Original Desc", "labels": [], "parent_id": None}
+    # remote epic 3: different from shadow (remote changes)
+    remote_epic_3 = {"id": 300, "iid": 3, "title": "Conflict Epic Remote", "description": "Remote Desc", "labels": [], "parent_id": None}
+    
+    mock_client.fetch_group_epics.return_value = [remote_epic_2, remote_epic_3]
+    mock_client.fetch_project_issues.return_value = []
+    
+    # We also mock integrations_controller.remote_data_cache
+    mock_controller = context.resolve('integrations_controller')
+    mock_controller.remote_data_cache = {}
+    
+    # Mock settings
+    mock_settings.get.side_effect = lambda key, default=None: {
+        'legacy_status_enabled': False,
+        'status_label_mappings': {}
+    }.get(key, default)
+    
+    # 3. Instantiate and run dry-push
+    worker = SyncWorker(context, sync_type="dry-push")
+    worker._execute_dry_push()
+    
+    # 4. Verify results
+    # - Model conflict flag should NOT be mutated
+    assert conflict_epic.is_conflicted is False
+    
+    # - Report should exist and contain the counts
+    report_file = tmp_path / "gitlab_dry_push_report.md"
+    assert report_file.exists()
+    content = report_file.read_text()
+    
+    assert "Creations:** 1" in content
+    assert "Updates:** 1" in content
+    assert "Conflicts:** 1" in content
+    assert "Deletions:** 1" in content
+    assert "New Local Epic" in content
+    assert "Updated Epic" in content
+    assert "Conflict Epic Local" in content
+    
+    # - ModelDryPushCompletedEvent should be dispatched
+    from src.core.events import ModelDryPushCompletedEvent
+    
+    # Verify event dispatch
+    dispatcher.dispatch.assert_any_call(mocker.ANY)
+    # Find the specific ModelDryPushCompletedEvent call
+    completed_event = None
+    for call in dispatcher.dispatch.mock_calls:
+        args = call[1]
+        if args and isinstance(args[0], ModelDryPushCompletedEvent):
+            completed_event = args[0]
+            break
+            
+    assert completed_event is not None
+    assert completed_event.creations == 1
+    assert completed_event.updates == 1
+    assert completed_event.conflicts == 1
+    assert completed_event.deletions == 1
+    assert completed_event.report_path == str(report_file)
+
