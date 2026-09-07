@@ -3,15 +3,27 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-    // Workspace Persistence Commands
+    // Workspace File Commands
+    NewWorkspace,
     LoadWorkspace {
         path: PathBuf,
     },
     SaveWorkspace {
         path: PathBuf,
     },
+    SaveWorkspaceAs {
+        path: PathBuf,
+    },
+    ImportWorkspace {
+        path: PathBuf,
+        format: String,
+    },
+    ExportWorkspace {
+        path: PathBuf,
+        format: String,
+    },
 
-    // Backlog Domain Mutations
+    // Backlog Domain Mutations & Edit Operations
     CreateEpic {
         epic: Epic,
     },
@@ -28,6 +40,13 @@ pub enum Command {
     },
     DeleteStory {
         story_id: String,
+    },
+    CloneStory {
+        story_id: String,
+    },
+    SplitStory {
+        story_id: String,
+        split_weight: f64,
     },
     ReparentStory {
         story_id: String,

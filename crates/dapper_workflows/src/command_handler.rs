@@ -1,5 +1,6 @@
 use crate::sync_worker::SyncWorker;
 use dapper_core::{AppContext, Command, Event};
+use dapper_domain::{Story, Workspace};
 use dapper_gitlab::ReqwestGitLabClient;
 use dapper_persistence::{JsonWorkspaceRepository, WorkspaceRepository};
 use std::sync::Arc;
@@ -41,6 +42,17 @@ impl CommandHandlerLoop {
 
     async fn process_command(&self, command: Command) -> Result<(), anyhow::Error> {
         match command {
+            Command::NewWorkspace => {
+                let empty_ws = Workspace::new();
+                let ws_arc = Arc::new(empty_ws.clone());
+                {
+                    let mut ws = self.app_context.workspace.write().await;
+                    *ws = empty_ws;
+                }
+                let _ = self.app_context.event_dispatcher.dispatch(Event::WorkspaceLoaded {
+                    workspace: ws_arc,
+                });
+            }
             Command::LoadWorkspace { path } => {
                 let loaded_ws = self.repository.load_from_file(&path)?;
                 let ws_arc = Arc::new(loaded_ws.clone());
@@ -52,7 +64,25 @@ impl CommandHandlerLoop {
                     workspace: ws_arc,
                 });
             }
-            Command::SaveWorkspace { path } => {
+            Command::SaveWorkspace { path } | Command::SaveWorkspaceAs { path } => {
+                let ws = self.app_context.workspace.read().await;
+                self.repository.save_to_file(&ws, &path)?;
+                let _ = self.app_context.event_dispatcher.dispatch(Event::WorkspaceSaved {
+                    path: path.to_string_lossy().to_string(),
+                });
+            }
+            Command::ImportWorkspace { path, format: _ } => {
+                let loaded_ws = self.repository.load_from_file(&path)?;
+                let ws_arc = Arc::new(loaded_ws.clone());
+                {
+                    let mut ws = self.app_context.workspace.write().await;
+                    *ws = loaded_ws;
+                }
+                let _ = self.app_context.event_dispatcher.dispatch(Event::WorkspaceLoaded {
+                    workspace: ws_arc,
+                });
+            }
+            Command::ExportWorkspace { path, format: _ } => {
                 let ws = self.app_context.workspace.read().await;
                 self.repository.save_to_file(&ws, &path)?;
                 let _ = self.app_context.event_dispatcher.dispatch(Event::WorkspaceSaved {
@@ -99,6 +129,84 @@ impl CommandHandlerLoop {
                 let _ = self.app_context.event_dispatcher.dispatch(Event::StoryDeleted {
                     story_id,
                 });
+            }
+            Command::CloneStory { story_id } => {
+                let mut ws = self.app_context.workspace.write().await;
+                let mut cloned_story: Option<(String, Story)> = None;
+
+                for epic in &mut ws.epics {
+                    for feature in &mut epic.features {
+                        for s in &feature.stories {
+                            if s.id == story_id {
+                                let mut clone = s.clone();
+                                clone.id = format!("{}-clone", s.id);
+                                clone.title = format!("{} (Copy)", s.title);
+                                clone.gitlab_id = None;
+                                clone.gitlab_iid = None;
+                                cloned_story = Some((feature.id.clone(), clone));
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if let Some((parent_feat_id, clone)) = cloned_story {
+                    let new_id = clone.id.clone();
+                    'outer_clone: for epic in &mut ws.epics {
+                        for feature in &mut epic.features {
+                            if feature.id == parent_feat_id {
+                                feature.stories.push(clone);
+                                break 'outer_clone;
+                            }
+                        }
+                    }
+                    let _ = self.app_context.event_dispatcher.dispatch(Event::StoryCreated {
+                        story_id: new_id,
+                    });
+                }
+            }
+            Command::SplitStory { story_id, split_weight } => {
+                let mut ws = self.app_context.workspace.write().await;
+                let mut split_result: Option<(String, Story, Story)> = None;
+
+                for epic in &mut ws.epics {
+                    for feature in &mut epic.features {
+                        for s in &mut feature.stories {
+                            if s.id == story_id {
+                                s.weight = (s.weight - split_weight).max(0.0);
+                                let mut part2 = s.clone();
+                                part2.id = format!("{}-part2", s.id);
+                                part2.title = format!("{} (Part 2)", s.title);
+                                part2.weight = split_weight;
+                                part2.gitlab_id = None;
+                                part2.gitlab_iid = None;
+                                split_result = Some((feature.id.clone(), s.clone(), part2));
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if let Some((parent_feat_id, orig, part2)) = split_result {
+                    let orig_id = orig.id.clone();
+                    let part2_id = part2.id.clone();
+
+                    'outer_split: for epic in &mut ws.epics {
+                        for feature in &mut epic.features {
+                            if feature.id == parent_feat_id {
+                                feature.stories.push(part2);
+                                break 'outer_split;
+                            }
+                        }
+                    }
+
+                    let _ = self.app_context.event_dispatcher.dispatch(Event::StoryUpdated {
+                        story_id: orig_id,
+                    });
+                    let _ = self.app_context.event_dispatcher.dispatch(Event::StoryCreated {
+                        story_id: part2_id,
+                    });
+                }
             }
             Command::TriggerGitLabPull => {
                 let _ = self.sync_worker.execute_pull(0).await;

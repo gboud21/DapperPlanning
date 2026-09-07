@@ -1,8 +1,8 @@
 use async_trait::async_trait;
-use dapper_core::{AppContext, CommandBus, Event, EventDispatcher};
+use dapper_core::{AppContext, Command, CommandBus, Event, EventDispatcher};
 use dapper_domain::{Epic, Feature, Iteration, Label, Member, Story, Workspace};
 use dapper_gitlab::{GitLabClientTrait, GitLabError};
-use dapper_workflows::{ConflictEngine, DryPushEngine, SyncWorker};
+use dapper_workflows::{CommandHandlerLoop, ConflictEngine, DryPushEngine, SyncWorker};
 use std::sync::Arc;
 
 struct MockGitLabClient;
@@ -186,4 +186,143 @@ async fn test_sync_worker_post_push_shadow_baseline_update() {
         Event::SyncCompleted { mode } => assert_eq!(mode, "Push"),
         _ => panic!("Expected SyncCompleted event"),
     }
+}
+
+#[tokio::test]
+async fn test_command_handler_clone_story() {
+    let (bus, rx) = CommandBus::default_bus();
+    let dispatcher = EventDispatcher::default();
+    let mut event_rx = dispatcher.subscribe();
+
+    let app_ctx = AppContext::new(bus.clone(), dispatcher);
+
+    // Populate initial workspace with a story
+    {
+        let mut ws = app_ctx.workspace.write().await;
+        ws.epics.push(Epic {
+            id: "e1".to_string(),
+            title: "Epic".to_string(),
+            description: "".to_string(),
+            features: vec![Feature {
+                id: "f1".to_string(),
+                title: "Feat".to_string(),
+                description: "".to_string(),
+                team: None,
+                stories: vec![create_base_story("s1", "Original Story", "f1")],
+                metadata: None,
+                labels: vec![],
+                products: vec![],
+                capabilities: vec![],
+                parent_epic_id: None,
+                gitlab_id: None,
+                gitlab_iid: None,
+                last_synced_at: None,
+                is_conflicted: false,
+            }],
+            metadata: None,
+            labels: vec![],
+            products: vec![],
+            capabilities: vec![],
+            gitlab_id: None,
+            gitlab_iid: None,
+            last_synced_at: None,
+            is_conflicted: false,
+        });
+    }
+
+    let app_ctx_clone = app_ctx.clone();
+    tokio::spawn(async move {
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        handler.run(rx).await;
+    });
+
+    // Dispatch CloneStory
+    bus.dispatch(Command::CloneStory { story_id: "s1".to_string() })
+        .await
+        .unwrap();
+
+    let event = event_rx.recv().await.unwrap();
+    match event {
+        Event::StoryCreated { story_id } => assert_eq!(story_id, "s1-clone"),
+        _ => panic!("Expected StoryCreated event"),
+    }
+
+    let ws = app_ctx.workspace.read().await;
+    assert_eq!(ws.epics[0].features[0].stories.len(), 2);
+    assert_eq!(ws.epics[0].features[0].stories[1].title, "Original Story (Copy)");
+}
+
+#[tokio::test]
+async fn test_command_handler_split_story() {
+    let (bus, rx) = CommandBus::default_bus();
+    let dispatcher = EventDispatcher::default();
+    let mut event_rx = dispatcher.subscribe();
+
+    let app_ctx = AppContext::new(bus.clone(), dispatcher);
+
+    // Populate initial workspace with a story (weight = 5.0)
+    {
+        let mut ws = app_ctx.workspace.write().await;
+        ws.epics.push(Epic {
+            id: "e1".to_string(),
+            title: "Epic".to_string(),
+            description: "".to_string(),
+            features: vec![Feature {
+                id: "f1".to_string(),
+                title: "Feat".to_string(),
+                description: "".to_string(),
+                team: None,
+                stories: vec![create_base_story("s1", "Large Story", "f1")],
+                metadata: None,
+                labels: vec![],
+                products: vec![],
+                capabilities: vec![],
+                parent_epic_id: None,
+                gitlab_id: None,
+                gitlab_iid: None,
+                last_synced_at: None,
+                is_conflicted: false,
+            }],
+            metadata: None,
+            labels: vec![],
+            products: vec![],
+            capabilities: vec![],
+            gitlab_id: None,
+            gitlab_iid: None,
+            last_synced_at: None,
+            is_conflicted: false,
+        });
+    }
+
+    let app_ctx_clone = app_ctx.clone();
+    tokio::spawn(async move {
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        handler.run(rx).await;
+    });
+
+    // Dispatch SplitStory with split_weight = 2.0
+    bus.dispatch(Command::SplitStory {
+        story_id: "s1".to_string(),
+        split_weight: 2.0,
+    })
+    .await
+    .unwrap();
+
+    let update_evt = event_rx.recv().await.unwrap();
+    match update_evt {
+        Event::StoryUpdated { story_id } => assert_eq!(story_id, "s1"),
+        _ => panic!("Expected StoryUpdated event"),
+    }
+
+    let create_evt = event_rx.recv().await.unwrap();
+    match create_evt {
+        Event::StoryCreated { story_id } => assert_eq!(story_id, "s1-part2"),
+        _ => panic!("Expected StoryCreated event"),
+    }
+
+    let ws = app_ctx.workspace.read().await;
+    assert_eq!(ws.epics[0].features[0].stories.len(), 2);
+    assert_eq!(ws.epics[0].features[0].stories[0].weight, 3.0);
+    assert_eq!(ws.epics[0].features[0].stories[1].weight, 2.0);
+    assert_eq!(ws.epics[0].features[0].stories[1].title, "Large Story (Part 2)");
 }

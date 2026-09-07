@@ -1,12 +1,577 @@
 {
-  "products": [],
-  "members": [],
-  "labels": {},
+  "active_product_name": "DapperPlanning",
+  "products": [
+    {
+      "name": "DapperPlanning",
+      "gitlab_project_id": 86193936,
+      "gitlab_group_id": 141635573
+    }
+  ],
+  "members": [
+    {
+      "id": 8729482,
+      "name": "Greg Boudreau",
+      "username": "gboud21",
+      "group_ids": [
+        133563289
+      ],
+      "project_ids": [
+        82775555
+      ]
+    },
+    {
+      "id": 8729493,
+      "name": "Greg B",
+      "username": "b0udiie25",
+      "group_ids": [
+        141635573
+      ],
+      "project_ids": [
+        86193936
+      ]
+    }
+  ],
+  "labels": {
+    "Status::Closed": {
+      "id": 53441882,
+      "name": "Status::Closed",
+      "color": "#ed9121",
+      "description": "",
+      "scope": "project",
+      "scope_name": "86193936"
+    },
+    "Epic": {
+      "id": 51638160,
+      "name": "Epic",
+      "color": "#6699cc",
+      "scope": "project",
+      "scope_name": "82775555"
+    },
+    "Feature": {
+      "id": 51638161,
+      "name": "Feature",
+      "color": "#6699cc",
+      "scope": "project",
+      "scope_name": "82775555"
+    },
+    "A new label": {
+      "id": 51532915,
+      "name": "A new label",
+      "color": "#666666",
+      "description": "Locally created label",
+      "scope": "project",
+      "scope_name": "82775555"
+    },
+    "Status::Done": {
+      "id": 53441894,
+      "name": "Status::Done",
+      "color": "#6699cc",
+      "description": "",
+      "scope": "project",
+      "scope_name": "86193936"
+    },
+    "Language::Python": {
+      "id": 51532577,
+      "name": "Language::Python",
+      "color": "#ed9121",
+      "description": "",
+      "scope": "project",
+      "scope_name": "82775555"
+    },
+    "Status::Backlog": {
+      "id": 53441879,
+      "name": "Status::Backlog",
+      "color": "#ed9121",
+      "description": "",
+      "scope": "project",
+      "scope_name": "86193936"
+    },
+    "Story": {
+      "id": 51471758,
+      "name": "Story",
+      "color": "#6699cc",
+      "scope": "project",
+      "scope_name": "82775555"
+    },
+    "Status::In Review": {
+      "id": 53441884,
+      "name": "Status::In Review",
+      "color": "#6699cc",
+      "description": "",
+      "scope": "project",
+      "scope_name": "86193936"
+    },
+    "Status::In Progress": {
+      "id": 53441883,
+      "name": "Status::In Progress",
+      "color": "#6699cc",
+      "description": "",
+      "scope": "project",
+      "scope_name": "86193936"
+    }
+  },
   "iterations": [],
-  "hidden_iteration_ids": [],
-  "shadow_hierarchy": {},
-  "product_teams": [],
-  "member_capacities": [],
-  "epics": [],
+  "hidden_iteration_ids": [
+    3914960
+  ],
+  "shadow_hierarchy": {
+    "24b03bf5-13c9-48f8-b4d1-d40fcce81e8e": {
+      "assignee_id": 8729493,
+      "capabilities": [],
+      "description": "TODO: Add Description\n\na",
+      "gitlab_id": 202183641,
+      "gitlab_iid": 2,
+      "id": "24b03bf5-13c9-48f8-b4d1-d40fcce81e8e",
+      "interface_boundary": null,
+      "is_conflicted": false,
+      "iteration_id": null,
+      "labels": [
+        "Status::Backlog"
+      ],
+      "last_synced_at": "2026-09-07T16:00:36.674328",
+      "metadata": {
+        "assignee": "",
+        "labels": [],
+        "milestone": "",
+        "template": "",
+        "weight": 0
+      },
+      "parent_feature_id": "gl-f-5288119",
+      "products": [
+        "DapperPlanning"
+      ],
+      "status": "Backlog",
+      "team": {
+        "domain": "",
+        "name": "Unassigned"
+      },
+      "title": "My Second Story",
+      "weight": 1.0
+    },
+    "gl-s-202183399": {
+      "assignee_id": null,
+      "capabilities": [],
+      "description": "v1.1.1\n\nAdded v4",
+      "gitlab_id": 202183399,
+      "gitlab_iid": 1,
+      "id": "gl-s-202183399",
+      "interface_boundary": null,
+      "is_conflicted": false,
+      "iteration_id": null,
+      "labels": [
+        "A new label",
+        "Language::Python",
+        "Status::Backlog"
+      ],
+      "last_synced_at": "2026-09-07T16:01:50.992080",
+      "metadata": {
+        "assignee": "",
+        "labels": [],
+        "milestone": "",
+        "template": "",
+        "weight": 0
+      },
+      "parent_feature_id": "gl-f-5288119",
+      "products": [
+        "DapperPlanning"
+      ],
+      "status": "Backlog",
+      "team": {
+        "domain": "",
+        "name": ""
+      },
+      "title": "My First Issue",
+      "weight": 0.0
+    },
+    "gl-f-5288119": {
+      "capabilities": [],
+      "description": "v1.0",
+      "gitlab_id": 5288119,
+      "gitlab_iid": 2,
+      "id": "gl-f-5288119",
+      "is_conflicted": false,
+      "labels": [
+        "Agile::Feature"
+      ],
+      "last_synced_at": "2026-09-07T16:00:36.674232",
+      "metadata": {
+        "assignee": "",
+        "labels": [],
+        "milestone": "",
+        "template": "",
+        "weight": 0
+      },
+      "parent_epic_id": "gl-5288118",
+      "products": [
+        "DapperPlanning"
+      ],
+      "stories": [
+        {
+          "assignee_id": null,
+          "capabilities": [],
+          "description": "v1.1.1\n\nAdded v4",
+          "gitlab_id": 202183399,
+          "gitlab_iid": 1,
+          "id": "gl-s-202183399",
+          "interface_boundary": null,
+          "is_conflicted": false,
+          "iteration_id": null,
+          "labels": [
+            "A new label",
+            "Language::Python",
+            "Status::Backlog"
+          ],
+          "last_synced_at": "2026-09-07T16:01:50.992080",
+          "metadata": {
+            "assignee": "",
+            "labels": [],
+            "milestone": "",
+            "template": "",
+            "weight": 0
+          },
+          "parent_feature_id": "gl-f-5288119",
+          "products": [
+            "DapperPlanning"
+          ],
+          "status": "Backlog",
+          "team": {
+            "domain": "",
+            "name": ""
+          },
+          "title": "My First Issue",
+          "weight": 0.0
+        },
+        {
+          "assignee_id": 8729493,
+          "capabilities": [],
+          "description": "TODO: Add Description\n\na",
+          "gitlab_id": 202183641,
+          "gitlab_iid": 2,
+          "id": "24b03bf5-13c9-48f8-b4d1-d40fcce81e8e",
+          "interface_boundary": null,
+          "is_conflicted": false,
+          "iteration_id": null,
+          "labels": [
+            "Status::Backlog"
+          ],
+          "last_synced_at": "2026-09-07T16:00:36.674328",
+          "metadata": {
+            "assignee": "",
+            "labels": [],
+            "milestone": "",
+            "template": "",
+            "weight": 0
+          },
+          "parent_feature_id": "gl-f-5288119",
+          "products": [
+            "DapperPlanning"
+          ],
+          "status": "Backlog",
+          "team": {
+            "domain": "",
+            "name": "Unassigned"
+          },
+          "title": "My Second Story",
+          "weight": 1.0
+        }
+      ],
+      "team": {
+        "domain": "",
+        "name": ""
+      },
+      "title": "My First Feature"
+    },
+    "gl-5288118": {
+      "capabilities": [],
+      "description": "v1",
+      "features": [
+        {
+          "capabilities": [],
+          "description": "v1.0",
+          "gitlab_id": 5288119,
+          "gitlab_iid": 2,
+          "id": "gl-f-5288119",
+          "is_conflicted": false,
+          "labels": [
+            "Agile::Feature"
+          ],
+          "last_synced_at": "2026-09-07T16:00:36.674232",
+          "metadata": {
+            "assignee": "",
+            "labels": [],
+            "milestone": "",
+            "template": "",
+            "weight": 0
+          },
+          "parent_epic_id": "gl-5288118",
+          "products": [
+            "DapperPlanning"
+          ],
+          "stories": [
+            {
+              "assignee_id": null,
+              "capabilities": [],
+              "description": "v1.1.1\n\nAdded v4",
+              "gitlab_id": 202183399,
+              "gitlab_iid": 1,
+              "id": "gl-s-202183399",
+              "interface_boundary": null,
+              "is_conflicted": false,
+              "iteration_id": null,
+              "labels": [
+                "A new label",
+                "Language::Python",
+                "Status::Backlog"
+              ],
+              "last_synced_at": "2026-09-07T16:01:50.992080",
+              "metadata": {
+                "assignee": "",
+                "labels": [],
+                "milestone": "",
+                "template": "",
+                "weight": 0
+              },
+              "parent_feature_id": "gl-f-5288119",
+              "products": [
+                "DapperPlanning"
+              ],
+              "status": "Backlog",
+              "team": {
+                "domain": "",
+                "name": ""
+              },
+              "title": "My First Issue",
+              "weight": 0.0
+            },
+            {
+              "assignee_id": 8729493,
+              "capabilities": [],
+              "description": "TODO: Add Description\n\na",
+              "gitlab_id": 202183641,
+              "gitlab_iid": 2,
+              "id": "24b03bf5-13c9-48f8-b4d1-d40fcce81e8e",
+              "interface_boundary": null,
+              "is_conflicted": false,
+              "iteration_id": null,
+              "labels": [
+                "Status::Backlog"
+              ],
+              "last_synced_at": "2026-09-07T16:00:36.674328",
+              "metadata": {
+                "assignee": "",
+                "labels": [],
+                "milestone": "",
+                "template": "",
+                "weight": 0
+              },
+              "parent_feature_id": "gl-f-5288119",
+              "products": [
+                "DapperPlanning"
+              ],
+              "status": "Backlog",
+              "team": {
+                "domain": "",
+                "name": "Unassigned"
+              },
+              "title": "My Second Story",
+              "weight": 1.0
+            }
+          ],
+          "team": {
+            "domain": "",
+            "name": ""
+          },
+          "title": "My First Feature"
+        }
+      ],
+      "gitlab_id": 5288118,
+      "gitlab_iid": 1,
+      "id": "gl-5288118",
+      "is_conflicted": false,
+      "labels": [
+        "Agile::Epic"
+      ],
+      "last_synced_at": "2026-09-07T16:00:36.674041",
+      "metadata": {
+        "assignee": "",
+        "labels": [],
+        "milestone": "",
+        "template": "",
+        "weight": 0
+      },
+      "products": [
+        "DapperPlanning"
+      ],
+      "title": "My First Epic"
+    }
+  },
+  "product_teams": [
+    {
+      "id": "03e2dcba-6ab9-4df0-b844-8e5541d79b5c",
+      "name": "My First Team",
+      "product_id": "DapperPlanning",
+      "member_ids": [
+        8729482
+      ]
+    }
+  ],
+  "member_capacities": [
+    {
+      "team_id": "03e2dcba-6ab9-4df0-b844-8e5541d79b5c",
+      "member_id": 8729482,
+      "iteration_id": 3914959,
+      "pto": 5.0,
+      "allocation_pct": 100.0,
+      "velocity_factor": 100.0,
+      "utilization_factor": 100.0
+    },
+    {
+      "team_id": "03e2dcba-6ab9-4df0-b844-8e5541d79b5c",
+      "member_id": 8729482,
+      "iteration_id": 3914960,
+      "pto": 3.0,
+      "allocation_pct": 100.0,
+      "velocity_factor": 100.0,
+      "utilization_factor": 100.0
+    },
+    {
+      "team_id": "03e2dcba-6ab9-4df0-b844-8e5541d79b5c",
+      "member_id": 8729482,
+      "iteration_id": 3914961,
+      "pto": 1.0,
+      "allocation_pct": 100.0,
+      "velocity_factor": 90.0,
+      "utilization_factor": 100.0
+    },
+    {
+      "team_id": "03e2dcba-6ab9-4df0-b844-8e5541d79b5c",
+      "member_id": 8729482,
+      "iteration_id": 3914962,
+      "pto": 0.0,
+      "allocation_pct": 90.0,
+      "velocity_factor": 100.0,
+      "utilization_factor": 100.0
+    }
+  ],
+  "epics": [
+    {
+      "id": "gl-5288118",
+      "title": "My First Epic",
+      "description": "v1",
+      "features": [
+        {
+          "id": "gl-f-5288119",
+          "title": "My First Feature",
+          "description": "v1.0",
+          "team": {
+            "name": "",
+            "domain": ""
+          },
+          "stories": [
+            {
+              "id": "gl-s-202183399",
+              "title": "My First Issue",
+              "description": "v1.1.1\n\nAdded v4Added v4",
+              "team": {
+                "name": "",
+                "domain": ""
+              },
+              "metadata": {
+                "assignee": "",
+                "milestone": "",
+                "weight": 0.0,
+                "labels": [],
+                "template": ""
+              },
+              "labels": [
+                "A new label",
+                "Language::Python",
+                "Status::Backlog"
+              ],
+              "products": [
+                "DapperPlanning"
+              ],
+              "capabilities": [],
+              "weight": 0.0,
+              "status": "Backlog",
+              "parent_feature_id": "gl-f-5288119",
+              "gitlab_id": 202183399,
+              "gitlab_iid": 1,
+              "last_synced_at": "2026-09-07T16:01:50.992080",
+              "is_conflicted": false
+            },
+            {
+              "id": "24b03bf5-13c9-48f8-b4d1-d40fcce81e8e",
+              "title": "My Second Story",
+              "description": "TODO: Add Description\n\na",
+              "team": {
+                "name": "Unassigned",
+                "domain": ""
+              },
+              "metadata": {
+                "assignee": "",
+                "milestone": "",
+                "weight": 0.0,
+                "labels": [],
+                "template": ""
+              },
+              "labels": [
+                "Status::Backlog"
+              ],
+              "products": [
+                "DapperPlanning"
+              ],
+              "capabilities": [],
+              "weight": 1.0,
+              "status": "Backlog",
+              "assignee_id": 8729493,
+              "parent_feature_id": "gl-f-5288119",
+              "gitlab_id": 202183641,
+              "gitlab_iid": 2,
+              "last_synced_at": "2026-09-07T16:00:36.674328",
+              "is_conflicted": false
+            }
+          ],
+          "metadata": {
+            "assignee": "",
+            "milestone": "",
+            "weight": 0.0,
+            "labels": [],
+            "template": ""
+          },
+          "labels": [
+            "Agile::Feature"
+          ],
+          "products": [
+            "DapperPlanning"
+          ],
+          "capabilities": [],
+          "parent_epic_id": "gl-5288118",
+          "gitlab_id": 5288119,
+          "gitlab_iid": 2,
+          "last_synced_at": "2026-09-07T16:00:36.674232",
+          "is_conflicted": false
+        }
+      ],
+      "metadata": {
+        "assignee": "",
+        "milestone": "",
+        "weight": 0.0,
+        "labels": [],
+        "template": ""
+      },
+      "labels": [
+        "Agile::Epic"
+      ],
+      "products": [
+        "DapperPlanning"
+      ],
+      "capabilities": [],
+      "gitlab_id": 5288118,
+      "gitlab_iid": 1,
+      "last_synced_at": "2026-09-07T16:00:36.674041",
+      "is_conflicted": false
+    }
+  ],
   "deleted_remote_items": []
 }
