@@ -119,6 +119,7 @@ class Story:
     status: str = AgileStatus.BACKLOG.value
     assignee_id: Optional[int] = None
     iteration_id: Optional[int] = None
+    parent_feature_id: Optional[str] = None
     # Sync Metadata
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
@@ -140,6 +141,7 @@ class Story:
             status=AgileStatus.BACKLOG.value,
             assignee_id=self.assignee_id,
             iteration_id=None,
+            parent_feature_id=self.parent_feature_id,
             gitlab_id=None,
             gitlab_iid=None,
             last_synced_at=None,
@@ -160,6 +162,7 @@ class Feature:
     labels: List[str] = field(default_factory=list)
     products: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
+    parent_epic_id: Optional[str] = None
     # Sync Metadata
     gitlab_id: Optional[int] = None
     gitlab_iid: Optional[int] = None
@@ -177,6 +180,7 @@ class Feature:
             labels=self.labels.copy(),
             products=self.products.copy(),
             capabilities=self.capabilities.copy(),
+            parent_epic_id=self.parent_epic_id,
             gitlab_id=None,
             gitlab_iid=None,
             last_synced_at=None,

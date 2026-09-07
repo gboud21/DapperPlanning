@@ -20,6 +20,8 @@ class ConflictResolutionModal(tk.Toplevel):
         self.chosen_assignee = tk.StringVar(value="local")
         self.chosen_iteration = tk.StringVar(value="local")
         self.chosen_labels = tk.StringVar(value="local")
+        self.chosen_parent_epic = tk.StringVar(value="local")
+        self.chosen_parent_feature = tk.StringVar(value="local")
 
         # Modal configuration
         self.transient(parent)
@@ -103,6 +105,20 @@ class ConflictResolutionModal(tk.Toplevel):
         self._add_attribute_row(table_frame, 7, "Labels", ", ".join(self.local_item.labels), ", ".join(self.remote_item.labels), self.chosen_labels, 
                                 is_conflicted="Labels" in change_data['collisions'], is_modified="Labels" in all_changes)
 
+        if hasattr(self.local_item, 'parent_epic_id') or hasattr(self.remote_item, 'parent_epic_id'):
+            l_p = getattr(self.local_item, 'parent_epic_id', None)
+            r_p = getattr(self.remote_item, 'parent_epic_id', None)
+            if l_p is not None or r_p is not None:
+                self._add_attribute_row(table_frame, 8, "Parent Epic ID", l_p, r_p, self.chosen_parent_epic,
+                                        is_conflicted="Parent Epic ID" in change_data['collisions'], is_modified="Parent Epic ID" in all_changes)
+
+        if hasattr(self.local_item, 'parent_feature_id') or hasattr(self.remote_item, 'parent_feature_id'):
+            l_p = getattr(self.local_item, 'parent_feature_id', None)
+            r_p = getattr(self.remote_item, 'parent_feature_id', None)
+            if l_p is not None or r_p is not None:
+                self._add_attribute_row(table_frame, 9, "Parent Feature ID", l_p, r_p, self.chosen_parent_feature,
+                                        is_conflicted="Parent Feature ID" in change_data['collisions'], is_modified="Parent Feature ID" in all_changes)
+
         # Action buttons
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill=tk.X, pady=(20, 0))
@@ -124,11 +140,13 @@ class ConflictResolutionModal(tk.Toplevel):
             'status': 'Status',
             'assignee_id': 'Assignee ID',
             'iteration_id': 'Iteration ID',
-            'labels': 'Labels'
+            'labels': 'Labels',
+            'parent_epic_id': 'Parent Epic ID',
+            'parent_feature_id': 'Parent Feature ID'
         }
         
         for field, label in fields.items():
-            if not hasattr(self.local_item, field) and field not in ('assignee_id', 'iteration_id'):
+            if not hasattr(self.local_item, field) and field not in ('assignee_id', 'iteration_id', 'parent_epic_id', 'parent_feature_id'):
                 continue
             
             s_val = shadow.get(field)
@@ -215,12 +233,14 @@ class ConflictResolutionModal(tk.Toplevel):
             else:
                 messagebox.showinfo("All Resolved", "All merge conflicts have been successfully resolved. Clearing filter.", parent=self)
                 # Clear the conflict isolation filter
-                from src.core.events import UITreeFilterAppliedEvent
+                from src.core.events import UITreeFilterAppliedEvent, UISaveWorkspaceRequestedEvent
                 self.dispatcher.dispatch(UITreeFilterAppliedEvent(
                     query_string="",
                     show_ancestors=True,
                     show_descendants=False
                 ))
+                self.workspace.save_shadow_hierarchy(self.workspace.get_epics())
+                self.dispatcher.dispatch(UISaveWorkspaceRequestedEvent())
             
             self.destroy()
 
@@ -246,6 +266,20 @@ class ConflictResolutionModal(tk.Toplevel):
             
         if self.chosen_labels.get() == 'remote':
             self.local_item.labels = self.remote_item.labels.copy()
+
+        if hasattr(self.local_item, 'parent_epic_id') and self.chosen_parent_epic.get() == 'remote':
+            remote_p = getattr(self.remote_item, 'parent_epic_id', None)
+            if remote_p and remote_p != self.local_item.parent_epic_id:
+                if hasattr(self.workspace, 'move_feature'):
+                    self.workspace.move_feature(self.local_item.id, remote_p)
+            self.local_item.parent_epic_id = remote_p
+
+        if hasattr(self.local_item, 'parent_feature_id') and self.chosen_parent_feature.get() == 'remote':
+            remote_p = getattr(self.remote_item, 'parent_feature_id', None)
+            if remote_p and remote_p != self.local_item.parent_feature_id:
+                if hasattr(self.workspace, 'move_story'):
+                    self.workspace.move_story(self.local_item.id, remote_p)
+            self.local_item.parent_feature_id = remote_p
             
         # Reset sync timestamp to force push update
         self.local_item.last_synced_at = None

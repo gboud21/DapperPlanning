@@ -147,12 +147,17 @@ class Workspace:
     def save_shadow_hierarchy(self, epics: List[Epic]):
         """Saves a flat reference copy of the hierarchy for conflict detection."""
         self.shadow_hierarchy = {}
-        def _collect(items):
+        def _collect(items, parent_id=None):
             for i in items:
+                if isinstance(i, Feature) and parent_id:
+                    i.parent_epic_id = parent_id
+                elif isinstance(i, Story) and parent_id:
+                    i.parent_feature_id = parent_id
+                
                 # Store as dict for reliable attribute comparison later
                 self.shadow_hierarchy[i.id] = asdict(i)
-                if hasattr(i, 'features'): _collect(i.features)
-                if hasattr(i, 'stories'): _collect(i.stories)
+                if hasattr(i, 'features'): _collect(i.features, i.id)
+                if hasattr(i, 'stories'): _collect(i.stories, i.id)
         _collect(epics)
 
     def merge_remote_epics(self, active_product_name: str, remote_epics: List[Epic]) -> None:
@@ -191,20 +196,45 @@ class Workspace:
             l_item = next((l for l in local_list if l.gitlab_id == r_item.gitlab_id), None)
             
             if l_item:
-                # Update existing item details
-                l_item.title = r_item.title
-                l_item.description = r_item.description
-                l_item.gitlab_iid = r_item.gitlab_iid
-                l_item.last_synced_at = now_iso
-                
-                # Update specific fields
-                if isinstance(l_item, Story):
-                    if hasattr(r_item, 'weight'):
-                        l_item.weight = r_item.weight
-                    if hasattr(r_item, 'assignee_id'):
-                        l_item.assignee_id = r_item.assignee_id
-                    if hasattr(r_item, 'iteration_id'):
-                        l_item.iteration_id = r_item.iteration_id
+                shadow_copy = self.shadow_hierarchy.get(l_item.id)
+                has_local_changed = False
+                if shadow_copy:
+                    core_fields = ['title', 'description', 'weight', 'status', 'assignee_id', 'iteration_id', 'labels', 'parent_epic_id', 'parent_feature_id']
+                    l_dict = asdict(l_item)
+                    for field in core_fields:
+                        s_val = shadow_copy.get(field)
+                        c_val = l_dict.get(field)
+                        if field == 'labels':
+                            if sorted(s_val or []) != sorted(c_val or []):
+                                has_local_changed = True
+                                break
+                        elif s_val != c_val:
+                            has_local_changed = True
+                            break
+
+                # If local item has NOT been modified and is not conflicted, automatically accept remote data
+                if not has_local_changed and not getattr(l_item, 'is_conflicted', False):
+                    l_item.title = r_item.title
+                    l_item.description = r_item.description
+                    l_item.gitlab_iid = r_item.gitlab_iid
+                    l_item.last_synced_at = now_iso
+                    if hasattr(r_item, 'labels'):
+                        l_item.labels = r_item.labels.copy()
+                    if isinstance(l_item, Story):
+                        if hasattr(r_item, 'status'):
+                            l_item.status = r_item.status
+                        if hasattr(r_item, 'weight'):
+                            l_item.weight = r_item.weight
+                        if hasattr(r_item, 'assignee_id'):
+                            l_item.assignee_id = r_item.assignee_id
+                        if hasattr(r_item, 'iteration_id'):
+                            l_item.iteration_id = r_item.iteration_id
+                        if hasattr(r_item, 'parent_feature_id'):
+                            l_item.parent_feature_id = r_item.parent_feature_id
+                    elif isinstance(l_item, Feature):
+                        if hasattr(r_item, 'parent_epic_id'):
+                            l_item.parent_epic_id = r_item.parent_epic_id
+                    l_item.is_conflicted = False
                 
                 # Ensure the product tag is present
                 if hasattr(l_item, 'products'):

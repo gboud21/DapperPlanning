@@ -13,6 +13,8 @@ class MockWorkspace:
         return self._items
     def get_epics(self):
         return []
+    def save_shadow_hierarchy(self, epics):
+        pass
 
 @pytest.fixture
 def setup_modal():

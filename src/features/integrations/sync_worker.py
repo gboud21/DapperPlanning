@@ -207,6 +207,61 @@ class SyncWorker(threading.Thread):
             
             logger.warning(f"Successfully triaged {len(orphaned_features)} features and {len(orphaned_stories)} stories into '{triage_title}'.")
 
+        # Build lookup table for local items by gitlab_id
+        local_by_gitlab_id = {}
+        for local_item in self.workspace.all_items_iterable():
+            if local_item.gitlab_id:
+                local_by_gitlab_id[local_item.gitlab_id] = local_item
+
+        # Populate remote cache in controller and build remote lookup table
+        integrations_controller = self.context.resolve('integrations_controller')
+        integrations_controller.remote_data_cache = {}
+        
+        remote_lookup = {}
+        def _collect_remote(items, parent_obj=None):
+            for i in items:
+                if parent_obj:
+                    local_parent = local_by_gitlab_id.get(parent_obj.gitlab_id) if getattr(parent_obj, 'gitlab_id', None) else None
+                    parent_ref_id = local_parent.id if local_parent else parent_obj.id
+                    
+                    if isinstance(i, Feature):
+                        if not i.parent_epic_id:
+                            i.parent_epic_id = parent_ref_id
+                    elif isinstance(i, Story):
+                        if not i.parent_feature_id:
+                            i.parent_feature_id = parent_ref_id
+                            
+                if getattr(i, 'gitlab_id', None):
+                    remote_lookup[i.gitlab_id] = i
+                    integrations_controller.remote_data_cache[i.gitlab_id] = i
+                if hasattr(i, 'features'): _collect_remote(i.features, i)
+                if hasattr(i, 'stories'): _collect_remote(i.stories, i)
+        _collect_remote(remote_epics_domain)
+
+        # Scan for pull merge conflicts against shadow
+        conflict_detected = False
+        for local_item in self.workspace.all_items_iterable():
+            if not local_item.gitlab_id:
+                continue # Skip new local items
+                
+            shadow_copy = self.workspace.shadow_hierarchy.get(local_item.id)
+            remote_copy_obj = remote_lookup.get(local_item.gitlab_id)
+            
+            if shadow_copy and remote_copy_obj:
+                remote_copy_dict = asdict(remote_copy_obj)
+                local_item_dict = asdict(local_item)
+                
+                has_remote_changed = self._check_diff(shadow_copy, remote_copy_dict)
+                has_local_changed = self._check_diff(shadow_copy, local_item_dict)
+                
+                if has_remote_changed and has_local_changed:
+                    local_item.is_conflicted = True
+                    conflict_detected = True
+                    logger.warning(f"Pull conflict detected for {local_item.id}: {local_item.title}")
+                    self._safe_dispatch(ModelConflictDetectedEvent(local_item=local_item, remote_item=remote_copy_obj))
+                elif not has_local_changed:
+                    local_item.is_conflicted = False
+
         # Merge into local Workspace
         logger.info(f"Merging {len(remote_epics_domain)} epics into local workspace...")
         self._safe_dispatch(ModelSyncProgressEvent(message="Merging remote data into Workspace...", percent=95))
@@ -245,18 +300,35 @@ class SyncWorker(threading.Thread):
         transformation_result = transformer.transform_pull_data(epic_label, feature_label, remote_epics,  remote_issues, legacy_enabled=legacy_enabled, mappings=mappings)
         remote_data = transformation_result['root_epics']
         
+        local_by_gitlab_id = {}
+        for local_item in self.workspace.all_items_iterable():
+            if local_item.gitlab_id:
+                local_by_gitlab_id[local_item.gitlab_id] = local_item
+
         # Populate remote cache in controller for UI resolution later
         integrations_controller = self.context.resolve('integrations_controller')
         integrations_controller.remote_data_cache = {}
         
         # Flatten remote data for easy lookup
         remote_lookup = {}
-        def _collect_remote(items):
+        def _collect_remote(items, parent_obj=None):
             for i in items:
-                remote_lookup[i.gitlab_id] = i
-                integrations_controller.remote_data_cache[i.gitlab_id] = i
-                if hasattr(i, 'features'): _collect_remote(i.features)
-                if hasattr(i, 'stories'): _collect_remote(i.stories)
+                if parent_obj:
+                    local_parent = local_by_gitlab_id.get(parent_obj.gitlab_id) if getattr(parent_obj, 'gitlab_id', None) else None
+                    parent_ref_id = local_parent.id if local_parent else parent_obj.id
+                    
+                    if isinstance(i, Feature):
+                        if not i.parent_epic_id:
+                            i.parent_epic_id = parent_ref_id
+                    elif isinstance(i, Story):
+                        if not i.parent_feature_id:
+                            i.parent_feature_id = parent_ref_id
+
+                if getattr(i, 'gitlab_id', None):
+                    remote_lookup[i.gitlab_id] = i
+                    integrations_controller.remote_data_cache[i.gitlab_id] = i
+                if hasattr(i, 'features'): _collect_remote(i.features, i)
+                if hasattr(i, 'stories'): _collect_remote(i.stories, i)
         _collect_remote(remote_data)
 
         conflict_detected = False
@@ -298,7 +370,7 @@ class SyncWorker(threading.Thread):
 
     def _check_diff(self, shadow_dict, current_dict):
         """Compares core agile attributes for divergence."""
-        core_fields = ['title', 'description', 'weight', 'status', 'assignee_id', 'iteration_id', 'labels']
+        core_fields = ['title', 'description', 'weight', 'status', 'assignee_id', 'iteration_id', 'labels', 'parent_epic_id', 'parent_feature_id']
         for field in core_fields:
             s_val = shadow_dict.get(field)
             c_val = current_dict.get(field)
