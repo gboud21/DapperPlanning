@@ -7,6 +7,7 @@ edition = "2021"
 dapper_domain = { path = "../dapper_domain" }
 dapper_core = { path = "../dapper_core" }
 dapper_workflows = { path = "../dapper_workflows" }
+dapper_persistence = { path = "../dapper_persistence" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

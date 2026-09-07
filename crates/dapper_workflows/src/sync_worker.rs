@@ -96,4 +96,39 @@ impl SyncWorker {
 
         Ok(())
     }
+
+    #[instrument(skip(self))]
+    pub async fn sync_members(&self, group_id: i64) -> Result<(), WorkflowError> {
+        let members = self.gitlab_client.fetch_members(group_id).await?;
+        let mut workspace = self.app_context.workspace.write().await;
+        workspace.members = members;
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn sync_labels(&self, group_id: i64) -> Result<(), WorkflowError> {
+        let labels = self.gitlab_client.fetch_labels(group_id).await?;
+        let mut workspace = self.app_context.workspace.write().await;
+        for label in labels {
+            workspace.labels.insert(label.name.clone(), label);
+        }
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn sync_iterations(&self, group_id: i64) -> Result<(), WorkflowError> {
+        let iterations = self.gitlab_client.fetch_iterations(group_id).await?;
+        let mut workspace = self.app_context.workspace.write().await;
+        workspace.iterations = iterations;
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn sync_all_metadata(&self, group_id: i64) -> Result<(), WorkflowError> {
+        self.sync_members(group_id).await?;
+        self.sync_labels(group_id).await?;
+        self.sync_iterations(group_id).await?;
+        Ok(())
+    }
 }
+

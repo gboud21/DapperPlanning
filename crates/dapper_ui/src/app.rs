@@ -1,5 +1,6 @@
 use crate::dialogs::conflict_modal::ConflictResolutionModal;
 use crate::dialogs::dry_push_modal::DryPushModal;
+use crate::dialogs::integrations_dialog::IntegrationsDialog;
 use crate::dialogs::settings_dialog::SettingsDialog;
 use crate::panes::backlog_pane::BacklogPane;
 use crate::panes::pi_planner_pane::PiPlannerPane;
@@ -21,6 +22,7 @@ pub struct DapperApp {
     pub backlog_pane: BacklogPane,
     pub pi_planner_pane: PiPlannerPane,
     pub settings_dialog: SettingsDialog,
+    pub integrations_dialog: IntegrationsDialog,
     pub dry_push_modal: DryPushModal,
     pub conflict_modal: ConflictResolutionModal,
     pub about_open: bool,
@@ -36,12 +38,14 @@ impl DapperApp {
             backlog_pane: BacklogPane::default(),
             pi_planner_pane: PiPlannerPane::default(),
             settings_dialog: SettingsDialog::default(),
+            integrations_dialog: IntegrationsDialog::default(),
             dry_push_modal: DryPushModal::default(),
             conflict_modal: ConflictResolutionModal::default(),
             about_open: false,
             event_rx,
         }
     }
+
 
     fn poll_events(&mut self) {
         while let Ok(event) = self.event_rx.try_recv() {
@@ -64,7 +68,29 @@ impl App for DapperApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_events();
 
+        ctx.input(|i| {
+            if i.modifiers.ctrl && i.modifiers.shift && i.key_pressed(egui::Key::L) {
+                let _ = self
+                    .app_context
+                    .command_bus
+                    .try_dispatch(Command::TriggerGitLabPull);
+            }
+            if i.modifiers.ctrl && i.modifiers.shift && i.key_pressed(egui::Key::P) {
+                let _ = self
+                    .app_context
+                    .command_bus
+                    .try_dispatch(Command::TriggerGitLabPush);
+            }
+            if i.modifiers.ctrl && i.modifiers.shift && i.key_pressed(egui::Key::D) {
+                let _ = self
+                    .app_context
+                    .command_bus
+                    .try_dispatch(Command::TriggerDryPush);
+            }
+        });
+
         // 1. Top Menu Bar
+
         egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 // File Menu
@@ -190,21 +216,44 @@ impl App for DapperApp {
                     }
                 });
 
-                // GitLab Integrations Menu
-                ui.menu_button("GitLab Integrations", |ui| {
-                    if ui.button("Trigger GitLab Pull\tCtrl+Shift+L").clicked() {
+                // Integrations Menu
+                ui.menu_button("Integrations", |ui| {
+                    if ui.button("Pull from GitLab\tCtrl+Shift+L").clicked() {
                         let _ = self.app_context.command_bus.try_dispatch(Command::TriggerGitLabPull);
                         ui.close_menu();
                     }
-                    if ui.button("Run Dry Push Simulation\tCtrl+Shift+D").clicked() {
-                        let _ = self.app_context.command_bus.try_dispatch(Command::TriggerDryPush);
-                        ui.close_menu();
-                    }
-                    if ui.button("Trigger GitLab Push\tCtrl+Shift+P").clicked() {
+                    if ui.button("Push to GitLab\tCtrl+Shift+P").clicked() {
                         let _ = self.app_context.command_bus.try_dispatch(Command::TriggerGitLabPush);
                         ui.close_menu();
                     }
+                    if ui.button("Dry-Push to GitLab\tCtrl+Shift+D").clicked() {
+                        let _ = self.app_context.command_bus.try_dispatch(Command::TriggerDryPush);
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    if ui.button("Integrations Settings...").clicked() {
+                        self.integrations_dialog.open();
+                        ui.close_menu();
+                    }
+                    ui.separator();
+                    if ui.button("Sync GitLab Members").clicked() {
+                        let _ = self.app_context.command_bus.try_dispatch(Command::SyncGitLabMembers);
+                        ui.close_menu();
+                    }
+                    if ui.button("Sync GitLab Labels").clicked() {
+                        let _ = self.app_context.command_bus.try_dispatch(Command::SyncGitLabLabels);
+                        ui.close_menu();
+                    }
+                    if ui.button("Sync GitLab Iterations").clicked() {
+                        let _ = self.app_context.command_bus.try_dispatch(Command::SyncGitLabIterations);
+                        ui.close_menu();
+                    }
+                    if ui.button("Sync All Metadata").clicked() {
+                        let _ = self.app_context.command_bus.try_dispatch(Command::SyncAllMetadata);
+                        ui.close_menu();
+                    }
                 });
+
 
                 // Help Menu
                 ui.menu_button("Help", |ui| {
@@ -247,8 +296,10 @@ impl App for DapperApp {
 
         // 4. Modal Dialog Windows
         self.settings_dialog.ui(ctx);
+        self.integrations_dialog.ui(ctx, &self.app_context);
         self.dry_push_modal.ui(ctx, &self.app_context);
         self.conflict_modal.ui(ctx, &self.app_context);
+
 
         // 5. About Dialog Window
         if self.about_open {

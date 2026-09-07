@@ -80,9 +80,14 @@ pub enum Command {
     TriggerGitLabPull,
     TriggerGitLabPush,
     TriggerDryPush,
+    SyncGitLabMembers,
+    SyncGitLabLabels,
+    SyncGitLabIterations,
+    SyncAllMetadata,
     ResolveConflict {
         item_id: String,
         resolved_data: serde_json::Value,
     },
 }
+
 

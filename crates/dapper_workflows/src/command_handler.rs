@@ -2,7 +2,7 @@ use crate::sync_worker::SyncWorker;
 use dapper_core::{AppContext, Command, Event};
 use dapper_domain::{Story, Workspace};
 use dapper_gitlab::ReqwestGitLabClient;
-use dapper_persistence::{JsonWorkspaceRepository, WorkspaceRepository};
+use dapper_persistence::{JsonWorkspaceRepository, SettingsManager, WorkspaceRepository};
 use std::sync::Arc;
 use tokio::sync::mpsc::Receiver;
 use tracing::{error, info, instrument};
@@ -11,6 +11,7 @@ pub struct CommandHandlerLoop {
     app_context: AppContext,
     repository: JsonWorkspaceRepository,
     sync_worker: SyncWorker,
+    pub auto_load_workspace: bool,
 }
 
 impl CommandHandlerLoop {
@@ -26,12 +27,43 @@ impl CommandHandlerLoop {
             app_context,
             repository: repo,
             sync_worker: worker,
+            auto_load_workspace: true,
         }
+    }
+
+    pub fn with_auto_load(mut self, auto_load: bool) -> Self {
+        self.auto_load_workspace = auto_load;
+        self
     }
 
     #[instrument(skip(self, rx))]
     pub async fn run(&mut self, mut rx: Receiver<Command>) {
         info!("CommandHandlerLoop started listening for CQRS commands...");
+
+        // Auto-load last workspace on startup if configured and valid
+        if self.auto_load_workspace {
+            if let Some(last_path) = SettingsManager::get_last_workspace() {
+                if last_path.exists() {
+                    info!("Auto-loading last used workspace from {:?}", last_path);
+                    match self.repository.load_from_file(&last_path) {
+                        Ok(loaded_ws) => {
+                            let ws_arc = Arc::new(loaded_ws.clone());
+                            {
+                                let mut ws = self.app_context.workspace.write().await;
+                                *ws = loaded_ws;
+                            }
+                            let _ = self.app_context.event_dispatcher.dispatch(Event::WorkspaceLoaded {
+                                workspace: ws_arc,
+                            });
+                        }
+                        Err(e) => {
+                            error!("Failed to auto-load last workspace {:?}: {}", last_path, e);
+                        }
+                    }
+                }
+            }
+        }
+
         while let Some(command) = rx.recv().await {
             info!("Processing command: {:?}", command);
             if let Err(e) = self.process_command(command).await {
@@ -55,6 +87,7 @@ impl CommandHandlerLoop {
             }
             Command::LoadWorkspace { path } => {
                 let loaded_ws = self.repository.load_from_file(&path)?;
+                SettingsManager::set_last_workspace(&path);
                 let ws_arc = Arc::new(loaded_ws.clone());
                 {
                     let mut ws = self.app_context.workspace.write().await;
@@ -67,12 +100,14 @@ impl CommandHandlerLoop {
             Command::SaveWorkspace { path } | Command::SaveWorkspaceAs { path } => {
                 let ws = self.app_context.workspace.read().await;
                 self.repository.save_to_file(&ws, &path)?;
+                SettingsManager::set_last_workspace(&path);
                 let _ = self.app_context.event_dispatcher.dispatch(Event::WorkspaceSaved {
                     path: path.to_string_lossy().to_string(),
                 });
             }
             Command::ImportWorkspace { path, format: _ } => {
                 let loaded_ws = self.repository.load_from_file(&path)?;
+                SettingsManager::set_last_workspace(&path);
                 let ws_arc = Arc::new(loaded_ws.clone());
                 {
                     let mut ws = self.app_context.workspace.write().await;
@@ -197,9 +232,15 @@ impl CommandHandlerLoop {
                     }
                 }
             }
-            Command::AddCapability { capability_name: _ } => {}
+            Command::AddCapability { capability_name } => {
+                let mut ws = self.app_context.workspace.write().await;
+                if !capability_name.trim().is_empty() && !ws.capabilities.contains(&capability_name) {
+                    ws.capabilities.push(capability_name);
+                }
+            }
             Command::DeleteCapability { capability_name } => {
                 let mut ws = self.app_context.workspace.write().await;
+                ws.capabilities.retain(|c| c != &capability_name);
                 for epic in &mut ws.epics {
                     epic.capabilities.retain(|c| c != &capability_name);
                     for feature in &mut epic.features {
@@ -297,6 +338,19 @@ impl CommandHandlerLoop {
             Command::TriggerGitLabPush => {
                 let _ = self.sync_worker.execute_push().await;
             }
+            Command::SyncGitLabMembers => {
+                let _ = self.sync_worker.sync_members(0).await;
+            }
+            Command::SyncGitLabLabels => {
+                let _ = self.sync_worker.sync_labels(0).await;
+            }
+            Command::SyncGitLabIterations => {
+                let _ = self.sync_worker.sync_iterations(0).await;
+            }
+            Command::SyncAllMetadata => {
+                let _ = self.sync_worker.sync_all_metadata(0).await;
+            }
+
             Command::ResolveConflict { item_id, .. } => {
                 let mut ws = self.app_context.workspace.write().await;
                 for epic in &mut ws.epics {

@@ -995,6 +995,7 @@ dependencies = [
  "anyhow",
  "dapper_core",
  "dapper_domain",
+ "dapper_persistence",
  "dapper_workflows",
  "eframe",
  "egui",

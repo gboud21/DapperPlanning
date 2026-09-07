@@ -26,6 +26,8 @@ pub struct Workspace {
     pub epics: Vec<Epic>,
     #[serde(default)]
     pub deleted_remote_items: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
 }
 
 impl Workspace {

@@ -758,20 +758,34 @@ impl BacklogPane {
             ui.columns(2, |cols| {
                 cols[0].vertical(|ui| {
                     ui.label("Available Capabilities");
+                    let master_caps: Vec<String> = if let Ok(ws) = ctx.workspace.try_read() {
+                        if ws.capabilities.is_empty() {
+                            vec![
+                                "Core Infrastructure".to_string(),
+                                "Data Analytics".to_string(),
+                                "User Auth".to_string(),
+                                "Reporting".to_string(),
+                            ]
+                        } else {
+                            ws.capabilities.clone()
+                        }
+                    } else {
+                        vec![
+                            "Core Infrastructure".to_string(),
+                            "Data Analytics".to_string(),
+                            "User Auth".to_string(),
+                            "Reporting".to_string(),
+                        ]
+                    };
                     egui::ScrollArea::vertical()
                         .id_salt("capabilities_available_scroll_area")
                         .max_height(100.0)
                         .show(ui, |ui| {
-                            let master_caps = vec![
-                                "Core Infrastructure",
-                                "Data Analytics",
-                                "User Auth",
-                                "Reporting",
-                            ];
-                            for cap in master_caps {
-                                let is_sel = self.selected_avail_capability.as_deref() == Some(cap);
+                            for cap in &master_caps {
+                                let is_sel =
+                                    self.selected_avail_capability.as_deref() == Some(cap.as_str());
                                 if ui.selectable_label(is_sel, cap).clicked() {
-                                    self.selected_avail_capability = Some(cap.to_string());
+                                    self.selected_avail_capability = Some(cap.clone());
                                 }
                             }
                         });

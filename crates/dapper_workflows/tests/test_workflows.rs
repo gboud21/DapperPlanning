@@ -232,7 +232,7 @@ async fn test_command_handler_clone_story() {
 
     let app_ctx_clone = app_ctx.clone();
     tokio::spawn(async move {
-        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone).with_auto_load(false);
         handler.run(rx).await;
     });
 
@@ -296,7 +296,7 @@ async fn test_command_handler_split_story() {
 
     let app_ctx_clone = app_ctx.clone();
     tokio::spawn(async move {
-        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone).with_auto_load(false);
         handler.run(rx).await;
     });
 
@@ -369,7 +369,7 @@ async fn test_command_handler_update_epic_and_feature() {
 
     let app_ctx_clone = app_ctx.clone();
     tokio::spawn(async move {
-        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone).with_auto_load(false);
         handler.run(rx).await;
     });
 
@@ -404,7 +404,7 @@ async fn test_command_handler_add_local_label_and_product() {
 
     let app_ctx_clone = app_ctx.clone();
     tokio::spawn(async move {
-        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone).with_auto_load(false);
         handler.run(rx).await;
     });
 
@@ -434,4 +434,125 @@ async fn test_command_handler_add_local_label_and_product() {
     assert_eq!(ws.products.len(), 1);
     assert_eq!(ws.products[0].name, "Core Platform");
 }
+
+#[tokio::test]
+async fn test_sync_worker_metadata_methods() {
+    let (bus, _rx) = CommandBus::default_bus();
+    let dispatcher = EventDispatcher::default();
+    let app_ctx = AppContext::new(bus, dispatcher);
+
+    let mock_client = Arc::new(MockGitLabClient);
+    let worker = SyncWorker::new(app_ctx.clone(), mock_client);
+
+    worker.sync_members(0).await.unwrap();
+    worker.sync_labels(0).await.unwrap();
+    worker.sync_iterations(0).await.unwrap();
+    worker.sync_all_metadata(0).await.unwrap();
+
+    let ws = app_ctx.workspace.read().await;
+    assert_eq!(ws.members.len(), 1);
+    assert_eq!(ws.members[0].name, "Mock Dev");
+}
+
+#[tokio::test]
+async fn test_command_handler_add_and_delete_capability() {
+    let (bus, rx) = CommandBus::default_bus();
+    let dispatcher = EventDispatcher::default();
+
+    let app_ctx = AppContext::new(bus.clone(), dispatcher);
+
+    let app_ctx_clone = app_ctx.clone();
+    tokio::spawn(async move {
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone).with_auto_load(false);
+        handler.run(rx).await;
+    });
+
+    bus.dispatch(Command::AddCapability {
+        capability_name: "Security Auditing".to_string(),
+    })
+    .await
+    .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    {
+        let ws = app_ctx.workspace.read().await;
+        assert!(ws.capabilities.contains(&"Security Auditing".to_string()));
+    }
+
+    bus.dispatch(Command::DeleteCapability {
+        capability_name: "Security Auditing".to_string(),
+    })
+    .await
+    .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    {
+        let ws = app_ctx.workspace.read().await;
+        assert!(!ws.capabilities.contains(&"Security Auditing".to_string()));
+    }
+}
+
+#[tokio::test]
+async fn test_settings_manager_and_auto_load_last_workspace() {
+    use dapper_persistence::{JsonWorkspaceRepository, SettingsManager, WorkspaceRepository};
+
+    let unique_id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let settings_path = std::env::temp_dir().join(format!("test_dapper_settings_{}.json", unique_id));
+    let workspace_path = std::env::temp_dir().join(format!("test_auto_load_workspace_{}.json", unique_id));
+
+    std::env::set_var("DAPPER_SETTINGS_PATH", &settings_path);
+
+    let mut dummy_ws = dapper_domain::Workspace::new();
+    dummy_ws.epics.push(dapper_domain::Epic {
+        id: "e99".to_string(),
+        title: "Auto Load Test Epic".to_string(),
+        description: "".to_string(),
+        features: vec![],
+        metadata: None,
+        labels: vec![],
+        products: vec![],
+        capabilities: vec![],
+        gitlab_id: None,
+        gitlab_iid: None,
+        last_synced_at: None,
+        is_conflicted: false,
+    });
+
+    let repo = JsonWorkspaceRepository::new();
+    repo.save_to_file(&dummy_ws, &workspace_path).unwrap();
+
+    // Set last workspace
+    SettingsManager::set_last_workspace(&workspace_path);
+    assert_eq!(SettingsManager::get_last_workspace(), Some(workspace_path.clone()));
+
+    // Launch CommandHandlerLoop which should auto-load last workspace on startup
+    let (bus, rx) = CommandBus::default_bus();
+    let dispatcher = EventDispatcher::default();
+    let app_ctx = AppContext::new(bus, dispatcher);
+
+    let app_ctx_clone = app_ctx.clone();
+    tokio::spawn(async move {
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        handler.run(rx).await;
+    });
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    let ws = app_ctx.workspace.read().await;
+    assert_eq!(ws.epics.len(), 1);
+    assert_eq!(ws.epics[0].id, "e99");
+    assert_eq!(ws.epics[0].title, "Auto Load Test Epic");
+
+    // Clean up env and temp files
+    std::env::remove_var("DAPPER_SETTINGS_PATH");
+    let _ = std::fs::remove_file(&settings_path);
+    let _ = std::fs::remove_file(&workspace_path);
+}
+
+
 
