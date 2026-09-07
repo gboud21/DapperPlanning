@@ -1,18 +1,42 @@
 # DapperPlanning
-NOTE*** This project has been developed using AI. It is an exercise in becoming more accustomed to integrating AI workflows into my development process while still solving a problem that I have with the current tools that exist within engineering.
 
-## Problem
-- Problem:
-    - Planning Software is difficult, tedious and wastes time that you could be spending writing software
-- Solution:
-    - A tool to standardize the Software Planning Process for Software Engineers by Software Engineers
-    - Eliminates pesky tools that are clunky and designed for Program Managers such as Jira
-    - Eliminates Software Leads trying to bypass Jira by forcing Software Planning using GitLab and other Software Tools
+> **Note:** This project is developed to standardize the software planning process for software engineers by software engineers, eliminating clunky tools designed for program managers (such as Jira) and providing direct, native bidirectional integration with GitLab.
 
-## Use Case
-Product Owners will use this Python tool to plan and generate the backlog for a separate target system. 
+---
 
-The tool was originally designed for a variety of systems, but it primarily focuses on planning Rust and C++ applications.
+## Problem & Solution
 
-## Technology
-Tech Stack: Python 3 (relying on standard libraries as much as possible, e.g., tkinter for the UI) and pandas. The tool will not include any AI integration.
+- **Problem:** Existing planning tools (e.g., Jira) are clunky, tedious, and designed primarily for Program Managers rather than Software Engineers.
+- **Solution:** A native desktop planning application built for Product Owners, Product Managers, Scrum Masters, and Engineers to manage backlogs, calculate PI capacities, execute dry-push simulations, and synchronize bidirectionally with GitLab.
+
+---
+
+## Features & Capabilities
+
+- **Agile Hierarchy:** Strict data modeling from **Products** $\rightarrow$ **Capabilities** $\rightarrow$ **Epics** $\rightarrow$ **Features** $\rightarrow$ **Stories**.
+- **Role-Based Filtered Views:** Toggle view perspectives for Product Managers, Product Owners, Scrum Masters, Engineers, or All.
+- **PI Planning & Capacity Engine:** Calculate team and individual member capacities based on PTO, velocity factors, allocation percentages, and sprint business days.
+- **Bidirectional GitLab Sync Engine:**
+  - Pull and push Epics (Group-level) and Stories/Issues (Project-level).
+  - Pre-fetch diff scanning against local `shadow_hierarchy` baseline.
+  - Interactive merge conflict resolution modal supporting core agile fields and structural reparenting diffs.
+- **Dry-Push Simulation:** Simulates push operations without mutating server state, logging item details, rendering interactive GUI breakdown modals, and outputting markdown audit reports.
+- **Fallback Export:** Export in-memory workspaces to standard CSV files.
+
+---
+
+## Architecture & Technology
+
+- **Pattern:** Event-Driven MVC with CQRS (Command Bus + Event Dispatcher) and Dependency Injection via `AppContext`.
+- **Current Stack:** Python 3 (`tkinter`, `ttk`), `pandas`, `pytest` (61 passing unit/integration/UI tests).
+- **Persistence:** Local JSON workspace storage with `shadow_hierarchy` baseline tracking for git-like merge resolution.
+
+---
+
+## Roadmap: Rust Migration Phase
+
+The upcoming development phase transitions the DapperPlanning codebase from **Python 3 / Tkinter** to **Rust**, porting:
+1. Pure domain entities and invariant validation.
+2. The CQRS Command Bus and thread-safe Event Dispatcher architecture.
+3. Bidirectional GitLab API integration and JSON repository serialization.
+4. Native desktop GUI implementation.
