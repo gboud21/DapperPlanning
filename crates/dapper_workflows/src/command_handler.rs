@@ -89,6 +89,46 @@ impl CommandHandlerLoop {
                     path: path.to_string_lossy().to_string(),
                 });
             }
+            Command::CreateEpic { epic } => {
+                let mut ws = self.app_context.workspace.write().await;
+                ws.epics.push(epic);
+            }
+            Command::CreateFeature { parent_epic_id, feature } => {
+                let mut ws = self.app_context.workspace.write().await;
+                for epic in &mut ws.epics {
+                    if epic.id == parent_epic_id {
+                        epic.features.push(feature.clone());
+                    }
+                }
+            }
+            Command::UpdateEpic { epic } => {
+                let mut ws = self.app_context.workspace.write().await;
+                let epic_id = epic.id.clone();
+                for e in &mut ws.epics {
+                    if e.id == epic_id {
+                        e.title = epic.title.clone();
+                        e.description = epic.description.clone();
+                        e.products = epic.products.clone();
+                        e.capabilities = epic.capabilities.clone();
+                        e.labels = epic.labels.clone();
+                    }
+                }
+            }
+            Command::UpdateFeature { feature } => {
+                let mut ws = self.app_context.workspace.write().await;
+                let feat_id = feature.id.clone();
+                for epic in &mut ws.epics {
+                    for f in &mut epic.features {
+                        if f.id == feat_id {
+                            f.title = feature.title.clone();
+                            f.description = feature.description.clone();
+                            f.products = feature.products.clone();
+                            f.capabilities = feature.capabilities.clone();
+                            f.labels = feature.labels.clone();
+                        }
+                    }
+                }
+            }
             Command::UpdateStory { story } => {
                 let mut ws = self.app_context.workspace.write().await;
                 let story_id = story.id.clone();
@@ -129,6 +169,46 @@ impl CommandHandlerLoop {
                 let _ = self.app_context.event_dispatcher.dispatch(Event::StoryDeleted {
                     story_id,
                 });
+            }
+            Command::AddLocalLabel { label } => {
+                let mut ws = self.app_context.workspace.write().await;
+                ws.labels.insert(label.name.clone(), label);
+            }
+            Command::AddProduct { product_name } => {
+                let mut ws = self.app_context.workspace.write().await;
+                if !ws.products.iter().any(|p| p.name == product_name) {
+                    ws.products.push(dapper_domain::Product {
+                        name: product_name,
+                        gitlab_project_id: None,
+                        gitlab_group_id: None,
+                    });
+                }
+            }
+            Command::DeleteProduct { product_name } => {
+                let mut ws = self.app_context.workspace.write().await;
+                ws.products.retain(|p| p.name != product_name);
+                for epic in &mut ws.epics {
+                    epic.products.retain(|p| p != &product_name);
+                    for feature in &mut epic.features {
+                        feature.products.retain(|p| p != &product_name);
+                        for story in &mut feature.stories {
+                            story.products.retain(|p| p != &product_name);
+                        }
+                    }
+                }
+            }
+            Command::AddCapability { capability_name: _ } => {}
+            Command::DeleteCapability { capability_name } => {
+                let mut ws = self.app_context.workspace.write().await;
+                for epic in &mut ws.epics {
+                    epic.capabilities.retain(|c| c != &capability_name);
+                    for feature in &mut epic.features {
+                        feature.capabilities.retain(|c| c != &capability_name);
+                        for story in &mut feature.stories {
+                            story.capabilities.retain(|c| c != &capability_name);
+                        }
+                    }
+                }
             }
             Command::CloneStory { story_id } => {
                 let mut ws = self.app_context.workspace.write().await;

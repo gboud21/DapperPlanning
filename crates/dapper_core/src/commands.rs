@@ -1,4 +1,4 @@
-use dapper_domain::{Epic, Feature, Story};
+use dapper_domain::{Epic, Feature, Label, Story};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +35,12 @@ pub enum Command {
         parent_feature_id: String,
         story: Story,
     },
+    UpdateEpic {
+        epic: Epic,
+    },
+    UpdateFeature {
+        feature: Feature,
+    },
     UpdateStory {
         story: Story,
     },
@@ -53,6 +59,23 @@ pub enum Command {
         new_parent_feature_id: String,
     },
 
+    // Global Tags & Local Labels
+    AddLocalLabel {
+        label: Label,
+    },
+    AddProduct {
+        product_name: String,
+    },
+    DeleteProduct {
+        product_name: String,
+    },
+    AddCapability {
+        capability_name: String,
+    },
+    DeleteCapability {
+        capability_name: String,
+    },
+
     // GitLab Synchronization & Integrations
     TriggerGitLabPull,
     TriggerGitLabPush,
@@ -62,3 +85,4 @@ pub enum Command {
         resolved_data: serde_json::Value,
     },
 }
+

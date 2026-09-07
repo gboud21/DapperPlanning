@@ -156,9 +156,10 @@ impl App for DapperApp {
 
                 // Edit Menu
                 ui.menu_button("Edit", |ui| {
-                    let has_selected_story = self.backlog_pane.selected_story_id.is_some();
+                    let selected_story = self.backlog_pane.selected_story_id();
+                    let has_selected_story = selected_story.is_some();
                     if ui.add_enabled(has_selected_story, egui::Button::new("Clone Selected Story")).clicked() {
-                        if let Some(story_id) = &self.backlog_pane.selected_story_id {
+                        if let Some(story_id) = &selected_story {
                             let _ = self.app_context.command_bus.try_dispatch(Command::CloneStory {
                                 story_id: story_id.clone(),
                             });
@@ -167,7 +168,7 @@ impl App for DapperApp {
                     }
 
                     if ui.add_enabled(has_selected_story, egui::Button::new("Split Selected Story")).clicked() {
-                        if let Some(story_id) = &self.backlog_pane.selected_story_id {
+                        if let Some(story_id) = &selected_story {
                             let _ = self.app_context.command_bus.try_dispatch(Command::SplitStory {
                                 story_id: story_id.clone(),
                                 split_weight: 2.0,
@@ -175,6 +176,7 @@ impl App for DapperApp {
                         }
                         ui.close_menu();
                     }
+
 
                     ui.separator();
                     if ui.button("Copy\tCtrl+C").clicked() {

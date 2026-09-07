@@ -28,8 +28,10 @@ impl DryPushModal {
 
                     if let Some(summary) = &self.summary {
                         egui::ScrollArea::vertical()
+                            .id_salt("dry_push_modal_scroll")
                             .max_height(550.0)
                             .show(ui, |ui| {
+
                                 ui.collapsing(format!("Creations ({})", summary.creations_list.len()), |ui| {
                                     for item in &summary.creations_list {
                                         ui.label(item);

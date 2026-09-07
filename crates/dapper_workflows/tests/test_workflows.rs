@@ -326,3 +326,112 @@ async fn test_command_handler_split_story() {
     assert_eq!(ws.epics[0].features[0].stories[1].weight, 2.0);
     assert_eq!(ws.epics[0].features[0].stories[1].title, "Large Story (Part 2)");
 }
+
+#[tokio::test]
+async fn test_command_handler_update_epic_and_feature() {
+    let (bus, rx) = CommandBus::default_bus();
+    let dispatcher = EventDispatcher::default();
+
+    let app_ctx = AppContext::new(bus.clone(), dispatcher);
+
+    {
+        let mut ws = app_ctx.workspace.write().await;
+        ws.epics.push(Epic {
+            id: "e1".to_string(),
+            title: "Original Epic Title".to_string(),
+            description: "".to_string(),
+            features: vec![Feature {
+                id: "f1".to_string(),
+                title: "Original Feature Title".to_string(),
+                description: "".to_string(),
+                team: None,
+                stories: vec![],
+                metadata: None,
+                labels: vec![],
+                products: vec![],
+                capabilities: vec![],
+                parent_epic_id: Some("e1".to_string()),
+                gitlab_id: None,
+                gitlab_iid: None,
+                last_synced_at: None,
+                is_conflicted: false,
+            }],
+            metadata: None,
+            labels: vec![],
+            products: vec![],
+            capabilities: vec![],
+            gitlab_id: None,
+            gitlab_iid: None,
+            last_synced_at: None,
+            is_conflicted: false,
+        });
+    }
+
+    let app_ctx_clone = app_ctx.clone();
+    tokio::spawn(async move {
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        handler.run(rx).await;
+    });
+
+    // Update Epic
+    let mut updated_epic = app_ctx.workspace.read().await.epics[0].clone();
+    updated_epic.title = "Updated Epic Title".to_string();
+    bus.dispatch(Command::UpdateEpic { epic: updated_epic })
+        .await
+        .unwrap();
+
+    // Update Feature
+    let mut updated_feat = app_ctx.workspace.read().await.epics[0].features[0].clone();
+    updated_feat.title = "Updated Feature Title".to_string();
+    bus.dispatch(Command::UpdateFeature { feature: updated_feat })
+        .await
+        .unwrap();
+
+    // Give command handler loop time to process
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    let ws = app_ctx.workspace.read().await;
+    assert_eq!(ws.epics[0].title, "Updated Epic Title");
+    assert_eq!(ws.epics[0].features[0].title, "Updated Feature Title");
+}
+
+#[tokio::test]
+async fn test_command_handler_add_local_label_and_product() {
+    let (bus, rx) = CommandBus::default_bus();
+    let dispatcher = EventDispatcher::default();
+
+    let app_ctx = AppContext::new(bus.clone(), dispatcher);
+
+    let app_ctx_clone = app_ctx.clone();
+    tokio::spawn(async move {
+        let mut handler = CommandHandlerLoop::new(app_ctx_clone);
+        handler.run(rx).await;
+    });
+
+    let new_label = Label {
+        id: None,
+        name: "bug".to_string(),
+        color: Some("#ff0000".to_string()),
+        description: Some("Bug label".to_string()),
+        scope: Some("group".to_string()),
+        scope_name: Some("group_1".to_string()),
+    };
+
+    bus.dispatch(Command::AddLocalLabel { label: new_label })
+        .await
+        .unwrap();
+
+    bus.dispatch(Command::AddProduct {
+        product_name: "Core Platform".to_string(),
+    })
+    .await
+    .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+    let ws = app_ctx.workspace.read().await;
+    assert!(ws.labels.contains_key("bug"));
+    assert_eq!(ws.products.len(), 1);
+    assert_eq!(ws.products[0].name, "Core Platform");
+}
+

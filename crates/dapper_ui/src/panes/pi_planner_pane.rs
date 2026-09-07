@@ -33,7 +33,10 @@ impl PiPlannerPane {
 
             ui.separator();
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::ScrollArea::vertical()
+                .id_salt("pi_planner_scroll_area")
+                .show(ui, |ui| {
+
                 let workspace_lock = ctx.workspace.try_read();
                 if let Ok(workspace) = workspace_lock {
                     ui.label(format!("Product: {}", workspace.active_product_name.as_deref().unwrap_or("None")));

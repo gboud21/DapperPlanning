@@ -10,6 +10,9 @@ pub mod panes {
     pub mod backlog_pane;
     pub mod pi_planner_pane;
 }
+pub mod utils;
+
+
 
 pub use app::{ActiveTab, DapperApp};
 pub use dialogs::conflict_modal::ConflictResolutionModal;
