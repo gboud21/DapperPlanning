@@ -1,0 +1,13 @@
+[package]
+name = "dapper_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dapper_domain = { path = "../dapper_domain" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
+tracing = { workspace = true }
+anyhow = { workspace = true }

@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/dapper_domain",
+    "crates/dapper_core",
+    "crates/dapper_persistence",
+    "crates/dapper_gitlab",
+    "crates/dapper_workflows",
+    "crates/dapper_ui",
+    "crates/dapper_desktop",
+]
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+anyhow = "1.0"
+reqwest = { version = "0.12", features = ["json"] }
+async-trait = "0.1"
+egui = "0.29"
+eframe = "0.29"
+human-panic = "2.0"
+tracing-subscriber = "0.3"

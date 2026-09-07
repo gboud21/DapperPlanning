@@ -124,7 +124,7 @@ class HierarchyBuilder:
                 return Feature(
                     id=d["id"], title=d["title"], description=d["description"], 
                     team=team, stories=stories, products=products, capabilities=capabilities,
-                    labels=labels, gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, 
+                    labels=labels, parent_epic_id=d.get("parent_epic_id"), gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, 
                     last_synced_at=last_synced_at, is_conflicted=is_conflicted
                 )
             elif item_type == "Story":
@@ -132,7 +132,9 @@ class HierarchyBuilder:
                 return Story(
                     id=d["id"], title=d["title"], description=d["description"], 
                     team=team, products=products, capabilities=capabilities, 
-                    labels=labels, weight=weight, status=status, assignee_id=d.get("assignee_id"),
+                    labels=labels, interface_boundary=d.get("interface_boundary"),
+                    weight=weight, status=status, assignee_id=d.get("assignee_id"),
+                    iteration_id=d.get("iteration_id"), parent_feature_id=d.get("parent_feature_id"),
                     gitlab_id=gitlab_id, gitlab_iid=gitlab_iid, last_synced_at=last_synced_at,
                     is_conflicted=is_conflicted
                 )

@@ -1,0 +1,22 @@
+[package]
+name = "dapper_desktop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dapper_domain = { path = "../dapper_domain" }
+dapper_core = { path = "../dapper_core" }
+dapper_persistence = { path = "../dapper_persistence" }
+dapper_gitlab = { path = "../dapper_gitlab" }
+dapper_workflows = { path = "../dapper_workflows" }
+dapper_ui = { path = "../dapper_ui" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "macros"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+egui = { workspace = true }
+eframe = { workspace = true }
+human-panic = { workspace = true }

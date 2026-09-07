@@ -6,19 +6,29 @@ This document configures workspace-scoped rules and custom sub-agent definitions
 
 ### 1. Architectural Boundaries (Hard Stops)
 - **Pattern:** Event-Driven MVC with CQRS (Command Bus + Event Dispatcher).
-- **Golden Rule:** Views NEVER mutate Domain models. Controllers NEVER directly call View methods.
-- **Dependency Strictness:** UI and View files (e.g., classes inheriting from `tkinter` or `ttk` widgets located under `src/core/main_window.py` or feature-specific folders) **MUST NOT** import `src.domain` or its entities directly.
-- **State Mutations:** All state mutations must occur via Command Dispatching. UI components dispatch UI Events to the `EventDispatcher` or issue commands to the `CommandBus`. Views listen to Model events dispatched by the event dispatcher.
+- **Golden Rule:** Views (`dapper_ui`) NEVER mutate Domain models. Controllers (`dapper_workflows`) NEVER directly call View methods.
+- **Dependency Strictness:** UI components **MUST NOT** import `dapper_domain` mutation methods directly.
+- **State Mutations:** All state mutations must occur via Command Dispatching over Tokio channels. Views listen to Model events dispatched via Tokio `broadcast` channels.
 
 ### 2. Test-Driven Development (TDD) Requirement
-- Sub-agents and developers must write or update `pytest` fixtures and test suites inside the `tests/` directory **BEFORE** modifying any implementation files in `src/`.
-- Verify code correctness using unit/integration tests before claiming a task is done.
+- Write or update `#[test]` unit/integration tests **BEFORE** modifying implementation files in `crates/`.
+- Verify code correctness using `cargo test` and `cargo clippy --all-targets -- -D warnings` across Linux, macOS, and Windows targets.
 
 ### 3. Context Inheritance & Propagation
 - Follow the Decentralized (Two-Tier) context structure:
-  - Global project constraints are stored in `src/GEMINI.md` and `.agents/AGENTS.md`.
-  - Feature-specific and local constraints are stored in `src/features/<feature_name>/GEMINI.md`.
-  - When spawning a sub-agent to work on a feature, the sub-agent inherits the workspace (`inherit` mode) and must read the local feature's `GEMINI.md` file before starting work.
+  - Global project constraints and code generation standards are stored in `CODING_STANDARDS.md`, `src/GEMINI.md`, and `.agents/AGENTS.md`.
+  - Feature-specific and local constraints are stored in crate-level `GEMINI.md` files.
+  - When spawning a sub-agent to work on a feature, the sub-agent inherits the workspace (`inherit` mode) and must read `CODING_STANDARDS.md` before starting work.
+
+### 4. Code Generation & Native Rust Directives
+- All code generated in Rust must adhere strictly to `CODING_STANDARDS.md`:
+  - 100% safe Rust `#![deny(unsafe_code)]`.
+  - Zero `unwrap()` or `expect()` in production crates.
+  - `tokio::task::spawn_blocking` for CPU-bound parsing/diffing engines.
+  - `tokio::sync::RwLock` over OS mutexes across await points.
+  - Zero-copy routing via `Arc<T>` over broadcast channels and `&str` / `Cow<'a, str>` string parsing.
+  - Telemetry via `tracing` and `#[instrument]` on Command Bus dispatchers.
+  - Trait-based Dependency Injection for all infrastructure interfaces (GitLab client, JSON persistence).
 
 ---
 

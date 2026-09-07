@@ -1,8 +1,9 @@
-# GLOBAL ARCHITECTURE: DAPPER PLANNING
+# GLOBAL ARCHITECTURE & STANDARDS: DAPPER PLANNING
 
+- **Coding Standards:** All code generation MUST strictly abide by [CODING_STANDARDS.md](file:///home/gboud21/code/DapperPlanning/CODING_STANDARDS.md).
 - **Pattern:** Event-Driven MVC with CQRS (Command Bus + Event Dispatcher) and dependency injection via `AppContext`.
 - **Golden Rule:** Views NEVER mutate Domain models. Controllers NEVER directly call View methods.
-- **Dependency Strictness:** View/UI elements (e.g. Tkinter classes in `src/core/main_window.py` or feature panes) MUST NOT import or instantiate `src.domain` objects directly. All mutations occur via command execution.
+- **Dependency Strictness:** View/UI elements (e.g. Tkinter classes in `src/core/main_window.py` or feature panes in Python, `dapper_ui` components in Rust) MUST NOT import or instantiate domain objects directly. All mutations occur via command execution.
 
 ## Architectural Context for the Architect
 

@@ -1,0 +1,198 @@
+{
+    "active_product_name": "Golden Product",
+    "products": [
+        {
+            "name": "Golden Product",
+            "gitlab_project_id": 101,
+            "gitlab_group_id": 201
+        }
+    ],
+    "members": [
+        {
+            "id": 42,
+            "name": "Alice Doe",
+            "username": "alice_d",
+            "group_ids": [
+                201
+            ],
+            "project_ids": [
+                101
+            ]
+        },
+        {
+            "id": 43,
+            "name": "Bob Smith",
+            "username": "bob_s",
+            "group_ids": [
+                201
+            ],
+            "project_ids": [
+                101
+            ]
+        }
+    ],
+    "labels": {
+        "golden": {
+            "id": 1,
+            "name": "golden",
+            "color": "#ff0000",
+            "description": "Golden Tag",
+            "scope": "group",
+            "scope_name": "group1"
+        }
+    },
+    "iterations": [
+        {
+            "id": 301,
+            "iid": 1,
+            "title": "Sprint 1",
+            "start_date": "2026-09-01T00:00:00",
+            "end_date": "2026-09-14T00:00:00",
+            "state": "opened"
+        }
+    ],
+    "hidden_iteration_ids": [
+        302
+    ],
+    "shadow_hierarchy": {
+        "epic-gold-1": {
+            "id": "epic-gold-1",
+            "title": "Golden Epic"
+        }
+    },
+    "product_teams": [
+        {
+            "id": "pt-1",
+            "name": "Backend Team",
+            "product_id": "prod-1",
+            "member_ids": [
+                42,
+                43
+            ]
+        }
+    ],
+    "member_capacities": [
+        {
+            "team_id": "pt-1",
+            "member_id": 42,
+            "iteration_id": 301,
+            "pto": 1,
+            "allocation_pct": 90,
+            "velocity_factor": 85
+        }
+    ],
+    "epics": [
+        {
+            "id": "epic-gold-1",
+            "title": "Golden Epic",
+            "description": "Golden Epic Description",
+            "features": [
+                {
+                    "id": "feat-gold-1",
+                    "title": "Golden Feature",
+                    "description": "Golden Feature Description",
+                    "team": {
+                        "name": "Backend Team",
+                        "domain": "Engineering"
+                    },
+                    "stories": [
+                        {
+                            "id": "story-gold-1",
+                            "title": "Golden Story",
+                            "description": "Golden Story Description",
+                            "team": {
+                                "name": "Backend Team",
+                                "domain": "Engineering"
+                            },
+                            "metadata": {
+                                "assignee": "alice_d",
+                                "milestone": "v1.0",
+                                "weight": 5,
+                                "labels": [
+                                    "story-label"
+                                ],
+                                "template": ""
+                            },
+                            "labels": [
+                                "story-label"
+                            ],
+                            "interface_boundary": "REST API",
+                            "products": [
+                                "Golden Product"
+                            ],
+                            "capabilities": [
+                                "Sync Engine"
+                            ],
+                            "weight": 5.0,
+                            "status": "In Progress",
+                            "assignee_id": 42,
+                            "iteration_id": 301,
+                            "parent_feature_id": "feat-gold-1",
+                            "gitlab_id": 3001,
+                            "gitlab_iid": 301,
+                            "last_synced_at": "2026-09-07T12:00:00",
+                            "is_conflicted": false
+                        }
+                    ],
+                    "metadata": {
+                        "assignee": "",
+                        "milestone": "",
+                        "weight": 0,
+                        "labels": [
+                            "feature-label"
+                        ],
+                        "template": ""
+                    },
+                    "labels": [
+                        "feature-label"
+                    ],
+                    "products": [
+                        "Golden Product"
+                    ],
+                    "capabilities": [
+                        "Sync Engine"
+                    ],
+                    "parent_epic_id": "epic-gold-1",
+                    "gitlab_id": 2001,
+                    "gitlab_iid": 201,
+                    "last_synced_at": "2026-09-07T12:00:00",
+                    "is_conflicted": false
+                }
+            ],
+            "metadata": {
+                "assignee": "",
+                "milestone": "",
+                "weight": 0,
+                "labels": [
+                    "golden",
+                    "epic-label"
+                ],
+                "template": ""
+            },
+            "labels": [
+                "golden",
+                "epic-label"
+            ],
+            "products": [
+                "Golden Product"
+            ],
+            "capabilities": [
+                "Core Engine",
+                "Sync Engine"
+            ],
+            "gitlab_id": 1001,
+            "gitlab_iid": 101,
+            "last_synced_at": "2026-09-07T12:00:00",
+            "is_conflicted": false
+        }
+    ],
+    "deleted_remote_items": [
+        {
+            "type": "story",
+            "id": 9999,
+            "iid": 99,
+            "project_id": 101,
+            "group_id": 201
+        }
+    ]
+}
