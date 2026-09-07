@@ -288,5 +288,9 @@ class IntegrationsController:
             event.updates,
             event.conflicts,
             event.deletions,
-            event.report_path
+            event.report_path,
+            creations_list=event.creations_list,
+            updates_list=event.updates_list,
+            conflicts_list=event.conflicts_list,
+            deletions_list=event.deletions_list
         )

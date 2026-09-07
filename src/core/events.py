@@ -300,6 +300,11 @@ class ModelDryPushCompletedEvent(Event):
     conflicts: int
     deletions: int
     report_path: str
+    creations_list: List[Any] = field(default_factory=list)
+    updates_list: List[Any] = field(default_factory=list)
+    conflicts_list: List[Any] = field(default_factory=list)
+    deletions_list: List[Any] = field(default_factory=list)
+
 
 
 # --- 3. SYSTEM INTERRUPT EVENTS (App-wide lifecycle & errors) ---

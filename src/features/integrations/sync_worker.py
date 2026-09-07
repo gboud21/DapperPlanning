@@ -446,7 +446,8 @@ class SyncWorker(threading.Thread):
 
             self.workspace.deleted_remote_items.clear()
 
-        # After push cascade completes, ensure newly assigned IDs are saved locally
+        # After push cascade completes, ensure newly assigned IDs and baseline state are saved locally
+        self.workspace.save_shadow_hierarchy(self.workspace.get_epics())
         self._safe_dispatch(UISaveWorkspaceRequestedEvent())
 
     def _count_items(self, epics):
@@ -699,6 +700,35 @@ class SyncWorker(threading.Thread):
         for item in self.workspace.deleted_remote_items:
             deletions_list.append(item)
 
+        # Log summary and object details
+        logger.info(
+            f"Dry Push Summary: {len(creations_list)} Creations, "
+            f"{len(updates_list)} Updates, {len(conflicts_list)} Conflicts, "
+            f"{len(deletions_list)} Deletions"
+        )
+        
+        logger.info(f"Creations ({len(creations_list)}):")
+        for item in creations_list:
+            logger.info(f"  - {item.__class__.__name__}: {getattr(item, 'title', str(item))} (ID: {getattr(item, 'id', 'N/A')})")
+
+        logger.info(f"Updates ({len(updates_list)}):")
+        for item in updates_list:
+            logger.info(f"  - {item.__class__.__name__}: {getattr(item, 'title', str(item))} (ID: {getattr(item, 'id', 'N/A')})")
+
+        logger.info(f"Conflicts ({len(conflicts_list)}):")
+        for item in conflicts_list:
+            logger.info(f"  - {item.__class__.__name__}: {getattr(item, 'title', str(item))} (ID: {getattr(item, 'id', 'N/A')})")
+
+        logger.info(f"Deletions ({len(deletions_list)}):")
+        for item in deletions_list:
+            if isinstance(item, dict):
+                item_type = item.get('type', 'Item').capitalize()
+                iid = item.get('iid', 'N/A')
+                gid = item.get('id', 'N/A')
+                logger.info(f"  - {item_type}: (GitLab IID: {iid}, GitLab ID: {gid})")
+            else:
+                logger.info(f"  - {item.__class__.__name__}: {getattr(item, 'title', str(item))} (ID: {getattr(item, 'id', 'N/A')})")
+
         # 4. Generate markdown report
         report_dir = os.path.dirname(self.workspace.current_filepath) if self.workspace.current_filepath else os.getcwd()
         report_path = os.path.join(report_dir, 'gitlab_dry_push_report.md')
@@ -766,5 +796,10 @@ Generated on: {timestamp}
             updates=len(updates_list),
             conflicts=len(conflicts_list),
             deletions=len(deletions_list),
-            report_path=report_path
+            report_path=report_path,
+            creations_list=creations_list,
+            updates_list=updates_list,
+            conflicts_list=conflicts_list,
+            deletions_list=deletions_list
         ))
+

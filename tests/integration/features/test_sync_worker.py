@@ -314,6 +314,9 @@ def test_sync_worker_dry_push(sync_setup, tmp_path, mocker):
         'status_label_mappings': {}
     }.get(key, default)
     
+    # Mock logger to check info logs
+    mock_logger_info = mocker.patch('src.features.integrations.sync_worker.logger.info')
+    
     # 3. Instantiate and run dry-push
     worker = SyncWorker(context, sync_type="dry-push")
     worker._execute_dry_push()
@@ -335,6 +338,12 @@ def test_sync_worker_dry_push(sync_setup, tmp_path, mocker):
     assert "Updated Epic" in content
     assert "Conflict Epic Local" in content
     
+    # Verify logger.info was called with object details
+    logged_messages = [call.args[0] for call in mock_logger_info.call_args_list if call.args]
+    assert any("New Local Epic" in msg for msg in logged_messages)
+    assert any("Updated Epic" in msg for msg in logged_messages)
+    assert any("Conflict Epic Local" in msg for msg in logged_messages)
+    
     # - ModelDryPushCompletedEvent should be dispatched
     from src.core.events import ModelDryPushCompletedEvent
     
@@ -354,4 +363,9 @@ def test_sync_worker_dry_push(sync_setup, tmp_path, mocker):
     assert completed_event.conflicts == 1
     assert completed_event.deletions == 1
     assert completed_event.report_path == str(report_file)
+    assert completed_event.creations_list == [new_epic]
+    assert completed_event.updates_list == [update_epic]
+    assert completed_event.conflicts_list == [conflict_epic]
+    assert completed_event.deletions_list == [{'type': 'story', 'id': 400, 'iid': 4, 'project_id': 888, 'group_id': 999}]
+
 

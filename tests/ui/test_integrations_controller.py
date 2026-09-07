@@ -136,13 +136,78 @@ def test_integrations_controller_handles_dry_push_completed_event(mocker, headle
     
     # Dispatch event
     from src.core.events import ModelDryPushCompletedEvent
-    event = ModelDryPushCompletedEvent(creations=1, updates=2, conflicts=0, deletions=1, report_path="/path/to/report")
+    item1 = MagicMock(title="Creation 1")
+    item2 = MagicMock(title="Update 1")
+    event = ModelDryPushCompletedEvent(
+        creations=1, updates=1, conflicts=0, deletions=0,
+        report_path="/path/to/report",
+        creations_list=[item1],
+        updates_list=[item2],
+        conflicts_list=[],
+        deletions_list=[]
+    )
     
     controller.handle_dry_push_completed(event)
     
     mock_modal.assert_called_once_with(
         headless_tk,
-        1, 2, 0, 1,
-        "/path/to/report"
+        1, 1, 0, 0,
+        "/path/to/report",
+        creations_list=[item1],
+        updates_list=[item2],
+        conflicts_list=[],
+        deletions_list=[]
     )
+
+def test_dry_push_summary_modal_initialization(headless_tk):
+    """Verifies DryPushSummaryModal initializes properly with item lists and populates details text."""
+    from src.features.integrations.dry_push_summary_modal import DryPushSummaryModal
+    from src.domain.entities import Epic
+    from src.utils.theme_manager import ThemeManager
+    
+    new_epic = Epic(id="e-1", title="Created Epic Title", description="")
+    updated_epic = Epic(id="e-2", title="Updated Epic Title", description="")
+    deleted_item = {"type": "story", "id": 10, "iid": 1}
+    
+    modal = DryPushSummaryModal(
+        headless_tk,
+        creations=1,
+        updates=1,
+        conflicts=0,
+        deletions=1,
+        report_path="/fake/report.md",
+        creations_list=[new_epic],
+        updates_list=[updated_epic],
+        conflicts_list=[],
+        deletions_list=[deleted_item]
+    )
+    
+    assert modal.creations == 1
+    assert modal.creations_list == [new_epic]
+    assert modal.updates_list == [updated_epic]
+    assert modal.deletions_list == [deleted_item]
+    assert hasattr(modal, 'details_text')
+    
+    content = modal.details_text.get("1.0", "end")
+    assert "Created Epic Title" in content
+    assert "Updated Epic Title" in content
+    assert "Story" in content or "GitLab IID: 1" in content
+    
+    # Check geometry and minsize requirements
+    modal.update()
+    assert "600x720" in modal.geometry()
+    assert modal.minsize() == (550, 650)
+    
+    # Check dark/light disabled and readonly theme configuration
+    palette = ThemeManager.DARK_PALETTE if modal.is_dark else ThemeManager.LIGHT_PALETTE
+    expected_field_bg = palette['field_bg']
+    expected_fg = palette['fg']
+    assert modal.details_text.cget('disabledbackground') == expected_field_bg
+    assert modal.details_text.cget('disabledforeground') == expected_fg
+    assert modal.path_entry.cget('disabledbackground') == expected_field_bg
+    assert modal.path_entry.cget('disabledforeground') == expected_fg
+    assert modal.path_entry.cget('readonlybackground') == expected_field_bg
+    
+    modal.destroy()
+
 
